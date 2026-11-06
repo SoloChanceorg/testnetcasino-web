@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TestnetCasino.com — Bitcoin Cash Testnet4 Faucet</title>
+  <meta name="description" content="TestnetCasino.com is a Bitcoin Cash Testnet4 faucet with slot machines. Not a real casino: no real money, no mainnet crypto, no deposits. A project from SoloChance.org.">
+  <meta name="theme-color" content="#052a19">
+  <meta property="og:title" content="TestnetCasino.com — Bitcoin Cash Testnet4 Faucet">
+  <meta property="og:description" content="Spin the slots for fun and win Testnet4 BCH coins. No real money, no deposits.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <canvas id="casino-bg" aria-hidden="true"></canvas>
+  <canvas id="coin-shower" aria-hidden="true"></canvas>
+
+  <div class="page">
+    <header class="logo-area hero">
+      <a class="marquee" id="marquee" href="./" aria-label="TestnetCasino.com home">
+        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
+        <span class="mq-sub">♠ <span class="suit-red">♥</span> BCH TESTNET4 FAUCET ♣ <span class="suit-red">♦</span></span>
+      </a>
+      <p class="tagline">The fun way to get Bitcoin Cash Testnet4 coins. Spin the reels, win test sats and withdraw them to your Testnet4 address.</p>
+      <p class="by">A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
+      <div class="hero-cta">
+        <a class="btn-red" href="#floor">🎰 Take a seat</a>
+        <a class="btn-gold" href="#rules">How it works</a>
+      </div>
+    </header>
+
+    <nav class="nav-bar" aria-label="Games">
+      <a class="chip-link" href="./" aria-current="page"><span class="chip-emoji">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji">🚀</span> Cosmic Voyage</a>
+    </nav>
+
+    <section class="panel notice" id="notice" aria-labelledby="notice-title">
+      <p class="panel-label">♦ HOUSE NOTICE ♦</p>
+      <div class="notice-body">
+        <span class="notice-icon" aria-hidden="true">⚠️</span>
+        <div>
+          <h2 id="notice-title">This is not a real casino</h2>
+          <p>
+            <strong>No real money of any kind is involved.</strong>
+            No Bitcoin, no Bitcoin Cash and no other real mainnet cryptocurrency is involved.
+            <strong>There is no deposit process of any kind, not even for Testnet4 coins.</strong>
+            You can only play, win and withdraw <strong>Testnet4</strong> coins, which have no monetary value.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-divider">
+
+    <section class="panel" id="floor" aria-labelledby="floor-title">
+      <h2 class="panel-label" id="floor-title">THE CASINO FLOOR</h2>
+      <p class="panel-sub">Pick a game. Every seat starts with <strong>10,000 demo sats</strong>, and bets run from 1 to 1,000 sats a spin.</p>
+      <div class="games">
+        <a class="game-card theme-orchard" href="games/fruit-orchard.html">
+          <div class="gc-topper"><h3>FRUIT ★ ORCHARD</h3></div>
+          <div class="gc-reels" aria-hidden="true"><span>🍒</span><span>🧺</span><span>7️⃣</span><span>🍀</span><span>🌟</span></div>
+          <div class="gc-body">
+            <p>Sunny classic fruits with frequent small wins.</p>
+            <ul class="gc-feats"><li>🌟 <b>Lucky Respin</b>: wilds stick, the rest respin</li><li>🍀 <b>Sticky Wild</b> free spins</li><li>🧺 <b>Harvest Pick</b> bonus game</li></ul>
+            <div class="gc-meta"><span class="badge hot">LOW VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <span class="btn-gold gc-play">Play ▸</span>
+          </div>
+        </a>
+        <a class="game-card theme-deepsea" href="games/deep-sea.html">
+          <div class="gc-topper"><h3>DEEP SEA ★ TREASURE</h3></div>
+          <div class="gc-reels" aria-hidden="true"><span>🐚</span><span>🧭</span><span>🔱</span><span>🦈</span><span>💎</span></div>
+          <div class="gc-body">
+            <p>Dive for pearls, sharks and sunken diamonds.</p>
+            <ul class="gc-feats"><li>🔱 <b>Expanding Trident</b> fills its reel</li><li>💎 <b>Rising Tide</b> free spins up to ×10</li><li>🧭 <b>Ship's Wheel</b> bonus game</li></ul>
+            <div class="gc-meta"><span class="badge hot">MEDIUM VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <span class="btn-gold gc-play">Play ▸</span>
+          </div>
+        </a>
+        <a class="game-card theme-cosmic" href="games/cosmic-voyage.html">
+          <div class="gc-topper"><h3>COSMIC ★ VOYAGE</h3></div>
+          <div class="gc-reels" aria-hidden="true"><span>🌙</span><span>🛰️</span><span>🛸</span><span>🚀</span><span>🌌</span></div>
+          <div class="gc-body">
+            <p>Rare hits and astronomical jackpots.</p>
+            <ul class="gc-feats"><li>🛸 <b>Multiplier Wilds</b> up to ×25</li><li>🌌 <b>Hyperspace</b> free spins, wins ×3</li><li>🛰️ <b>Warp Ladder</b> bonus to 1,000×</li></ul>
+            <div class="gc-meta"><span class="badge hot">HIGH VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <span class="btn-gold gc-play">Play ▸</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="panel" id="rules" aria-labelledby="rules-title">
+      <h2 class="panel-label" id="rules-title">HOUSE RULES</h2>
+      <p class="panel-sub">How it works: a faucet with extra steps, and the steps are slot machines.</p>
+      <ol class="steps">
+        <li>
+          <div class="step-emoji" aria-hidden="true">🎰</div>
+          <h3>1. Play</h3>
+          <p>Pick a machine and spin. 5 reels, 3 rows, 10 paylines. Bets are 1 to 1,000 sats per spin.</p>
+        </li>
+        <li>
+          <div class="step-emoji" aria-hidden="true">🏆</div>
+          <h3>2. Win</h3>
+          <p>Line up 3, 4 or 5 symbols on any payline. Every machine has wilds, free spins, a bonus game and a special feature of its own.</p>
+        </li>
+        <li>
+          <div class="step-emoji" aria-hidden="true">📤</div>
+          <h3>3. Withdraw</h3>
+          <p>Send your winnings to any Bitcoin Cash Testnet4 address. <span class="soon">COMING SOON</span></p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="panel faq" aria-labelledby="faq-title">
+      <h2 class="panel-label" id="faq-title">ASK THE DEALER</h2>
+      <details>
+        <summary>Is this gambling?</summary>
+        <p>No. Nothing of value goes in and nothing of value comes out. You cannot deposit anything, and Testnet4 coins have no monetary value. They exist only so developers can test Bitcoin Cash software.</p>
+      </details>
+      <details>
+        <summary>What is Bitcoin Cash Testnet4?</summary>
+        <p>Testnet4 is a public test network for Bitcoin Cash. Its coins (tBCH) behave like real BCH, but they are free and worthless by design, which makes them ideal for building and testing wallets, apps and smart contracts.</p>
+      </details>
+      <details>
+        <summary>Can I deposit coins to play more?</summary>
+        <p>No. There is no deposit process of any kind, not even for Testnet4 coins. You only play, win and withdraw.</p>
+      </details>
+      <details>
+        <summary>Where does my demo balance live?</summary>
+        <p>In your browser only. The demo balance is shared across all three games and you can reset it to 10,000 sats at any time. Real Testnet4 withdrawals will arrive once the faucet backend launches.</p>
+      </details>
+      <details>
+        <summary>Why does the house pay back more than it takes?</summary>
+        <p>Because this is a faucet, not a casino. Every machine is tuned to an RTP (return to player) of 100.01%: over many spins it pays back slightly more than is bet, so your balance drifts up instead of down. Luck still swings both ways in the short run.</p>
+      </details>
+      <details>
+        <summary>Are the games fair?</summary>
+        <p>Every spin uses your browser's cryptographic random number generator. Each machine's paytable, RTP and hit rate are listed on its page under "Paytable &amp; Rules".</p>
+      </details>
+    </section>
+
+    <footer class="casino-footer">
+      <p>TestnetCasino.com · A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
+      <p>♠ Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. ♦</p>
+    </footer>
+  </div>
+
+  <script src="assets/js/fx.js"></script>
+  <script src="assets/js/music.js"></script>
+</body>
+</html>
