@@ -147,7 +147,7 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
   `503 withdrawals_disabled / withdrawals_paused` and every other error show the server's message.
 - **Withdrawal address** (passkey accounts): `POST /account/withdrawal-address/challenge { address }`, sign the message in a
   Testnet4 wallet, then `POST /account/withdrawal-address { address, nonce, signature }`. Same pattern as wallet sign-in.
-- **Withdrawals**: `GET /withdrawals`, with each txid linked to the Testnet4 explorer `https://tbch4.loping.net/tx/<txid>`. The list
+- **Withdrawals**: `GET /withdrawals`, with each txid linked to the Testnet4 explorer `https://bchexplorer.cash/testnet4/tx/<txid>`. The list
   re-reads itself every 15 s while a withdrawal is pending.
 - **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
 
@@ -212,7 +212,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261107c`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261107d`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages
