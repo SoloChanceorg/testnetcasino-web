@@ -59,13 +59,13 @@
           <p class="acct-balance">Balance <strong id="acct-balance">0</strong></p>
           <p class="acct-dest" id="wd-dest"></p>
           <form id="wd-form" novalidate>
-            <label class="auth-label" for="wd-amount">Amount in sats</label>
+            <label class="auth-label" for="wd-amount">Amount in tBCH</label>
             <div class="acct-amount">
-              <input class="auth-input" id="wd-amount" type="number" inputmode="numeric" min="100000" max="10000000" step="1"
-                     placeholder="100000" aria-describedby="wd-hint wd-error">
+              <input class="auth-input" id="wd-amount" type="text" inputmode="decimal" autocomplete="off"
+                     placeholder="0.0001" aria-describedby="wd-hint wd-error">
               <button type="button" class="btn-ghost" id="wd-max">Max</button>
             </div>
-            <p class="auth-hint" id="wd-hint">100,000 to 10,000,000 sats per withdrawal, up to 1,000,000 sats a day. The network fee is paid by the faucet.</p>
+            <p class="auth-hint" id="wd-hint">0.00001 to 0.1 tBCH per withdrawal, up to 0.01 tBCH per player in 24 hours. The whole faucet pays out at most 10 tBCH a day. The network fee is paid by the faucet.</p>
             <p class="auth-error" id="wd-error" hidden></p>
             <button type="submit" class="btn-red auth-wide" id="wd-submit">📤 Withdraw</button>
             <p class="auth-status" id="wd-status" role="status" aria-live="polite"></p>
@@ -120,7 +120,7 @@
           <h2 class="panel-label" id="lg-title">📒 BALANCE HISTORY</h2>
           <div class="tbl-wrap"><table class="acct-table">
             <caption class="sr-only">Every change to your balance, newest first</caption>
-            <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="num">Change</th><th scope="col" class="num">Balance</th></tr></thead>
+            <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="num">Change (tBCH)</th><th scope="col" class="num">Balance (tBCH)</th></tr></thead>
             <tbody id="lg-body"></tbody>
           </table></div>
           <p class="acct-empty" id="lg-empty" hidden>Nothing yet.</p>

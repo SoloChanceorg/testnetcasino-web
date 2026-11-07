@@ -8,7 +8,8 @@
  *   users               sum of all player balances
  *   pendingWithdrawals  withdrawals requested but not yet sent
  * The server recomputes them at most every 5 minutes; the bar re-reads them
- * every minute while the tab is visible.
+ * every minute while the tab is visible. Amounts are shown in tBCH, rounded to
+ * 2 decimals (the exact value is in the tooltip).
  *
  * Depends on: api.js, units.js.
  */
@@ -34,9 +35,6 @@
         stat("users", "Player balances") +
         stat("pending", "Pending withdrawals") +
       '</dl>' +
-      '<button type="button" class="fb-unit" role="switch" aria-label="Show amounts in tBCH with decimals">' +
-        '<span class="fb-opt" data-u="bch">tBCH</span><span class="fb-opt" data-u="sat">tSats</span>' +
-      '</button>' +
       '<span class="fb-time" data-k="time"></span>' +
     '</div>';
 
@@ -45,7 +43,6 @@
       '<img class="tbch" src="' + COIN + '" alt=""><span data-k="' + key + '">…</span></dd></div>';
   }
 
-  var sw = bar.querySelector(".fb-unit");
   function q(k) { return bar.querySelector('[data-k="' + k + '"]'); }
 
   function fmtTime(iso) {
@@ -54,9 +51,6 @@
   }
 
   function render() {
-    var bch = U.get() === "bch";
-    sw.setAttribute("aria-checked", bch ? "true" : "false");
-    sw.title = bch ? "Showing tBCH. Switch to tSats." : "Showing tSats. Switch to tBCH.";
     var stale = !!(data && data.stale);
     bar.classList.toggle("is-error", failed && !data);
     bar.classList.toggle("is-stale", stale || (failed && !!data));
@@ -68,10 +62,11 @@
       }
       return;
     }
-    q("house").textContent = U.format(data.house);
-    q("wallet").textContent = U.format(data.wallet);
-    q("users").textContent = U.format(data.users);
-    q("pending").textContent = U.format(data.pendingWithdrawals);
+    [["house", data.house], ["wallet", data.wallet], ["users", data.users], ["pending", data.pendingWithdrawals]].forEach(function (p) {
+      var e = q(p[0]);
+      e.textContent = U.round2(p[1]);
+      e.parentNode.title = U.format(p[1]);
+    });
     var t = fmtTime(data.updatedAt);
     if (stale) t = (t ? t + ", " : "") + "node unreachable";
     q("time").textContent = failed ? (t ? t + " (offline)" : "Offline") : t;
@@ -90,8 +85,6 @@
     if (!document.hidden) timer = setInterval(load, REFRESH_MS);
   }
 
-  sw.addEventListener("click", function () { U.toggle(); });
-  U.onChange(render);
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) load();
     schedule();

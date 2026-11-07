@@ -1504,18 +1504,21 @@ body.is-fullscreen .house-return { display: none; }
 .fb-time { color: rgba(255,240,214,.6); font-size: .74rem; white-space: nowrap; }
 .fb-time:empty { display: none; }
 
-/* tBCH / tSats switch */
-.fb-unit {
-  display: inline-flex; padding: 2px; gap: 0; cursor: pointer;
+/* tSats / tBCH switch (game machines) */
+.unit-switch {
+  display: inline-flex; align-items: center; padding: 3px; gap: 0; cursor: pointer; min-height: 40px;
   border: 1px solid var(--gold-dark); border-radius: 999px; background: #2a0a10;
-  font: 700 .72rem/1 var(--body); color: rgba(255,240,214,.75);
+  font: 700 .8rem/1 var(--body); color: rgba(255,240,214,.75);
 }
-.fb-opt { padding: 5px 10px; border-radius: 999px; transition: background .15s, color .15s; }
-.fb-unit[aria-checked="true"] .fb-opt[data-u="bch"],
-.fb-unit[aria-checked="false"] .fb-opt[data-u="sat"] {
+.us-opt { padding: 8px 14px; border-radius: 999px; transition: background .15s, color .15s; }
+.unit-switch[aria-checked="false"] .us-opt[data-u="sat"],
+.unit-switch[aria-checked="true"] .us-opt[data-u="bch"] {
   background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, var(--gold-dark)); color: #2a1c02;
 }
-.fb-unit:hover { border-color: var(--gold); }
+.unit-switch:hover { border-color: var(--gold); }
+.unit-switch:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
+/* tBCH values are longer (0.00012340): shrink the meters a little. */
+.machine.unit-bch .ro-value { font-size: .8em; letter-spacing: 0; }
 
 @media (max-width: 899px) {
   /* Lobby: the bar is the top strip, so it makes room for the jukebox button. */

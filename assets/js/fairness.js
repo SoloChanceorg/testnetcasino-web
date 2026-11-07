@@ -12,13 +12,14 @@
 (function () {
   "use strict";
 
-  var api = window.TNC_API, Auth = window.TNC_Auth, Fair = window.TNC_Fair;
+  var api = window.TNC_API, Auth = window.TNC_Auth, Fair = window.TNC_Fair, U = window.TNC_Units;
   if (!api || !Auth || !Fair || document.body.getAttribute("data-page") !== "fairness") return;
 
   var GAMES = { "fruit-orchard": "Fruit Orchard", "deep-sea": "Deep Sea Treasure", "cosmic-voyage": "Cosmic Voyage" };
 
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
+  function bch(n) { return U.format(n); }   // amounts are shown in tBCH
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -137,8 +138,8 @@
     var tr = el("tr");
     tr.appendChild(el("td", "", when(s.createdAt)));
     tr.appendChild(el("td", "", GAMES[s.gameId] || s.gameId));
-    tr.appendChild(el("td", "num", fmt(s.bet)));
-    tr.appendChild(el("td", "num", fmt(s.totalWin)));
+    tr.appendChild(el("td", "num", U.bch(s.bet)));
+    tr.appendChild(el("td", "num", U.bch(s.totalWin)));
     tr.appendChild(el("td", "num", fmt(s.nonce)));
     var cell = el("td", "sp-check");
     var row = { spin: s, cell: cell, done: false };
@@ -162,7 +163,7 @@
       if (game.version !== s.gameVersion) return { ok: null, note: "Played on game version " + s.gameVersion + "; the server now serves version " + game.version + "." };
       return Fair.replay(game, s).then(function (got) {
         var hashOk = got.serverSeedHash === s.serverSeedHash, winOk = got.totalWin === s.totalWin;
-        return { ok: hashOk && winOk, got: got, note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + fmt(got.totalWin) + " sats, the server paid " + fmt(s.totalWin) + "." : "" };
+        return { ok: hashOk && winOk, got: got, note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + bch(got.totalWin) + ", the server paid " + bch(s.totalWin) + "." : "" };
       });
     }).catch(function (e) { return { ok: null, note: e && e.message || "Could not verify." }; });
   }
@@ -209,7 +210,7 @@
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The server seed must be 64 hex characters."
       : !/^[A-Za-z0-9_-]{1,64}$/.test(client) ? "The client seed must be 1 to 64 letters, digits, _ or -."
       : !(nonce >= 0) ? "The nonce must be 0 or more."
-      : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 sats." : "";
+      : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 tSats." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
     getConfig(gameId).then(function (game) {
@@ -224,8 +225,8 @@
     var out = $("vf-result"), syms = game.symbols;
     var match = expect === null ? null : expect === got.totalWin;
     out.className = "vf-result" + (match === true ? " is-ok" : match === false ? " is-bad" : "");
-    out.appendChild(el("p", "rv-title", "Total win: " + fmt(got.totalWin) + " sats" +
-      (match === true ? " ✓ matches" : match === false ? " ✗ expected " + fmt(expect) : "")));
+    out.appendChild(el("p", "rv-title", "Total win: " + bch(got.totalWin) + " (" + fmt(got.totalWin) + " tSats)" +
+      (match === true ? " ✓ matches" : match === false ? " ✗ expected " + fmt(expect) + " tSats" : "")));
     var dl = el("dl", "seed-list");
     var d = el("div"); d.appendChild(el("dt", "", "Server seed hash")); d.appendChild(el("dd", "auth-mono", got.serverSeedHash)); dl.appendChild(d);
     out.appendChild(dl);
@@ -242,12 +243,12 @@
     out.appendChild(reels);
     var ul = el("ul", "vf-steps"), free = 0, freeWin = 0;
     got.steps.forEach(function (s) {
-      if (s.type === "spin" && !s.free) ul.appendChild(el("li", "", "Paid spin" + (s.phases.length > 1 ? " with " + (s.phases.length - 1) + " respin" + (s.phases.length > 2 ? "s" : "") : "") + ": " + fmt(s.win) + " sats"));
+      if (s.type === "spin" && !s.free) ul.appendChild(el("li", "", "Paid spin" + (s.phases.length > 1 ? " with " + (s.phases.length - 1) + " respin" + (s.phases.length > 2 ? "s" : "") : "") + ": " + bch(s.win)));
       else if (s.type === "spin") { free++; freeWin += s.win; }
-      else if (s.type === "bonus") ul.appendChild(el("li", "", game.bonus.name + " bonus: " + s.prize + "× = " + fmt(s.win) + " sats"));
+      else if (s.type === "bonus") ul.appendChild(el("li", "", game.bonus.name + " bonus: " + s.prize + "× = " + bch(s.win)));
       else if (s.type === "freeSpinsStart") ul.appendChild(el("li", "", s.spins + " free spins awarded"));
       else if (s.type === "retrigger") ul.appendChild(el("li", "", "Retrigger: +" + s.added + " free spins"));
-      else if (s.type === "freeSpinsEnd") ul.appendChild(el("li", "", "Free spins: " + s.played + " played, " + fmt(s.win) + " sats (spins " + fmt(freeWin) + ", bonuses " + fmt(s.win - freeWin) + ")"));
+      else if (s.type === "freeSpinsEnd") ul.appendChild(el("li", "", "Free spins: " + s.played + " played, " + bch(s.win) + " (spins " + bch(freeWin) + ", bonuses " + bch(s.win - freeWin) + ")"));
     });
     out.appendChild(ul);
   }

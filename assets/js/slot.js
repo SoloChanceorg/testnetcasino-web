@@ -4,7 +4,8 @@
  * A thin client of testnetcasino-service. Every outcome comes from
  * POST /spins: the server returns the whole spin as `steps[]` (reel stops,
  * respins, free spins, bonus games) and this file only animates them. Win
- * values arrive as whole sats and are shown as they come. Paytables,
+ * values arrive as whole sats and are shown as they come: in tSats by default,
+ * or in tBCH with the machine's unit switch (bets are always tSats). Paytables,
  * symbols and texts come from GET /games/{id}/config. Randomness here is
  * cosmetic only (blurred symbols while the reels turn, confetti, wheel
  * jitter); it never decides a result.
@@ -96,6 +97,11 @@
   /* ---------- Helpers ---------- */
 
   function fmt(n) { return n.toLocaleString("en-US"); }
+  // Credit and wins in the machine's unit (tSats or tBCH); bets are always tSats.
+  var GU = window.TNC_Units && window.TNC_Units.game;
+  function amt(n) { return GU ? GU.format(n) : fmt(n) + " tSats"; }
+  function num(n) { return GU ? GU.value(n) : fmt(n); }
+  function unitLabel() { return GU ? GU.unit() : "tSats"; }
   function fmtMult(m) { return (m % 1 ? m.toFixed(1).replace(/\.0$/, "") : String(m)); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -135,7 +141,7 @@
     var S = game.payScale || 1;                         // faucet boost the server applies to every payout
     var RTP = ((game.rtp || game.stats.rtp) * 100).toFixed(2) + "%";
     var BOOST = "+" + ((S - 1) * 100).toFixed(1) + "%";
-    function rawSats(x) { return fmt(Math.floor(bet * x * S)); }   // preview of a paytable value in sats (display only)
+    function rawSats(x) { return amt(Math.floor(bet * x * S)); }   // preview of a paytable value (display only)
     var flavor = FLAVOR[game.theme] || FLAVOR.orchard;
     var pickers = makePickers(game);
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -176,25 +182,27 @@
             '<div class="wb-title" id="wb-title"></div><div class="wb-amount" id="wb-amount"></div></div>' +
         '</div>' +
         '<div class="m-lock" id="m-lock" hidden><a class="btn-red m-lock-btn" id="m-lock-btn" href="#">🔑 Sign in to play</a>' +
-          '<p>New accounts get 10,000 free test sats.</p></div>',
+          '<p>New accounts get 10,000 free tSats (0.0001 tBCH).</p></div>',
       lcd: function (extra) {
         return '<div class="slot-lcd" id="slot-lcd">' + (extra || '') +
           '<div class="lcd-text"><div class="lcd-main" id="lcd-main"></div><div class="lcd-sub" id="lcd-sub"></div></div></div>';
       },
       readout: function (id, label, unit) {
-        return '<div class="m-readout"><div class="ro-label">' + label + '</div><div class="ro-value" id="' + id + '">0</div><div class="ro-unit">' + unit + '</div></div>';
+        return '<div class="m-readout"><div class="ro-label">' + label + '</div><div class="ro-value" id="' + id + '">0</div><div class="ro-unit" data-unit>' + unit + '</div></div>';
       },
       input: function (cls) {
-        return '<input id="bet-input" class="' + cls + '" type="number" inputmode="numeric" min="' + MIN_BET + '" max="' + MAX_BET + '" step="1" aria-label="Bet in sats">';
+        return '<input id="bet-input" class="' + cls + '" type="number" inputmode="numeric" min="' + MIN_BET + '" max="' + MAX_BET + '" step="1" aria-label="Bet in tSats">';
       },
       tail: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>' +
         '<div class="m-util">' +
+          '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
+            '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
           '<a class="btn-ghost" href="../account.html#withdraw">📤 Withdraw tBCH</a>' +
           '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a>' +
         '</div>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>'
     };
-    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Testnet sats only: no real money.</p>'; }
+    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Testnet coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {
@@ -206,14 +214,14 @@
           P.lcd() +
           '<div class="or-deck">' +
             '<div class="or-left">' +
-              '<div class="or-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
+              '<div class="or-readouts">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
               '<div class="or-betbox">' +
-                '<label class="or-label" for="bet-input">Your bet <small>sats · all 10 lines</small></label>' +
+                '<label class="or-label" for="bet-input">Your bet <small>tSats · all 10 lines</small></label>' +
                 '<div class="or-stepper"><button type="button" class="or-crate-btn" id="bet-down" aria-label="Lower bet">−</button>' +
                   P.input("or-chalk") +
                   '<button type="button" class="or-crate-btn" id="bet-up" aria-label="Raise bet">+</button></div>' +
                 '<div class="or-tags" role="group" aria-label="Quick bets">' + [1, 10, 100, 500, 1000].map(function (v) {
-                  return '<button type="button" class="or-tag" data-bet="' + v + '" aria-label="Bet ' + fmt(v) + ' sats">' + (v === 1000 ? "MAX" : v) + '</button>';
+                  return '<button type="button" class="or-tag" data-bet="' + v + '" aria-label="Bet ' + fmt(v) + ' tSats">' + (v === 1000 ? "MAX" : v) + '</button>';
                 }).join("") + '</div>' +
               '</div>' +
             '</div>' +
@@ -243,14 +251,14 @@
             '<div class="ds-dialbox">' +
               '<div class="ds-dial" id="bet-dial" role="slider" tabindex="0" aria-label="Bet dial: turn to set your bet" aria-valuemin="' + MIN_BET + '" aria-valuemax="' + MAX_BET + '">' +
                 ticks + '<span class="ds-knob" aria-hidden="true"></span>' +
-                '<div class="ds-dial-center">' + P.input("ds-input") + '<span>SATS</span></div>' +
+                '<div class="ds-dial-center">' + P.input("ds-input") + '<span>tSATS</span></div>' +
               '</div>' +
               '<div class="ds-dial-btns"><button type="button" id="bet-down" aria-label="Lower bet">◀</button><span>BET DIAL</span><button type="button" id="bet-up" aria-label="Raise bet">▶</button></div>' +
             '</div>' +
             '<div class="ds-dive-wrap spin-wrap" id="spin-wrap">' +
               '<button type="button" class="ds-dive" id="spin-btn" aria-label="Dive: spin the reels"><span class="dive-label">DIVE</span><span class="dive-sub" id="spin-sub"></span></button>' +
             '</div>' +
-            '<div class="ds-gauges">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
+            '<div class="ds-gauges">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
           '</div>' +
           hint("Press DIVE") + P.tail +
         '</div>' + P.stage + '</div>';
@@ -267,7 +275,7 @@
           '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
           '<div class="cx-cockpit">' +
-            '<div class="cx-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
+            '<div class="cx-readouts">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
             '<div class="cx-launch-wrap spin-wrap" id="spin-wrap">' +
               '<button type="button" class="cx-launch" id="spin-btn" aria-label="Launch: spin the reels"><span class="launch-label">LAUNCH</span><span class="launch-sub" id="spin-sub"></span></button>' +
             '</div>' +
@@ -305,7 +313,7 @@
     var banner = $("#win-banner"), fsSign = $("#fs-sign"), historyEl = $("#history");
     var stickyLayer = $("#sticky-layer"), toastEl = $("#reel-toast"), stage = $("#bonus-stage");
     var down = $("#bet-down"), up = $("#bet-up"), soundBtn = $("#sound-toggle");
-    var lockEl = $("#m-lock"), lockBtn = $("#m-lock-btn");
+    var lockEl = $("#m-lock"), lockBtn = $("#m-lock-btn"), unitSw = $("#unit-switch");
     var marquee = document.getElementById("marquee");
 
     function buildPaytable() {
@@ -355,7 +363,7 @@
         '</dl><p class="pt-note">This is a faucet, so the machine pays back slightly more than it takes in: every win, including free spins and bonus prizes, gets a ' + BOOST +
           ' faucet boost on top of the paytable, for an RTP of ' + RTP + '. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
           'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'Every spin is played on the server and is provably fair. Testnet sats have no monetary value.</p></div>' +
+          'Every spin is played on the server and is provably fair. Testnet coins have no monetary value.</p></div>' +
         '</details>';
     }
 
@@ -595,7 +603,7 @@
         if (mult > 1) notes.push("wins ×" + mult);
         return '<li class="bd-item" tabindex="0" data-key="' + key + '">' + tag + '<span class="bd-combo">' + combo + '</span>' +
           (notes.length ? '<span class="bd-note">' + notes.join(" · ") + '</span>' : "") +
-          '<span class="bd-amt">' + fmt(it.sats) + ' sats</span></li>';
+          '<span class="bd-amt" data-sats="' + it.sats + '">' + amt(it.sats) + '</span></li>';
       }).join("");
     }
     function focusWin(key) {
@@ -614,14 +622,14 @@
 
     function describe(ph, p, t) {
       var res = { lines: ph.lines || [], scatter: ph.scatter && ph.scatter.win > 0 ? ph.scatter : null };
-      if (t.tier === "jackpot") return "JACKPOT! 5× " + syms[t.jp.symbol].emoji + " on line " + (t.jp.line + 1) + " · " + fmt(p.total) + " sats";
+      if (t.tier === "jackpot") return "JACKPOT! 5× " + syms[t.jp.symbol].emoji + " on line " + (t.jp.line + 1) + " · " + amt(p.total);
       var parts = [];
       if (res.lines.length === 1) {
         var w = res.lines[0];
         parts.push("Line " + (w.line + 1) + ": " + w.count + "× " + syms[w.symbol].emoji + (w.wildMult > 1 ? " (wild ×" + w.wildMult + ")" : ""));
       } else if (res.lines.length > 1) parts.push(res.lines.length + " lines win");
       if (res.scatter) parts.push(res.scatter.count + "× " + syms[SCAT].emoji + " scatter");
-      return parts.join(" + ") + " · " + fmt(p.total) + " sats";
+      return parts.join(" + ") + " · " + amt(p.total);
     }
     function quip(g) {
       var sc = 0, bn = {};
@@ -637,20 +645,20 @@
     /* --- Meters & LCD --- */
     function countUp(el, from, to, ms, token, tick) {
       return new Promise(function (resolve) {
-        if (reduce || ms <= 0) { el.textContent = fmt(to); return resolve(); }
+        if (reduce || ms <= 0) { el.textContent = num(to); return resolve(); }
         var t0 = performance.now(), lastTick = 0;
         el.classList.add("counting");
         (function step() {
           if (token !== presentToken) {
             el.classList.remove("counting");
             // A cancelled balance count snaps to the real balance; the win meter is owned by the next step.
-            if (el === meterBal) el.textContent = fmt(balShown);
+            if (el === meterBal) el.textContent = num(balShown);
             return resolve();
           }
           // One clock (performance.now) and a clamp: rAF timestamps can be earlier than t0.
           var now = performance.now();
           var p = Math.max(0, Math.min(1, (now - t0) / ms));
-          el.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+          el.textContent = num(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
           if (tick && now - lastTick > 55 && p < 1) { sfx.countTick(); lastTick = now; }
           if (p < 1) requestAnimationFrame(step);
           else { el.classList.remove("counting"); resolve(); }
@@ -675,14 +683,29 @@
     function renderLcdSub() {
       if (feature) {
         lcdSub.textContent = "Free spin " + feature.played + " / " + (feature.played + feature.left) +
-          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + " · feature won " + fmt(feature.total);
+          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + " · feature won " + amt(feature.total);
       } else {
-        lcdSub.textContent = "Bet " + fmt(bet) + " sats · 10 lines · testnet sats";
+        lcdSub.textContent = "Bet " + fmt(bet) + " tSats · 10 lines";
       }
+    }
+    /* --- Credit unit: tSats (default) or tBCH, from the switch under the machine --- */
+    var winShown = 0;
+    function renderUnit() {
+      var inBch = !!GU && GU.get() === "bch";
+      unitSw.setAttribute("aria-checked", inBch ? "true" : "false");
+      unitSw.title = inBch ? "Credit shown in tBCH. Switch to tSats." : "Credit shown in tSats. Switch to tBCH.";
+      machine.classList.toggle("unit-bch", inBch);
+      machine.querySelectorAll("[data-unit]").forEach(function (e) { e.textContent = unitLabel(); });
+      meterBal.textContent = num(balShown);
+      meterWin.textContent = num(winShown);
+      // Amounts already on screen (win breakdown, recent spins) follow the switch too.
+      root.querySelectorAll("[data-sats]").forEach(function (e) { e.textContent = (e.getAttribute("data-sign") || "") + amt(+e.getAttribute("data-sats")); });
+      if (!busy) renderLcdSub();
+      if (feature) renderFeature();
     }
     function syncBalance() {
       balShown = currentBalance();
-      meterBal.textContent = fmt(balShown);
+      meterBal.textContent = num(balShown);
     }
     function credit(sats, token, ms) {
       if (sats <= 0) return;
@@ -697,16 +720,17 @@
       if (FS.sticky) extra = '<span>' + syms[WILD].emoji + ' STICKY ' + feature.sticky + '</span>';
       fsSign.innerHTML = '<span><span class="e">' + syms[SCAT].emoji + '</span> FREE SPINS</span><span>' + feature.left + ' LEFT</span>' +
         (feature.mult > 1 || FS.progressive ? '<span class="mult">WINS ×' + feature.mult + '</span>' : '') + extra +
-        '<span>WON ' + fmt(feature.total) + '</span>';
+        '<span>WON ' + amt(feature.total) + '</span>';
     }
 
     /* --- Celebrate a win amount (shared by spins, bonus and feature totals) --- */
     function celebrate(total, tier, token, title) {
       var ms = { none: 0, win: 700, big: 1400, mega: 2200, jackpot: 3200 }[tier];
+      winShown = total;
       countUp(meterWin, 0, total, ms, token, true);
       credit(total, token, ms);
       if (tier === "win" || tier === "none") { if (total > 0) sfx.win(); return; }
-      showBanner(tier, title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "JACKPOT!!!" }[tier], fmt(total) + " SATS");
+      showBanner(tier, title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "JACKPOT!!!" }[tier], amt(total));
       machine.classList.add("celebrate");
       if (tier !== "big" && !reduce) machine.classList.add("shake");
       if (tier === "jackpot" && marquee) marquee.classList.add("jackpot");
@@ -734,10 +758,10 @@
       sessionSet("tnc.bet." + id, bet);
       quickBtns.forEach(function (b) { b.classList.toggle("is-active", +b.getAttribute("data-bet") === bet); });
       var idx = ladderIndex(bet);
-      if (betRange) { betRange.value = idx; betRange.setAttribute("aria-valuetext", fmt(bet) + " sats"); machine.style.setProperty("--thr", idx / (LADDER.length - 1)); }
+      if (betRange) { betRange.value = idx; betRange.setAttribute("aria-valuetext", fmt(bet) + " tSats"); machine.style.setProperty("--thr", idx / (LADDER.length - 1)); }
       if (betDial) {
         betDial.setAttribute("aria-valuenow", bet);
-        betDial.setAttribute("aria-valuetext", fmt(bet) + " sats");
+        betDial.setAttribute("aria-valuetext", fmt(bet) + " tSats");
         machine.style.setProperty("--dial", (-135 + idx * 30) + "deg");
       }
       updateControls();
@@ -751,7 +775,7 @@
       if (next !== bet) { sfx.chip(); setBet(next); betChanged(); }
     }
     function betChanged() {
-      if (cantAfford()) showReady(); else setLcd("Bet " + fmt(bet) + " sats. " + flavor.action, "");
+      if (cantAfford()) showReady(); else setLcd("Bet " + fmt(bet) + " tSats. " + flavor.action, "");
     }
     function cantAfford() { return signedIn() && currentBalance() < bet; }
     function updateControls() {
@@ -772,18 +796,18 @@
     }
     function tilt() {
       var b = currentBalance();
-      setLcd(b < MIN_BET ? "TILT! Out of sats. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " is more than your " + fmt(b) + " sats.", "tilt");
+      setLcd(b < MIN_BET ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " tSats is more than your " + amt(b) + ".", "tilt");
       sfx.tilt();
     }
     function showReady() {
-      if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get 10,000 sats.", ""); return; }
+      if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get " + amt(10000) + ".", ""); return; }
       if (cantAfford()) {
         var b = currentBalance();
-        setLcd(b < MIN_BET ? "Out of sats. Claim your daily bonus to play on." : "Lower your bet: balance is " + fmt(b) + " sats.", "tilt");
+        setLcd(b < MIN_BET ? "Out of credit. Claim your daily bonus to play on." : "Lower your bet: balance is " + amt(b) + ".", "tilt");
       }
     }
     function askSignIn() {
-      setLcd("Sign in to play. New accounts get 10,000 sats.", "tilt");
+      setLcd("Sign in to play. New accounts get " + amt(10000) + ".", "tilt");
       lockBtn.focus({ preventScroll: false });
     }
 
@@ -792,7 +816,7 @@
     async function playSpinStep(st, prespun) {
       var free = !!st.free;
       var token = ++presentToken;
-      if (!prespun) { hideBanner(); clearWins(); meterWin.textContent = "0"; }
+      if (!prespun) { hideBanner(); clearWins(); meterWin.textContent = "0"; winShown = 0; }
       if (free) {
         if (feature.played > 0 && st.multiplier > feature.mult) { toast("🌊 THE TIDE RISES: WINS ×" + st.multiplier + "!", "feat"); sfx.feature(); }
         feature.played = st.freeSpin;
@@ -853,7 +877,7 @@
         renderFeature();
         renderLcdSub();
       }
-      addHistory(free ? "free spin" : "bet " + fmt(bet), free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
+      addHistory(free ? "free spin" : "bet " + fmt(bet) + " tSats", free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
       return WAIT[lastTier];
     }
 
@@ -885,11 +909,11 @@
       token = ++presentToken;
       var tier = won >= bet * 50 ? "mega" : won >= bet * 10 ? "big" : won > 0 ? "win" : "none";
       if (won > 0) {
-        setLcd(BON.name + " paid " + fmtMult(script.prize) + "× = " + fmt(won) + " sats", "win");
+        setLcd(BON.name + " paid " + fmtMult(script.prize) + "× = " + amt(won), "win");
         celebrate(won, tier === "win" ? "big" : tier, token, "BONUS WIN!");
       } else {
         setLcd(BON.name + ": no prize this time.", "");
-        meterWin.textContent = "0";
+        meterWin.textContent = "0"; winShown = 0;
         sfx.noWin();
       }
       if (feature) { feature.total += won; renderFeature(); renderLcdSub(); }
@@ -924,8 +948,8 @@
           } else {
             total += v;
             tile.innerHTML = "<span>" + pickFruit(v) + "</span><small>+" + v + "×</small>";
-            totalEl.textContent = fmtMult(total) + "× ≈ " + rawSats(total) + " sats";
-            sub.textContent = "+" + v + "× (≈" + rawSats(v) + " sats). Keep picking!";
+            totalEl.textContent = fmtMult(total) + "× ≈ " + rawSats(total);
+            sub.textContent = "+" + v + "× (≈" + rawSats(v) + "). Keep picking!";
             sfx.reveal(v);
           }
           if (v !== 0 && revealed < script.picks) return;
@@ -997,7 +1021,7 @@
             else {
               var win = g.querySelector('path[data-i="' + script.index + '"]');
               if (win) win.classList.add("win-seg");
-              sub.textContent = "The wheel stops on " + BON.segments[script.index] + "×: ≈" + rawSats(BON.segments[script.index]) + " sats!";
+              sub.textContent = "The wheel stops on " + BON.segments[script.index] + "×: ≈" + rawSats(BON.segments[script.index]) + "!";
               sfx.wheelStop();
               setTimeout(resolve, 900);
             }
@@ -1013,7 +1037,7 @@
         var lv = BON.levels;
         stage.innerHTML = stageHead("🛰️ WARP LADDER", "Ignite the engines and climb!") +
           '<div class="ladder-wrap"><ol class="ladder" id="ladder">' + lv.map(function (v, i) {
-            return '<li data-i="' + i + '"><span class="lv-n">' + (i + 1) + '</span><span class="lv-v">' + fmt(v) + '×</span><span class="lv-s">≈' + rawSats(v) + ' sats</span></li>';
+            return '<li data-i="' + i + '"><span class="lv-n">' + (i + 1) + '</span><span class="lv-v">' + fmt(v) + '×</span><span class="lv-s">≈' + rawSats(v) + '</span></li>';
           }).reverse().join("") + '</ol>' +
           '<div class="ladder-side"><div class="rocket" id="rocket">🚀</div>' +
           '<button type="button" class="btn-red" id="ignite">IGNITE</button></div></div>';
@@ -1048,12 +1072,12 @@
               rocket.className = "rocket fail";
               ladder.classList.add("fail");
               sfx.ladderFail();
-              sub.textContent = "Engines cut out at level " + (level + 1) + ": " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]) + " sats";
+              sub.textContent = "Engines cut out at level " + (level + 1) + ": " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]);
               await sleep(reduce ? 300 : 900);
               return resolve();
             }
           }
-          sub.textContent = "TOP OF THE LADDER! " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]) + " sats";
+          sub.textContent = "TOP OF THE LADDER! " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]);
           await sleep(reduce ? 300 : 900);
           resolve();
         }
@@ -1078,9 +1102,9 @@
       ++presentToken;
       hideBanner();
       clearWins();
-      meterWin.textContent = "0";
+      meterWin.textContent = "0"; winShown = 0;
       balShown = currentBalance() - bet;
-      meterBal.textContent = fmt(balShown);
+      meterBal.textContent = num(balShown);
       setLcd("Reels spinning… good luck!", "");
       sfx.spinStart();
       startReels();
@@ -1194,9 +1218,10 @@
       var t2 = ++presentToken;
       hideBanner();
       clearWins();
-      showBanner(total >= bet * 10 ? "big" : "free", "FEATURE OVER", played + " SPINS WON " + fmt(total) + " SATS");
-      setLcd("Free spins over: " + played + " spins won " + fmt(total) + " sats", total ? "win" : "");
-      meterWin.textContent = fmt(total);
+      showBanner(total >= bet * 10 ? "big" : "free", "FEATURE OVER", played + " SPINS WON " + amt(total));
+      setLcd("Free spins over: " + played + " spins won " + amt(total), total ? "win" : "");
+      winShown = total;
+      meterWin.textContent = num(total);
       if (total >= bet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
       else if (total > 0) sfx.win(); else sfx.noWin();
       setTimeout(function () { if (t2 === presentToken) hideBanner(); }, 2600);
@@ -1210,7 +1235,7 @@
       var line = kind === "bonus" ? syms[BONUS].emoji + " " + esc(BON.name)
         : grid.map(function (col) { return syms[col[1]].emoji; }).join("");
       li.innerHTML = '<span class="h-line">' + line + '</span><span class="h-kind">' + kind +
-        '</span><span class="h-amt">' + (net >= 0 ? "+" : "−") + fmt(Math.abs(net)) + '</span>';
+        '</span><span class="h-amt" data-sats="' + Math.abs(net) + '" data-sign="' + (net >= 0 ? "+" : "−") + '">' + (net >= 0 ? "+" : "−") + amt(Math.abs(net)) + '</span>';
       historyEl.insertBefore(li, historyEl.firstChild);
       while (historyEl.children.length > 12) historyEl.removeChild(historyEl.lastChild);
     }
@@ -1271,6 +1296,8 @@
     if (window.ResizeObserver) new ResizeObserver(function () { fitMachine(); }).observe(machine);
     renderFs();
 
+    if (GU) { unitSw.addEventListener("click", function () { sfx.chip(); GU.toggle(); }); GU.onChange(renderUnit); }
+    else unitSw.hidden = true;
     soundBtn.addEventListener("click", function () {
       sfx.setMuted(!sfx.isMuted());
       renderSound();
@@ -1366,6 +1393,7 @@
     placeChrome();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeChrome);
     renderSound();
+    renderUnit();
     setBet(bet);
     syncBalance();
     setLcd(flavor.welcome, "");

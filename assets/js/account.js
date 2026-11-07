@@ -19,12 +19,14 @@
   if (!api || !Auth || document.body.getAttribute("data-page") !== "account") return;
 
   var EXPLORER_TX = "https://tbch4.loping.net/tx/";
-  var MIN_WD = 100000, MAX_WD = 10000000;
+  var MIN_WD = 1000, MAX_WD = 10000000;   // sats per withdrawal (API.md); daily caps are checked by the server
   var POLL_MS = 15000;
 
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
-  function sats(n) { return fmt(n) + " sats"; }
+  // Amounts are shown in tBCH (the API works in sats).
+  function sats(n) { return U.format(n); }
+  function bchText(n) { return U.short(n); }
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -49,7 +51,7 @@
     $("acct").hidden = !user;
     $("acct-login").href = Auth.loginHref();
     if (!user) { started = false; return; }
-    $("acct-balance").textContent = U ? U.format(Auth.balance) + " (" + sats(Auth.balance) + ")" : sats(Auth.balance);
+    $("acct-balance").textContent = U.format(Auth.balance);
     renderDestination();
     if (!started) { started = true; loadWithdrawals(); loadLedger(true); }
   }
@@ -87,7 +89,7 @@
   var amountEl = $("wd-amount"), wdErr = $("wd-error"), wdStatus = $("wd-status");
   $("wd-max").addEventListener("click", function () {
     var max = Math.min(MAX_WD, Auth.balance || 0);
-    amountEl.value = max >= MIN_WD ? max : MIN_WD;
+    amountEl.value = U.bch(max >= MIN_WD ? max : MIN_WD).replace(/,/g, "");
     fieldError(amountEl, wdErr, "");
     amountEl.focus();
   });
@@ -95,10 +97,10 @@
 
   $("wd-form").addEventListener("submit", function (e) {
     e.preventDefault();
-    var amount = parseInt(amountEl.value, 10);
-    if (!isFinite(amount) || String(amount) !== String(amountEl.value).trim()) { fieldError(amountEl, wdErr, "Enter a whole number of sats."); amountEl.focus(); return; }
-    if (amount < MIN_WD) { fieldError(amountEl, wdErr, "The minimum is " + sats(MIN_WD) + "."); amountEl.focus(); return; }
-    if (amount > MAX_WD) { fieldError(amountEl, wdErr, "The maximum is " + sats(MAX_WD) + " per withdrawal."); amountEl.focus(); return; }
+    var amount = U.parse(amountEl.value);
+    if (amount === null) { fieldError(amountEl, wdErr, "Enter an amount in tBCH, for example 0.0001 (up to 8 decimals)."); amountEl.focus(); return; }
+    if (amount < MIN_WD) { fieldError(amountEl, wdErr, "The minimum is " + bchText(MIN_WD) + "."); amountEl.focus(); return; }
+    if (amount > MAX_WD) { fieldError(amountEl, wdErr, "The maximum is " + bchText(MAX_WD) + " per withdrawal."); amountEl.focus(); return; }
     if (amount > (Auth.balance || 0)) { fieldError(amountEl, wdErr, "That is more than your balance of " + sats(Auth.balance || 0) + "."); amountEl.focus(); return; }
     fieldError(amountEl, wdErr, "");
     var btn = $("wd-submit");
@@ -279,8 +281,8 @@
         var what = td(KIND[it.kind] || it.kind);
         if (it.reference) what.title = "Reference " + it.reference;
         tr.appendChild(what);
-        tr.appendChild(td((it.amount > 0 ? "+" : it.amount < 0 ? "−" : "") + fmt(Math.abs(it.amount)), "num " + (it.amount > 0 ? "is-plus" : it.amount < 0 ? "is-minus" : "")));
-        tr.appendChild(td(fmt(it.balanceAfter), "num"));
+        tr.appendChild(td((it.amount > 0 ? "+" : it.amount < 0 ? "−" : "") + U.bch(Math.abs(it.amount)), "num " + (it.amount > 0 ? "is-plus" : it.amount < 0 ? "is-minus" : "")));
+        tr.appendChild(td(U.bch(it.balanceAfter), "num"));
         body.appendChild(tr);
       });
       ledgerCursor = r.data.nextCursor || null;
@@ -294,7 +296,6 @@
   // auth.js reads GET /me on DOMContentLoaded; render once it has answered.
   function start() {
     Auth.onChange(function (u) { render(u); });
-    if (U) U.onChange(function () { if (Auth.user) render(Auth.user); });
     (Auth.ready || Auth.refresh()).then(function () { render(Auth.user); });
     document.addEventListener("visibilitychange", function () { if (!document.hidden && Auth.user) loadWithdrawals(); });
   }

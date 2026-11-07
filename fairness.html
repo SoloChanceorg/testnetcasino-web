@@ -90,7 +90,7 @@
           <div class="auth-row"><button type="button" class="btn-gold" id="sp-verify-all" disabled>✔ Verify all revealed spins</button></div>
           <div class="tbl-wrap"><table class="acct-table">
             <caption class="sr-only">Your spins, newest first</caption>
-            <thead><tr><th scope="col">When</th><th scope="col">Game</th><th scope="col" class="num">Bet</th><th scope="col" class="num">Win</th><th scope="col" class="num">Nonce</th><th scope="col">Check</th></tr></thead>
+            <thead><tr><th scope="col">When</th><th scope="col">Game</th><th scope="col" class="num">Bet (tBCH)</th><th scope="col" class="num">Win (tBCH)</th><th scope="col" class="num">Nonce</th><th scope="col">Check</th></tr></thead>
             <tbody id="sp-body"></tbody>
           </table></div>
           <p class="acct-empty" id="sp-empty" hidden>No spins yet.</p>
@@ -106,7 +106,7 @@
         <form id="vf-form" class="vf-grid" novalidate>
           <div><label class="auth-label" for="vf-game">Game</label>
             <select class="auth-input" id="vf-game"><option value="fruit-orchard">Fruit Orchard</option><option value="deep-sea">Deep Sea Treasure</option><option value="cosmic-voyage">Cosmic Voyage</option></select></div>
-          <div><label class="auth-label" for="vf-bet">Bet (sats)</label>
+          <div><label class="auth-label" for="vf-bet">Bet (tSats, 1 to 1,000)</label>
             <input class="auth-input" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="vf-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
@@ -114,7 +114,7 @@
             <input class="auth-input auth-mono" id="vf-client" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div><label class="auth-label" for="vf-nonce">Nonce</label>
             <input class="auth-input" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
-          <div><label class="auth-label" for="vf-expect">Expected win (optional)</label>
+          <div><label class="auth-label" for="vf-expect">Expected win in tSats (optional)</label>
             <input class="auth-input" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
           <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="vf-submit">🔍 Replay spin</button></div>
         </form>

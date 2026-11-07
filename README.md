@@ -65,8 +65,14 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 
 Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`), the hot wallet,
 the sum of player balances and pending withdrawals. The server recomputes them at most every 5 minutes; the bar re-reads them every
-minute while the tab is visible and says so when the server marks them `stale`. A switch shows amounts in tBCH (8 decimals) or in
-whole tSats, for the bar and the header balance; the choice is remembered in `localStorage` (display preference only).
+minute while the tab is visible and says so when the server marks them `stale`. They are rounded to 2 decimals (hover for the exact value).
+
+## Units
+
+The API works in sats (1 tBCH = 100,000,000 sats). The site shows every amount in **tBCH** (`assets/js/units.js`): the faucet
+bar, the nav balance, the daily bonus, the account page and the fairness page. Inside a game machine the credit (balance, wins,
+win breakdown, recent spins) is shown in **tSats** by default, with a tSats / tBCH switch under the machine; the choice is
+remembered in `localStorage` (display preference only). Bets are always whole tSats (1 to 1,000).
 
 ## Returning coins
 
@@ -135,7 +141,8 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 `account.html` (`assets/js/account.js`), reached from the account pill in the nav:
 
-- **Withdraw**: `POST /withdrawals { amount }`, 100,000 to 10,000,000 sats (1,000,000 a day). The destination is never sent from
+- **Withdraw**: `POST /withdrawals { amount }`, 1,000 to 10,000,000 sats per withdrawal, at most 1,000,000 sats per player in 24 hours and
+  10 tBCH a day for the whole faucet (`faucet_daily_limit`). The destination is never sent from
   the browser: wallet accounts withdraw to their sign-in address, passkey accounts to their verified withdrawal address.
   `503 withdrawals_disabled / withdrawals_paused` and every other error show the server's message.
 - **Withdrawal address** (passkey accounts): `POST /account/withdrawal-address/challenge { address }`, sign the message in a
@@ -189,7 +196,7 @@ assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio 
 assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
-assets/js/units.js    tBCH / tSats display switch, shared by the faucet bar and the balance
+assets/js/units.js    Amount formatting: tBCH everywhere, tSats / tBCH switch inside the games
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase

@@ -34,7 +34,8 @@
   function userLabel(u) { return u.method === "wallet" && u.address ? short(u.address) : "Passkey account"; }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function fmtSats(n) { return Number(n).toLocaleString("en-US") + " sats"; }
+  // Amounts outside the games are always tBCH: format() for balances, short() in text.
+  function fmtSats(n) { return U ? U.short(n) : Number(n).toLocaleString("en-US") + " sats"; }
   function fmtBalance(n) { return U ? U.format(n) : fmtSats(n); }
   function reducedMotion() { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
 
@@ -161,13 +162,13 @@
     if (!body) return;
     var amount = fmtSats(bonusAmount());
     if (!Auth.user) {
-      body.innerHTML = '<p class="db-text">Sign in and claim <strong>' + amount + '</strong> every day. New accounts also get a 10,000 sat sign-up bonus.</p>' +
+      body.innerHTML = '<p class="db-text">Sign in and claim <strong>' + amount + '</strong> every day. New accounts also get a ' + fmtSats(10000) + ' sign-up bonus.</p>' +
         '<a class="btn-gold db-btn" href="' + Auth.loginHref() + '">🔑 Sign in to claim</a>';
       return;
     }
     var b = Auth.dailyBonus || {};
     if (b.available) {
-      body.innerHTML = '<p class="db-text">Your free <strong>' + amount + '</strong> for today are waiting.</p>' +
+      body.innerHTML = '<p class="db-text">Your free <strong>' + amount + '</strong> for today is waiting.</p>' +
         '<button type="button" class="btn-red db-btn" id="db-claim"' + (claiming ? " disabled" : "") + '>🎁 ' + (claiming ? "Claiming..." : "Claim " + amount) + '</button>' +
         (bonusNote ? '<p class="db-note is-error">' + esc(bonusNote) + '</p>' : "");
       $("db-claim").addEventListener("click", function () { claimBonus(); });
@@ -197,7 +198,7 @@
         bal.className = "chip-balance";
         bal.innerHTML = TBCH_ICON + "<strong></strong>";
         bal.querySelector("strong").textContent = fmtBalance(Auth.balance);
-        bal.setAttribute("aria-label", "Balance " + fmtSats(Auth.balance));
+        bal.setAttribute("aria-label", "Balance " + fmtBalance(Auth.balance));
         nav.appendChild(bal);
       }
       var pill = bonusPill();
@@ -228,7 +229,6 @@
   function start() {
     renderNav();
     renderBonusCard();
-    if (U) U.onChange(function () { renderNav(); tickCountdowns(); });
     Auth.ready = Auth.refresh();
     // Coming back to the tab: the balance or the bonus may have changed elsewhere.
     document.addEventListener("visibilitychange", function () { if (!document.hidden && Auth.user) Auth.refresh(); });
