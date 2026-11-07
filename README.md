@@ -192,6 +192,12 @@ passwords, no email and no social logins.
   every page and in a card on the lobby. `409 daily_bonus_claimed` just switches to the countdown.
 - `?next=` sends you back after sign-in (same-origin paths only).
 
+## Terms and Privacy
+
+`legal/terms-of-service.pdf` and `legal/privacy-policy.pdf` are linked from every footer and from the sign-in page ("By
+signing in you accept the Terms of Service..."). Their text lives in `tools/legal/build_legal.py`: edit it there, bump
+`EFFECTIVE`, and rebuild with Python 3.10+ and reportlab (`python tools/legal/build_legal.py`).
+
 ## Structure
 
 ```
@@ -200,6 +206,7 @@ login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
 account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
 fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
 leaderboards.html     Six leaderboards (CSP-protected)
+legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
 assets/css/style.css  "Vegas Casino" theme + per-game cabinet skins (.theme-orchard / -deepsea / -cosmic)
 assets/js/slot.js     UI: loads the game config, sends POST /spins and animates the returned steps
@@ -224,7 +231,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261107m`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261108a`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages

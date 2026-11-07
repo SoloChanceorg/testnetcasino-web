@@ -1909,3 +1909,4 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .lb-you-badge { margin-left: 4px; padding: 0 6px; }
 }
 @media (prefers-reduced-motion: reduce) { .lb-row.is-flash td { animation: none; } }
+.auth-legal { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid rgba(245,197,66,.25); font-size: .82rem; color: var(--muted); text-align: center; }
