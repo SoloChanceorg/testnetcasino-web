@@ -64,7 +64,7 @@ h1, h2, h3 { font-weight: 400; }
 #casino-bg { z-index: 0; }
 #coin-shower { z-index: 300; }
 
-.page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 26px 16px 48px; }
+.page { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 26px 16px 48px; }
 
 /* ── Warning strip (game pages) ── */
 .warning-strip {
