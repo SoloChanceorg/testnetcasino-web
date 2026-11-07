@@ -88,8 +88,8 @@
 
   var amountEl = $("wd-amount"), wdErr = $("wd-error"), wdStatus = $("wd-status");
   $("wd-max").addEventListener("click", function () {
-    var max = Math.min(MAX_WD, Auth.balance || 0);
-    amountEl.value = U.bch(max >= MIN_WD ? max : MIN_WD).replace(/,/g, "");
+    // The player's whole balance; the checks below explain any limit it is over.
+    amountEl.value = U.bch(Auth.balance || 0).replace(/,/g, "");
     fieldError(amountEl, wdErr, "");
     amountEl.focus();
   });
