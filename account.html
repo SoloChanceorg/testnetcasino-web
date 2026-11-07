@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261107d">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261107e">
 </head>
 <body data-page="account">
   <a class="skip-link" href="#main">Skip to your account</a>
@@ -57,7 +57,6 @@
         <section class="panel" id="withdraw" aria-labelledby="wd-title">
           <h2 class="panel-label" id="wd-title">📤 WITHDRAW</h2>
           <p class="acct-balance">Balance <strong id="acct-balance">0</strong></p>
-          <p class="acct-dest" id="wd-dest"></p>
           <form id="wd-form" novalidate>
             <label class="auth-label" for="wd-amount">Amount in tBCH</label>
             <div class="acct-amount">
@@ -67,43 +66,14 @@
             </div>
             <p class="auth-hint" id="wd-hint">0.00001 to 0.1 tBCH per withdrawal, up to 0.01 tBCH per player in 24 hours. The whole faucet pays out at most 10 tBCH a day. The network fee is paid by the faucet.</p>
             <p class="auth-error" id="wd-error" hidden></p>
+            <label class="auth-label" for="wd-address">Send to (Testnet4 address)</label>
+            <input class="auth-input auth-mono" id="wd-address" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+                   placeholder="bchtest:q..." aria-describedby="wd-address-hint wd-address-error">
+            <p class="auth-hint" id="wd-address-hint">Any Testnet4 address. The bchtest: prefix is optional.</p>
+            <p class="auth-error" id="wd-address-error" hidden></p>
             <button type="submit" class="btn-red auth-wide" id="wd-submit">📤 Withdraw</button>
             <p class="auth-status" id="wd-status" role="status" aria-live="polite"></p>
           </form>
-        </section>
-
-        <section class="panel" id="address" aria-labelledby="addr-title" hidden>
-          <h2 class="panel-label" id="addr-title">🏷️ WITHDRAWAL ADDRESS</h2>
-          <p id="addr-current"></p>
-          <form id="addr-step1" novalidate>
-            <label class="auth-label" for="addr-input">Your Testnet4 address</label>
-            <input class="auth-input auth-mono" id="addr-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
-                   placeholder="bchtest:q..." aria-describedby="addr-hint addr-error">
-            <p class="auth-hint" id="addr-hint">Prove you own it by signing a message with your wallet. After a change, withdrawals wait 24 hours.</p>
-            <p class="auth-error" id="addr-error" hidden></p>
-            <button type="submit" class="btn-gold auth-wide" id="addr-get">Get message to sign</button>
-          </form>
-          <div id="addr-step2" hidden>
-            <label class="auth-label" for="addr-message">Sign this message</label>
-            <textarea class="auth-input auth-mono auth-message" id="addr-message" rows="4" readonly aria-describedby="addr-expiry"></textarea>
-            <div class="auth-row auth-row-tight">
-              <button type="button" class="btn-ghost" id="addr-copy">📋 Copy message</button>
-              <span class="auth-copied" id="addr-copy-state" aria-live="polite"></span>
-              <span class="auth-expiry" id="addr-expiry">Expires in <strong id="addr-countdown">5:00</strong></span>
-            </div>
-            <p class="auth-howto">In Electron Cash (testnet4): Tools &gt; Sign/verify Message. Paste this message, choose the address, click Sign, then copy the signature here.</p>
-            <form id="addr-step2-form" novalidate>
-              <label class="auth-label" for="addr-signature">Signature</label>
-              <textarea class="auth-input auth-mono" id="addr-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none"
-                        placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="addr-sig-error"></textarea>
-              <p class="auth-error" id="addr-sig-error" hidden></p>
-              <div class="auth-row">
-                <button type="submit" class="btn-red auth-wide" id="addr-submit">Save address</button>
-                <button type="button" class="btn-ghost" id="addr-cancel">Cancel</button>
-              </div>
-            </form>
-          </div>
-          <p class="auth-status" id="addr-status" role="status" aria-live="polite"></p>
         </section>
 
         <section class="panel" id="withdrawals" aria-labelledby="wl-title">
@@ -138,14 +108,14 @@
     </footer>
   </div>
 
-  <script src="assets/js/config.js?v=20261107d"></script>
-  <script src="assets/js/api.js?v=20261107d"></script>
-  <script src="assets/js/units.js?v=20261107d"></script>
-  <script src="assets/js/faucet.js?v=20261107d"></script>
-  <script src="assets/js/cashaddr.js?v=20261107d"></script>
-  <script src="assets/js/auth.js?v=20261107d"></script>
-  <script src="assets/js/account.js?v=20261107d"></script>
-  <script src="assets/js/fx.js?v=20261107d"></script>
-  <script src="assets/js/music.js?v=20261107d"></script>
+  <script src="assets/js/config.js?v=20261107e"></script>
+  <script src="assets/js/api.js?v=20261107e"></script>
+  <script src="assets/js/units.js?v=20261107e"></script>
+  <script src="assets/js/faucet.js?v=20261107e"></script>
+  <script src="assets/js/cashaddr.js?v=20261107e"></script>
+  <script src="assets/js/auth.js?v=20261107e"></script>
+  <script src="assets/js/account.js?v=20261107e"></script>
+  <script src="assets/js/fx.js?v=20261107e"></script>
+  <script src="assets/js/music.js?v=20261107e"></script>
 </body>
 </html>

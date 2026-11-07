@@ -14,7 +14,7 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 - Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
   **1,000 sat** daily bonus (resets at 00:00 UTC).
 - Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **100.01%** (it is a faucet, so it pays back slightly more than it takes).
-- Withdrawals go to the account's verified Testnet4 address (switched off on the server for now).
+- Withdrawals go to any Testnet4 address the player enters.
 
 ## Games
 
@@ -141,12 +141,12 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 `account.html` (`assets/js/account.js`), reached from the account pill in the nav:
 
-- **Withdraw**: `POST /withdrawals { amount }`, 1,000 to 10,000,000 sats per withdrawal, at most 1,000,000 sats per player in 24 hours and
-  10 tBCH a day for the whole faucet (`faucet_daily_limit`). The destination is never sent from
-  the browser: wallet accounts withdraw to their sign-in address, passkey accounts to their verified withdrawal address.
-  `503 withdrawals_disabled / withdrawals_paused` and every other error show the server's message.
-- **Withdrawal address** (passkey accounts): `POST /account/withdrawal-address/challenge { address }`, sign the message in a
-  Testnet4 wallet, then `POST /account/withdrawal-address { address, nonce, signature }`. Same pattern as wallet sign-in.
+- **Withdraw**: `POST /withdrawals { amount, address }`, 1,000 to 10,000,000 sats per withdrawal, at most 1,000,000 sats per
+  player in 24 hours and 10 tBCH a day for the whole faucet. `address` is any Testnet4 address the player types or pastes
+  (no signature, no waiting period). Wallet accounts get their sign-in address prefilled and may leave it empty; passkey
+  accounts must enter one (prefilled with a saved default if `GET /me` has `user.withdrawalAddress`). `cashaddr.js` rejects
+  obvious non-Testnet4 input early, but the server's answer counts: `invalid_address`, `address_required`, the amount and
+  daily-limit errors and `withdrawals_paused` show the server's message.
 - **Withdrawals**: `GET /withdrawals`, with each txid linked to the Testnet4 explorer `https://bchexplorer.cash/testnet4/tx/<txid>`. The list
   re-reads itself every 15 s while a withdrawal is pending.
 - **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
@@ -212,7 +212,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261107d`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261107e`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages

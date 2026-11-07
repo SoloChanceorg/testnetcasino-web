@@ -36,9 +36,7 @@
     fairnessRotate: "/fairness/rotate",
     spins: "/spins",
     ledger: "/ledger",
-    withdrawals: "/withdrawals",
-    withdrawalAddressChallenge: "/account/withdrawal-address/challenge",
-    withdrawalAddress: "/account/withdrawal-address"
+    withdrawals: "/withdrawals"
   };
 
   function request(method, path, body, opts) {
@@ -112,11 +110,12 @@
     ledger: function (cursor) { return get(withCursor(PATHS.ledger, cursor)); },
 
     /* Withdrawals */
-    withdraw: function (amount) { return post(PATHS.withdrawals, { amount: amount }); },
-    withdrawals: function () { return get(PATHS.withdrawals); },
-    withdrawalAddressChallenge: function (address) { return post(PATHS.withdrawalAddressChallenge, { address: address }); },
-    setWithdrawalAddress: function (address, nonce, signature) {
-      return post(PATHS.withdrawalAddress, { address: address, nonce: nonce, signature: signature });
-    }
+    // address: any Testnet4 address; omitted = the account's default (wallet: sign-in address).
+    withdraw: function (amount, address) {
+      var body = { amount: amount };
+      if (address) body.address = address;
+      return post(PATHS.withdrawals, body);
+    },
+    withdrawals: function () { return get(PATHS.withdrawals); }
   };
 })();
