@@ -1844,3 +1844,68 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .fb-players dt { grid-column: 1 / -1; }
   .fb-players dd + dd::before { content: none; }
 }
+
+/* ═══════════════════════ Leaderboards ═══════════════════════ */
+.lb-lead { margin: -6px 0 16px; text-align: center; color: var(--muted); }
+.lb-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0 0 18px; padding: 5px; border-radius: 16px; background: rgba(0,0,0,.45); border: 1px solid rgba(245,197,66,.45); }
+.lb-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 6px 4px;
+  border: 0; border-radius: 12px; background: transparent; color: var(--cream); cursor: pointer; text-align: center;
+  font: 700 .8rem/1.15 var(--body);
+}
+.lb-tab-sub { font-weight: 500; font-size: .74rem; opacity: .8; }
+.lb-tab:hover { background: rgba(245,197,66,.12); }
+.lb-tab[aria-selected="true"] { color: #2a1c02; background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, var(--gold-dark)); box-shadow: 0 2px 0 var(--gold-deep); }
+.lb-tab:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
+.lb-panel { position: relative; }
+.lb-panel:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
+.lb-note { margin: 0 0 8px; font-size: .86rem; color: var(--muted); }
+.lb-you { margin: 0 0 12px; font-size: .92rem; }
+.lb-you strong { color: var(--gold-light); }
+.lb-empty { text-align: center; padding: 18px 0; font-size: 1rem; }
+.lb-table-wrap { margin: 0 -4px; }
+.lb-table { table-layout: fixed; }
+.lb-table th.lb-rank, .lb-table td.lb-rank { width: 78px; }
+.lb-table th.lb-amount, .lb-table td.lb-amount { width: 130px; }
+.lb-table td { vertical-align: middle; }
+.lb-table th { white-space: normal; vertical-align: bottom; }
+.lb-table td.lb-player { position: relative; }
+.lb-rank-n { font-weight: 700; color: var(--cream); }
+.lb-medal { margin-left: 6px; font-family: var(--emoji); }
+.lb-player { overflow: hidden; text-overflow: ellipsis; }
+.lb-method { margin-right: 6px; font-family: var(--emoji); }
+.lb-name { overflow-wrap: anywhere; }
+.lb-table .lb-amount { font-weight: 700; color: var(--gold-light); }
+.lb-row.is-top .lb-rank-n { color: var(--gold-light); }
+/* The signed-in player's row: a distinct band, a gold edge and a "You" badge. */
+.lb-row.is-me td { background: rgba(125,255,138,.16); }
+.lb-row.is-me td:first-child { box-shadow: inset 4px 0 0 var(--lcd-green); }
+.lb-row.is-me .lb-name { color: #fff; font-weight: 700; }
+.lb-row.is-me:focus { outline: 3px solid var(--gold-light); outline-offset: -3px; }
+.lb-you-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px;
+  font: 800 .68rem/1.5 var(--body); letter-spacing: 1px; text-transform: uppercase; color: #062a14; background: var(--lcd-green);
+}
+.lb-row.is-flash td { animation: lb-flash 2s ease-out; }
+@keyframes lb-flash { 0%, 30% { background: rgba(245,197,66,.55); } 100% { background: rgba(125,255,138,.16); } }
+.lb-more { display: block; margin: 12px auto 0; }
+.lb-sentinel { height: 1px; }
+.lb-jump { position: sticky; bottom: 14px; z-index: 5; display: block; margin: 14px auto 0; box-shadow: 0 3px 0 var(--gold-deep), 0 8px 20px rgba(0,0,0,.55); }
+.lb-jump[hidden] { display: none; }
+@media (max-width: 760px) {
+  .lb-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .lb-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lb-table { font-size: .8rem; }
+  .lb-table th.lb-rank, .lb-table td.lb-rank { width: 50px; }
+  .lb-table th.lb-amount, .lb-table td.lb-amount { width: 90px; }
+  /* Labels are shown in full: they wrap instead of being cut off. */
+  .lb-table td.lb-player { white-space: normal; text-overflow: clip; }
+  .lb-name.auth-mono { font-size: .74rem; }
+  .lb-table td, .lb-table th { padding: 7px 5px; }
+  .lb-medal { margin-left: 3px; }
+  .lb-method { margin-right: 3px; }
+  .lb-you-badge { margin-left: 4px; padding: 0 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .lb-row.is-flash td { animation: none; } }

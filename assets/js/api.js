@@ -30,6 +30,7 @@
     passkeyLoginVerify: "/auth/passkey/login/verify",
     bonusDaily: "/bonus/daily",
     faucet: "/faucet",
+    leaderboards: "/leaderboards",
     gameConfig: "/games/",          // + id + "/config"
     fairnessSeed: "/fairness/seed",
     fairnessClientSeed: "/fairness/client-seed",
@@ -99,6 +100,8 @@
 
     /* Public */
     faucet: function () { return get(PATHS.faucet, { public: true }); },
+    // Public, but sent with the session cookie so the player's own rows come back with `me: true`.
+    leaderboards: function () { return get(PATHS.leaderboards); },
     gameConfig: function (id) { return get(PATHS.gameConfig + encodeURIComponent(id) + "/config", { public: true }); },
 
     /* Games and fairness */

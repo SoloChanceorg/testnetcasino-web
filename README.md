@@ -152,6 +152,15 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
   re-reads itself every 15 s while a withdrawal is pending.
 - **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
 
+## Leaderboards
+
+`leaderboards.html` (`assets/js/leaderboards.js`): six boards from `GET /leaderboards` (top balances, biggest winners over 24
+hours and 30 days, top withdrawals over 24 hours, 30 days and all time), up to 1,000 players each. The response (up to ~500 KB)
+is fetched once per page view, with the session cookie, and again only when the player signs in or out; the server refreshes it
+every 5 minutes. Rows render 50 at a time (more on scroll or "Show more"). The signed-in player's row is found only by
+`me: true` (labels can collide), highlighted with a "You" badge and `aria-current`, and a "Jump to my position (#n)" button
+shows while that row is out of view (IntersectionObserver). Amounts are tBCH, with the sats in the tooltip.
+
 ## Provably fair
 
 `fairness.html` (`assets/js/fairness.js`):
@@ -190,6 +199,7 @@ index.html            Landing page (lobby)
 login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
 account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
 fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
+leaderboards.html     Six leaderboards (CSP-protected)
 games/*.html          One page per game (body[data-game] selects the config)
 assets/css/style.css  "Vegas Casino" theme + per-game cabinet skins (.theme-orchard / -deepsea / -cosmic)
 assets/js/slot.js     UI: loads the game config, sends POST /spins and animates the returned steps
@@ -206,6 +216,7 @@ assets/js/cashaddr.js CashAddr decode + checksum validation
 assets/js/auth.js     Session helper (nav, balance, daily bonus) + sign-in page logic
 assets/js/account.js  Account page
 assets/js/fairness.js Fairness page
+assets/js/leaderboards.js  Leaderboards page
 assets/js/fairness-engine.js  Provably fair verifier (browser + Node, no DOM)
 tools/verify-vectors.mjs      Checks the verifier against the backend test vectors
 .nojekyll             Serve files as-is on GitHub Pages
@@ -213,7 +224,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261107l`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261107m`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages
