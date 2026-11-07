@@ -251,10 +251,23 @@ h1, h2, h3 { font-weight: 400; }
 .faq details p { color: #dfe8e1; margin: 8px 0 0; font-size: .92rem; }
 
 /* ── Footer ── */
-.casino-footer { margin-top: 40px; padding-top: 22px; border-top: 2px solid rgba(245,197,66,.3); text-align: center; font-size: .8rem; color: var(--muted); }
-.casino-footer p { margin: 0 0 8px; }
-.casino-footer a { text-decoration: none; }
-.casino-footer a:hover { text-decoration: underline; }
+/* Footer: the SoloChance.org family layout (solo100.org, bch.ee, bitcoincash.ee):
+   links row, network row, then copyright and origin. */
+.casino-footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid rgba(245,197,66,.3); text-align: center; font-size: .85rem; color: var(--muted); }
+.casino-footer a { color: var(--gold); text-decoration: none; transition: color .2s; }
+.casino-footer a:hover { color: var(--gold-light); text-decoration: underline; }
+.cf-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 2rem; }
+.cf-links a { display: inline-flex; align-items: center; gap: .4rem; min-height: 24px; font-weight: 600; }
+.cf-networks { display: flex; flex-direction: column; align-items: center; gap: .35rem; margin-top: .85rem; }
+.cf-bottom { margin-top: .85rem; font-size: .8rem; }
+.cf-bottom > div + div { margin-top: .3rem; }
+.casino-footer a.cf-solochance { color: var(--muted); }
+/* A nod to the sister projects' footers: SoloChance.org lights up in Bitcoin orange. */
+.casino-footer a.cf-solochance:hover { color: #F7931A; }
+.cf-disclaimer { margin-top: .6rem !important; color: rgba(255,240,214,.55); }
+@media (max-width: 600px) {
+  .cf-links { flex-direction: column; gap: 6px; }
+}
 
 
 /* ═══════════════════════ Game page: reels, display, wins ═══════════════════════ */
