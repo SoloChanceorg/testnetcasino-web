@@ -65,7 +65,7 @@ Every page has a jukebox (bottom-right on wide screens, top-right corner on phon
 live spectrum display. The music is **composed live in the browser** with the Web Audio API, so there are no audio files. Each song is a recipe (tempo, meter,
 chord progressions, drum groove, bass, comping, lead and a backing band), and a look-ahead step sequencer plays it.
 
-Each song is a 40-bar arrangement that loops (1 to 2.5 minutes):
+Each song is a 40-bar arrangement that loops (about 1 to 2 minutes):
 
 | Section | Bars | What plays |
 |---|---|---|

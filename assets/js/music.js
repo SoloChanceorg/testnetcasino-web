@@ -97,7 +97,7 @@
         lead2: "flute", harm: "marimba", counter: "cello", pad: "strings", ost: { inst: "glock", pat: "....2...1...", oct: 24 } }
     ],
     deepsea: [
-      { name: "Abyssal Drift", genre: "Deep ambient", bpm: 68, meter: 4, sub: 4, swing: 0, root: 62, scale: DOR,
+      { name: "Abyssal Drift", genre: "Deep ambient", bpm: 90, meter: 4, sub: 4, swing: 0, root: 62, scale: DOR,
         prog: ["Dm7", "Em7", "Dm7", "Cmaj7", "Dm7", "Em7", "Fmaj7", "Em7"],
         bridge: ["Fmaj7", "G", "Am7", "Em7", "Fmaj7", "G", "Cmaj7", "Am7"],
         drums: "drift", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.16, seed: 51, arp: "bubbles",
@@ -119,7 +119,7 @@
         bridge: ["Dm", "Am", "F", "G", "Dm", "Am", "F", "E"],
         drums: "synthwave", bass: "pulse8", bassInst: "synthbass", comp: "arp16", compInst: "arpsaw", lead: "sawlead", density: 0.36, seed: 61,
         lead2: "brass", harm: "sawlead", counter: "strings", pad: "choir", ost: { inst: "pluck", pat: "0..1..2..1..0.2.", oct: 24 } },
-      { name: "Nebula Dreams", genre: "Space ambient", bpm: 64, meter: 4, sub: 4, swing: 0, root: 60, scale: MAJ,
+      { name: "Nebula Dreams", genre: "Space ambient", bpm: 90, meter: 4, sub: 4, swing: 0, root: 60, scale: MAJ,
         prog: ["Cmaj7", "Am7", "Fmaj7", "G6", "Cmaj7", "Em7", "Fmaj7", "G"],
         bridge: ["Am7", "Em7", "Fmaj7", "Cmaj7", "Dm7", "Am7", "Fmaj7", "G"],
         drums: "none", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.18, seed: 62, arp: "stars",
