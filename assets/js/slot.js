@@ -1287,15 +1287,24 @@
     // (3D tilt, sloped deck and plinths reach beyond the layout box), and re-measured after
     // zooming because the perspective makes the drawn size not quite proportional.
     var MARGIN = 10, PLINTH = 16;   // PLINTH: the cabinet's base plate below the last element
+    // Only what can be seen counts: an element that clips its content (overflow other than
+    // visible, e.g. each reel, whose strip holds many symbols above and below the window)
+    // adds its own box, and nothing inside it is measured.
     function drawnBox() {
       var r = machine.getBoundingClientRect(), b = { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
-      machine.querySelectorAll("*").forEach(function (el) {
-        if (el.closest("[hidden]")) return;
-        var q = el.getBoundingClientRect();
-        if (!q.width && !q.height) return;
-        b.top = Math.min(b.top, q.top); b.left = Math.min(b.left, q.left);
-        b.right = Math.max(b.right, q.right); b.bottom = Math.max(b.bottom, q.bottom);
-      });
+      (function walk(parent) {
+        for (var el = parent.firstElementChild; el; el = el.nextElementSibling) {
+          if (el.hidden) continue;
+          var cs = getComputedStyle(el);
+          if (cs.display === "none" || cs.visibility === "hidden") continue;
+          var q = el.getBoundingClientRect();
+          if (q.width || q.height) {
+            b.top = Math.min(b.top, q.top); b.left = Math.min(b.left, q.left);
+            b.right = Math.max(b.right, q.right); b.bottom = Math.max(b.bottom, q.bottom);
+          }
+          if (cs.overflowX === "visible" && cs.overflowY === "visible") walk(el);
+        }
+      }(machine));
       b.bottom += PLINTH * (parseFloat(machine.style.scale) || 1);
       return { top: b.top, left: b.left, w: b.right - b.left, h: b.bottom - b.top };
     }
