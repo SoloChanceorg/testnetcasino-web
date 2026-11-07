@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Provably fair · TestnetCasino.com</title>
+  <meta name="description" content="How TestnetCasino.com spins are provably fair, with your seeds, your spins and an in-browser verifier.">
+  <meta name="theme-color" content="#052a19">
+  <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="fairness">
+  <a class="skip-link" href="#main">Skip to the fairness page</a>
+  <canvas id="casino-bg" aria-hidden="true"></canvas>
+  <canvas id="coin-shower" aria-hidden="true"></canvas>
+
+  <div class="warning-strip" role="note">
+    <span aria-hidden="true">⚠️</span> Not a real casino: no real money, no mainnet crypto, no deposits. <a href="./#notice">House notice</a>
+  </div>
+
+  <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>
+
+  <div class="page">
+    <header class="logo-area">
+      <a class="marquee small" id="marquee" href="./" aria-label="TestnetCasino.com lobby">
+        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
+      </a>
+    </header>
+
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="./"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="fairness.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
+    </nav>
+
+    <main class="acct-main" id="main" tabindex="-1">
+      <h1 class="page-title">Provably fair</h1>
+
+      <section class="panel" aria-labelledby="how-title">
+        <h2 class="panel-label" id="how-title">⚖️ HOW IT WORKS</h2>
+        <ol class="fair-steps">
+          <li>Before you play, the server picks a secret <b>server seed</b> and shows you its SHA-256 hash. It cannot change the seed later without the hash changing.</li>
+          <li>You choose a <b>client seed</b>. Every spin also has a <b>nonce</b>: 0, 1, 2 and so on.</li>
+          <li>Every reel stop, multiplier, bonus and rounding comes from HMAC-SHA256(server seed, client seed:nonce), so neither side can steer a result alone.</li>
+          <li>When you rotate the seed, the old server seed is revealed. This page then replays your spins in your browser and checks every win.</li>
+        </ol>
+      </section>
+
+      <section class="panel" id="seeds" aria-labelledby="seed-title">
+        <h2 class="panel-label" id="seed-title">🌱 YOUR SEEDS</h2>
+        <div id="seed-out" hidden><p>Sign in to see and change your seeds.</p><a class="btn-red" id="fair-login" href="login.html">🔑 Sign in</a></div>
+        <div id="seed-in" hidden>
+          <dl class="seed-list">
+            <div><dt>Server seed hash</dt><dd class="auth-mono" id="seed-hash">…</dd></div>
+            <div><dt>Client seed</dt><dd class="auth-mono" id="seed-client">…</dd></div>
+            <div><dt>Next nonce</dt><dd id="seed-nonce">…</dd></div>
+          </dl>
+          <form id="cs-form" novalidate>
+            <label class="auth-label" for="cs-input">New client seed</label>
+            <div class="acct-amount">
+              <input class="auth-input auth-mono" id="cs-input" type="text" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false"
+                     aria-describedby="cs-hint cs-error">
+              <button type="button" class="btn-ghost" id="cs-random">🎲 Random</button>
+            </div>
+            <p class="auth-hint" id="cs-hint">1 to 64 letters, digits, _ or -. Setting it also reveals the current server seed and starts a new one.</p>
+            <p class="auth-error" id="cs-error" hidden></p>
+            <div class="auth-row">
+              <button type="submit" class="btn-gold" id="cs-submit">Set client seed</button>
+              <button type="button" class="btn-red" id="rotate-btn">🔓 Reveal server seed</button>
+            </div>
+          </form>
+          <div class="reveal-box" id="reveal" hidden></div>
+          <p class="auth-status" id="seed-status" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="panel" id="spins" aria-labelledby="sp-title">
+        <h2 class="panel-label" id="sp-title">🎰 YOUR SPINS</h2>
+        <div id="sp-in" hidden>
+          <p class="auth-hint">Spins made with the current seed can be checked once you reveal it.</p>
+          <div class="auth-row"><button type="button" class="btn-gold" id="sp-verify-all" disabled>✔ Verify all revealed spins</button></div>
+          <div class="tbl-wrap"><table class="acct-table">
+            <caption class="sr-only">Your spins, newest first</caption>
+            <thead><tr><th scope="col">When</th><th scope="col">Game</th><th scope="col" class="num">Bet</th><th scope="col" class="num">Win</th><th scope="col" class="num">Nonce</th><th scope="col">Check</th></tr></thead>
+            <tbody id="sp-body"></tbody>
+          </table></div>
+          <p class="acct-empty" id="sp-empty" hidden>No spins yet.</p>
+          <button type="button" class="btn-ghost acct-more" id="sp-more" hidden>Load more</button>
+          <p class="auth-status" id="sp-status" role="status" aria-live="polite"></p>
+        </div>
+        <p id="sp-out" hidden>Sign in to see your spins.</p>
+      </section>
+
+      <section class="panel" id="verify" aria-labelledby="vf-title">
+        <h2 class="panel-label" id="vf-title">🔍 VERIFY ANY SPIN</h2>
+        <p class="auth-hint">Anyone can replay a spin from its seeds. Nothing is sent to the server: the check runs in your browser.</p>
+        <form id="vf-form" class="vf-grid" novalidate>
+          <div><label class="auth-label" for="vf-game">Game</label>
+            <select class="auth-input" id="vf-game"><option value="fruit-orchard">Fruit Orchard</option><option value="deep-sea">Deep Sea Treasure</option><option value="cosmic-voyage">Cosmic Voyage</option></select></div>
+          <div><label class="auth-label" for="vf-bet">Bet (sats)</label>
+            <input class="auth-input" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
+          <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
+            <input class="auth-input auth-mono" id="vf-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+          <div class="vf-wide"><label class="auth-label" for="vf-client">Client seed</label>
+            <input class="auth-input auth-mono" id="vf-client" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+          <div><label class="auth-label" for="vf-nonce">Nonce</label>
+            <input class="auth-input" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
+          <div><label class="auth-label" for="vf-expect">Expected win (optional)</label>
+            <input class="auth-input" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
+          <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="vf-submit">🔍 Replay spin</button></div>
+        </form>
+        <div class="vf-result" id="vf-result" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="casino-footer">
+      <p>TestnetCasino.com · A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
+      <p>♠ Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. ♦</p>
+    </footer>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/units.js"></script>
+  <script src="assets/js/faucet.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/fairness-engine.js"></script>
+  <script src="assets/js/fairness.js"></script>
+  <script src="assets/js/fx.js"></script>
+  <script src="assets/js/music.js"></script>
+</body>
+</html>

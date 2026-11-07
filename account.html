@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Account · TestnetCasino.com</title>
+  <meta name="description" content="Your TestnetCasino.com account: balance, withdrawals to your Testnet4 address and balance history.">
+  <meta name="theme-color" content="#052a19">
+  <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="account">
+  <a class="skip-link" href="#main">Skip to your account</a>
+  <canvas id="casino-bg" aria-hidden="true"></canvas>
+  <canvas id="coin-shower" aria-hidden="true"></canvas>
+
+  <div class="warning-strip" role="note">
+    <span aria-hidden="true">⚠️</span> Not a real casino: no real money, no mainnet crypto, no deposits. <a href="./#notice">House notice</a>
+  </div>
+
+  <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>
+
+  <div class="page">
+    <header class="logo-area">
+      <a class="marquee small" id="marquee" href="./" aria-label="TestnetCasino.com lobby">
+        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
+      </a>
+    </header>
+
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="./"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
+    </nav>
+
+    <main class="acct-main" id="main" tabindex="-1">
+      <h1 class="page-title">Your account</h1>
+
+      <section class="panel acct-out" id="acct-out" hidden aria-labelledby="out-title">
+        <h2 class="panel-label" id="out-title">🔑 SIGN IN</h2>
+        <p>Sign in to see your balance, withdraw your tBCH and check your history.</p>
+        <a class="btn-red" id="acct-login" href="login.html">🔑 Sign in</a>
+      </section>
+
+      <p class="panel acct-loading" id="acct-loading" role="status">Loading your account…</p>
+
+      <div id="acct" hidden>
+        <section class="panel" id="withdraw" aria-labelledby="wd-title">
+          <h2 class="panel-label" id="wd-title">📤 WITHDRAW</h2>
+          <p class="acct-balance">Balance <strong id="acct-balance">0</strong></p>
+          <p class="acct-dest" id="wd-dest"></p>
+          <form id="wd-form" novalidate>
+            <label class="auth-label" for="wd-amount">Amount in sats</label>
+            <div class="acct-amount">
+              <input class="auth-input" id="wd-amount" type="number" inputmode="numeric" min="100000" max="10000000" step="1"
+                     placeholder="100000" aria-describedby="wd-hint wd-error">
+              <button type="button" class="btn-ghost" id="wd-max">Max</button>
+            </div>
+            <p class="auth-hint" id="wd-hint">100,000 to 10,000,000 sats per withdrawal, up to 1,000,000 sats a day. The network fee is paid by the faucet.</p>
+            <p class="auth-error" id="wd-error" hidden></p>
+            <button type="submit" class="btn-red auth-wide" id="wd-submit">📤 Withdraw</button>
+            <p class="auth-status" id="wd-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="panel" id="address" aria-labelledby="addr-title" hidden>
+          <h2 class="panel-label" id="addr-title">🏷️ WITHDRAWAL ADDRESS</h2>
+          <p id="addr-current"></p>
+          <form id="addr-step1" novalidate>
+            <label class="auth-label" for="addr-input">Your Testnet4 address</label>
+            <input class="auth-input auth-mono" id="addr-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+                   placeholder="bchtest:q..." aria-describedby="addr-hint addr-error">
+            <p class="auth-hint" id="addr-hint">Prove you own it by signing a message with your wallet. After a change, withdrawals wait 24 hours.</p>
+            <p class="auth-error" id="addr-error" hidden></p>
+            <button type="submit" class="btn-gold auth-wide" id="addr-get">Get message to sign</button>
+          </form>
+          <div id="addr-step2" hidden>
+            <label class="auth-label" for="addr-message">Sign this message</label>
+            <textarea class="auth-input auth-mono auth-message" id="addr-message" rows="4" readonly aria-describedby="addr-expiry"></textarea>
+            <div class="auth-row auth-row-tight">
+              <button type="button" class="btn-ghost" id="addr-copy">📋 Copy message</button>
+              <span class="auth-copied" id="addr-copy-state" aria-live="polite"></span>
+              <span class="auth-expiry" id="addr-expiry">Expires in <strong id="addr-countdown">5:00</strong></span>
+            </div>
+            <p class="auth-howto">In Electron Cash (testnet4): Tools &gt; Sign/verify Message. Paste this message, choose the address, click Sign, then copy the signature here.</p>
+            <form id="addr-step2-form" novalidate>
+              <label class="auth-label" for="addr-signature">Signature</label>
+              <textarea class="auth-input auth-mono" id="addr-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none"
+                        placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="addr-sig-error"></textarea>
+              <p class="auth-error" id="addr-sig-error" hidden></p>
+              <div class="auth-row">
+                <button type="submit" class="btn-red auth-wide" id="addr-submit">Save address</button>
+                <button type="button" class="btn-ghost" id="addr-cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+          <p class="auth-status" id="addr-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel" id="withdrawals" aria-labelledby="wl-title">
+          <h2 class="panel-label" id="wl-title">🧾 WITHDRAWALS</h2>
+          <div class="tbl-wrap"><table class="acct-table">
+            <caption class="sr-only">Your withdrawals, newest first</caption>
+            <thead><tr><th scope="col">Requested</th><th scope="col">Amount</th><th scope="col">To</th><th scope="col">Status</th><th scope="col">Transaction</th></tr></thead>
+            <tbody id="wl-body"></tbody>
+          </table></div>
+          <p class="acct-empty" id="wl-empty" hidden>No withdrawals yet.</p>
+        </section>
+
+        <section class="panel" id="ledger" aria-labelledby="lg-title">
+          <h2 class="panel-label" id="lg-title">📒 BALANCE HISTORY</h2>
+          <div class="tbl-wrap"><table class="acct-table">
+            <caption class="sr-only">Every change to your balance, newest first</caption>
+            <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="num">Change</th><th scope="col" class="num">Balance</th></tr></thead>
+            <tbody id="lg-body"></tbody>
+          </table></div>
+          <p class="acct-empty" id="lg-empty" hidden>Nothing yet.</p>
+          <button type="button" class="btn-ghost acct-more" id="lg-more" hidden>Load more</button>
+          <p class="auth-status" id="lg-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <p class="acct-foot">Every spin with its seeds and a verifier: <a href="fairness.html">⚖️ Fairness</a></p>
+      </div>
+    </main>
+
+    <footer class="casino-footer">
+      <p>TestnetCasino.com · A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
+      <p>♠ Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. ♦</p>
+    </footer>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/units.js"></script>
+  <script src="assets/js/faucet.js"></script>
+  <script src="assets/js/cashaddr.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/account.js"></script>
+  <script src="assets/js/fx.js"></script>
+  <script src="assets/js/music.js"></script>
+</body>
+</html>

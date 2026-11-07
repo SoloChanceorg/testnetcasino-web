@@ -1,26 +1,28 @@
 /*
- * TestnetCasino.com: demo slot machine UI (5 reels × 3 rows, 10 paylines).
+ * TestnetCasino.com: slot machine UI (5 reels × 3 rows, 10 paylines).
  *
- * Demo mode only: the balance is fake sats kept in this browser. Nothing is
- * sent to a server. When the backend is ready, `DemoWallet`, `Engine.round`
- * and `Engine.bonusGame` are the calls to move server-side.
+ * A thin client of testnetcasino-service. Every outcome comes from
+ * POST /spins: the server returns the whole spin as `steps[]` (reel stops,
+ * respins, free spins, bonus games) and this file only animates them. Win
+ * values arrive as whole sats and are shown as they come. Paytables,
+ * symbols and texts come from GET /games/{id}/config. Randomness here is
+ * cosmetic only (blurred symbols while the reels turn, confetti, wheel
+ * jitter); it never decides a result.
  *
- * Each game has a unique feature (Lucky Respin / Expanding Trident /
- * Multiplier Wilds), its own free-spin twist and its own bonus game
- * (Harvest Pick / Ship's Wheel / Warp Ladder). The math lives in engine.js.
+ * Playing requires signing in: signed-out visitors see the machine with a
+ * "Sign in to play" button.
  *
- * Depends on: engine.js (TNC_Engine), games.js (TNC_GAMES),
+ * Depends on: api.js (TNC_API), auth.js (TNC_Auth),
  *             audio.js (TNC_sfx, optional), fx.js (TNC_fx, optional)
  */
 (function () {
   "use strict";
 
-  var Engine = window.TNC_Engine;
-  var DEMO_START = 10000;
+  var api = window.TNC_API;
   var MIN_BET = 1;
   var MAX_BET = 1000;
-  var STORAGE_KEY = "tnc.demo.balance";
-  var REELS = Engine.REELS, ROWS = Engine.ROWS, PAYLINES = Engine.PAYLINES;
+  var SPIN_RETRIES = 3;          // network errors and 5xx: retried with the SAME requestId
+  var REELS = 5, ROWS = 3, PAYLINES = [], MAX_FREE_SPINS = 100;   // from the game config
   var LINE_COLORS = ["#ffd166", "#06d6a0", "#ef476f", "#4cc9f0", "#f78c6b",
                      "#c86bff", "#83e377", "#ff99c8", "#f9c74f", "#90e0ef"];
   var NS = "http://www.w3.org/2000/svg";
@@ -58,32 +60,37 @@
   if (!sfx.isMuted) sfx.isMuted = function () { return true; };
   var fx = window.TNC_fx || { coinShower: noop, burst: noop };
 
-  /* ---------- Demo wallet (shared by all games in this browser) ---------- */
+  /* ---------- Cosmetic randomness (never decides an outcome) ---------- */
 
-  var memoryBalance = DEMO_START;
-  var DemoWallet = {
-    get: function () {
-      try {
-        var v = localStorage.getItem(STORAGE_KEY);
-        if (v !== null && /^\d+$/.test(v)) return parseInt(v, 10);
-      } catch (e) { /* storage blocked: fall back to memory */ }
-      return memoryBalance;
-    },
-    set: function (n) {
-      memoryBalance = n;
-      try { localStorage.setItem(STORAGE_KEY, String(n)); } catch (e) {}
-    },
-    reset: function () { this.set(DEMO_START); }
-  };
-
-  /* ---------- Fair random numbers ---------- */
-
-  function randInt(maxExclusive) {
-    // Rejection sampling over crypto.getRandomValues to avoid modulo bias.
-    var buf = new Uint32Array(1);
-    var limit = Math.floor(0x100000000 / maxExclusive) * maxExclusive;
-    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
-    return buf[0] % maxExclusive;
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function newRequestId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = new Uint8Array(16); crypto.getRandomValues(b);
+    return Array.from(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+  }
+  // Symbol indexes by role. Regular symbols are listed common → rare, so the last one is the top symbol.
+  function kinds(game) {
+    var k = { wild: -1, scatter: -1, bonus: -1, top: -1 };
+    game.symbols.forEach(function (s, i) { if (s.kind) k[s.kind] = i; else k.top = i; });
+    return k;
+  }
+  // Per-reel pickers for the blurred symbols shown while a reel turns.
+  function makePickers(game) {
+    var out = [];
+    for (var c = 0; c < REELS; c++) {
+      var ids = [], total = 0;
+      game.symbols.forEach(function (s, i) {
+        if (!s.reels || s.reels.indexOf(c) !== -1) { ids.push([i, s.weight]); total += s.weight; }
+      });
+      out.push((function (ids, total) {
+        return function () {
+          var x = rnd(total);
+          for (var j = 0; j < ids.length; j++) { if (x < ids[j][1]) return ids[j][0]; x -= ids[j][1]; }
+          return ids[0][0];
+        };
+      }(ids, total)));
+    }
+    return out;
   }
 
   /* ---------- Helpers ---------- */
@@ -101,27 +108,50 @@
   function init() {
     var root = document.getElementById("app");
     var id = document.body.getAttribute("data-game");
-    var game = window.TNC_GAMES && window.TNC_GAMES[id];
-    if (!root || !game || !Engine) return;
+    if (!root || !id || !api) return;
+    root.insertAdjacentHTML("afterbegin", '<p class="panel m-loading" id="m-loading" role="status">Loading the machine…</p>');
+    var msg = document.getElementById("m-loading");
+    (function load(attempt) {
+      api.gameConfig(id).then(function (r) {
+        if (r.status === 200 && r.data && r.data.symbols && r.data.engine) { build(root, id, r.data); return; }
+        if (attempt < 2 && (r.status === 0 || r.status >= 500)) { setTimeout(function () { load(attempt + 1); }, 1500 * (attempt + 1)); return; }
+        msg.innerHTML = esc(api.errorText(r, "This machine could not be loaded.")) + ' <button type="button" class="btn-gold" id="m-retry">Try again</button>';
+        document.getElementById("m-retry").addEventListener("click", function () { msg.textContent = "Loading the machine…"; load(0); });
+      });
+    }(0));
+  }
+
+  function build(root, id, game) {
+    var Auth = window.TNC_Auth;
+    REELS = game.engine.reels || 5;
+    ROWS = game.engine.rows || 3;
+    PAYLINES = game.engine.paylines;
+    MAX_FREE_SPINS = game.engine.maxFreeSpins || 100;
 
     var syms = game.symbols;
-    var K = Engine.kinds(game);
+    var K = kinds(game);
     var WILD = K.wild, SCAT = K.scatter, BONUS = K.bonus, TOP = K.top;
     var FS = game.freeSpins, BON = game.bonus;
-    var S = game.payScale || 1;                         // faucet boost applied to every payout
+    var S = game.payScale || 1;                         // faucet boost the server applies to every payout
+    var RTP = ((game.rtp || game.stats.rtp) * 100).toFixed(2) + "%";
     var BOOST = "+" + ((S - 1) * 100).toFixed(1) + "%";
-    function rawSats(x) { return fmt(Math.floor(bet * x * S)); }   // preview of a paytable value in sats
+    function rawSats(x) { return fmt(Math.floor(bet * x * S)); }   // preview of a paytable value in sats (display only)
     var flavor = FLAVOR[game.theme] || FLAVOR.orchard;
-    var pickers = Engine.makePickers(game, randInt);
+    var pickers = makePickers(game);
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     sfx.setTheme(game.theme);
 
+    function signedIn() { return !!(Auth && Auth.user); }
+    function currentBalance() { return signedIn() && typeof Auth.balance === "number" ? Auth.balance : 0; }
+    var authKnown = !Auth;     // false until GET /me answered, so the lock does not flash for players
+
     var busy = false;          // a spin, feature or bonus is in progress
-    var feature = null;        // Engine.newFeature(...) while free spins run
+    var feature = null;        // { left, played, total, mult, sticky } while free spins run
     var presentToken = 0;      // cancels running celebrations when a new step starts
     var bet = clampBet(parseInt(sessionGet("tnc.bet." + id), 10) || 10);
-    var balShown = DemoWallet.get();
-    var grid = Engine.spinGrid(pickers);
+    var balShown = currentBalance();
+    var grid = [];
+    for (var gc = 0; gc < REELS; gc++) grid.push(picksFor(gc, ROWS));
 
     /* --- Markup: each game has its own machine (cabinet, spin control, bet control) --- */
     var LADDER = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];   // bet steps for − / + / dial / throttle
@@ -144,7 +174,9 @@
           '<div class="reel-toast" id="reel-toast" aria-hidden="true"></div>' +
           '<div class="win-banner" id="win-banner" aria-hidden="true"><div class="rays"></div>' +
             '<div class="wb-title" id="wb-title"></div><div class="wb-amount" id="wb-amount"></div></div>' +
-        '</div>',
+        '</div>' +
+        '<div class="m-lock" id="m-lock" hidden><a class="btn-red m-lock-btn" id="m-lock-btn" href="#">🔑 Sign in to play</a>' +
+          '<p>New accounts get 10,000 free test sats.</p></div>',
       lcd: function (extra) {
         return '<div class="slot-lcd" id="slot-lcd">' + (extra || '') +
           '<div class="lcd-text"><div class="lcd-main" id="lcd-main"></div><div class="lcd-sub" id="lcd-sub"></div></div></div>';
@@ -157,12 +189,12 @@
       },
       tail: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>' +
         '<div class="m-util">' +
-          '<button type="button" class="btn-ghost" id="reset-btn">↺ Reset demo balance</button>' +
-          '<button type="button" class="btn-ghost" disabled title="Withdrawals to a Testnet4 address open when the faucet backend launches.">📤 Withdraw tBCH · coming soon</button>' +
+          '<a class="btn-ghost" href="../account.html#withdraw">📤 Withdraw tBCH</a>' +
+          '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a>' +
         '</div>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>'
     };
-    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Demo sats only: nothing real is wagered.</p>'; }
+    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Testnet sats only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {
@@ -174,7 +206,7 @@
           P.lcd() +
           '<div class="or-deck">' +
             '<div class="or-left">' +
-              '<div class="or-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "DEMO SATS") + '</div>' +
+              '<div class="or-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
               '<div class="or-betbox">' +
                 '<label class="or-label" for="bet-input">Your bet <small>sats · all 10 lines</small></label>' +
                 '<div class="or-stepper"><button type="button" class="or-crate-btn" id="bet-down" aria-label="Lower bet">−</button>' +
@@ -218,7 +250,7 @@
             '<div class="ds-dive-wrap spin-wrap" id="spin-wrap">' +
               '<button type="button" class="ds-dive" id="spin-btn" aria-label="Dive: spin the reels"><span class="dive-label">DIVE</span><span class="dive-sub" id="spin-sub"></span></button>' +
             '</div>' +
-            '<div class="ds-gauges">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "DEMO SATS") + '</div>' +
+            '<div class="ds-gauges">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
           '</div>' +
           hint("Press DIVE") + P.tail +
         '</div>' + P.stage + '</div>';
@@ -235,7 +267,7 @@
           '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
           '<div class="cx-cockpit">' +
-            '<div class="cx-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "DEMO SATS") + '</div>' +
+            '<div class="cx-readouts">' + P.readout("meter-win", "WIN", "SATS") + P.readout("meter-bal", "BALANCE", "SATS") + '</div>' +
             '<div class="cx-launch-wrap spin-wrap" id="spin-wrap">' +
               '<button type="button" class="cx-launch" id="spin-btn" aria-label="Launch: spin the reels"><span class="launch-label">LAUNCH</span><span class="launch-sub" id="spin-sub"></span></button>' +
             '</div>' +
@@ -259,6 +291,7 @@
       '<section class="panel" aria-labelledby="hist-title">' +
         '<h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol>' +
+        '<p class="history-foot">Every spin is provably fair: <a href="../fairness.html">see your seeds and verify your spins</a>.</p>' +
       '</section>';
 
     var machine = $("#slot-machine"), reelsWin = $("#reels-window"), svg = $("#paylines");
@@ -271,9 +304,9 @@
     var meterWin = $("#meter-win"), meterBal = $("#meter-bal"), breakdown = $("#breakdown");
     var banner = $("#win-banner"), fsSign = $("#fs-sign"), historyEl = $("#history");
     var stickyLayer = $("#sticky-layer"), toastEl = $("#reel-toast"), stage = $("#bonus-stage");
-    var resetBtn = $("#reset-btn"), down = $("#bet-down"), up = $("#bet-up"), soundBtn = $("#sound-toggle");
+    var down = $("#bet-down"), up = $("#bet-up"), soundBtn = $("#sound-toggle");
+    var lockEl = $("#m-lock"), lockBtn = $("#m-lock-btn");
     var marquee = document.getElementById("marquee");
-    var balanceEls = document.querySelectorAll("[data-balance]");
 
     function buildPaytable() {
       function pays(p) { return '<b>3</b> × ' + fmtMult(p[0]) + ' · <b>4</b> × ' + fmtMult(p[1]) + ' · <b>5</b> × ' + fmtMult(p[2]); }
@@ -302,7 +335,7 @@
       return '<details class="paytable"><summary>Show paytable, features &amp; stats</summary>' +
         '<div class="pt-section"><div class="pt-h">Features</div><ul class="rules">' +
           '<li><b>' + syms[WILD].emoji + ' ' + esc(game.featureName) + ':</b> ' + esc(game.featureText) + '</li>' +
-          '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + Engine.MAX_FREE_SPINS + ').</li>' +
+          '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + MAX_FREE_SPINS + ').</li>' +
           '<li><b>' + syms[BONUS].emoji + ' ' + esc(BON.name) + ' Bonus:</b> land ' + syms[BONUS].emoji + ' on reels 1, 3 and 5 at once. ' + esc(BON.text) + ' ' + esc(bonusDetail) + '</li>' +
         '</ul></div>' +
         '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet, plus the ' + BOOST + ' faucet boost</div><div class="pt-grid">' + items + '</div></div>' +
@@ -313,16 +346,16 @@
         '</ul></div>' +
         '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
         '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
-          '<div><dt>RTP</dt><dd>' + (game.stats.rtp * 100).toFixed(2) + '%</dd></div>' +
+          '<div><dt>RTP</dt><dd>' + RTP + '</dd></div>' +
           '<div><dt>Faucet boost</dt><dd>' + BOOST + '</dd></div>' +
           '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
           '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
           '<div><dt>Bonus</dt><dd>1 in ' + game.stats.bonusEvery + '</dd></div>' +
           '<div><dt>Volatility</dt><dd>' + esc(game.volatility) + '</dd></div>' +
         '</dl><p class="pt-note">This is a faucet, so the machine pays back slightly more than it takes in: every win, including free spins and bonus prizes, gets a ' + BOOST +
-          ' faucet boost on top of the paytable, for an RTP of ' + (game.stats.rtp * 100).toFixed(2) + '%. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
+          ' faucet boost on top of the paytable, for an RTP of ' + RTP + '. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
           'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'Demo sats have no value. Nothing is wagered.</p></div>' +
+          'Every spin is played on the server and is provably fair. Testnet sats have no monetary value.</p></div>' +
         '</details>';
     }
 
@@ -482,21 +515,15 @@
       banner.className = "win-banner " + kind + " show";
     }
 
-    // Unbiased rounding to whole sats: 2.4 sats pays 3 with 40% chance, else 2.
-    // The expected payout equals the exact value, so the RTP holds at every bet size.
-    function toSats(x) {
-      var whole = Math.floor(x), frac = x - whole;
-      return whole + (frac > 0 && randInt(1000000) < Math.round(frac * 1000000) ? 1 : 0);
-    }
-    function payout(res, mult) {
-      var items = [];
-      res.lines.forEach(function (w) { items.push({ type: "line", w: w, sats: toSats(bet * w.mult * mult) }); });
-      if (res.scatter) items.push({ type: "scatter", w: res.scatter, sats: toSats(bet * res.scatter.mult * mult) });
-      return { items: items, total: items.reduce(function (s, x) { return s + x.sats; }, 0) };
+    // A phase's wins as display items, straight from the server (whole sats, already rounded).
+    function phaseItems(ph) {
+      var items = (ph.lines || []).map(function (w) { return { type: "line", w: w, sats: w.win }; });
+      if (ph.scatter && ph.scatter.win > 0) items.push({ type: "scatter", w: ph.scatter, sats: ph.scatter.win });
+      return { items: items, total: ph.win || 0 };
     }
 
-    function tierOf(res, total) {
-      var jp = res.lines.filter(function (w) { return w.count === 5 && (w.symbol === WILD || w.symbol === TOP); })[0];
+    function tierOf(ph, total) {
+      var jp = (ph.lines || []).filter(function (w) { return w.count === 5 && (w.symbol === WILD || w.symbol === TOP); })[0];
       if (jp) return { tier: "jackpot", jp: jp };
       if (total >= bet * 50) return { tier: "mega" };
       if (total >= bet * 10) return { tier: "big" };
@@ -553,22 +580,22 @@
 
     function renderBreakdown(p, mult) {
       breakdown.innerHTML = p.items.map(function (it) {
-        var w = it.w, tag, combo, note = "", key;
+        var w = it.w, tag, combo, notes = [], key;
         if (it.type === "line") {
           key = "l" + w.line;
           tag = '<span class="bd-tag" style="--lc:' + LINE_COLORS[w.line] + '">LINE ' + (w.line + 1) + '</span>';
           combo = new Array(w.count + 1).join(syms[w.symbol].emoji);
-          if (w.wildMult > 1) note = '<span class="bd-note">wild ×' + w.wildMult + '</span>';
-          else if (w.withWild) note = '<span class="bd-note">+ wild</span>';
+          if (w.wildMult > 1) notes.push("wild ×" + w.wildMult);
         } else {
           key = "s";
           tag = '<span class="bd-tag">SCATTER</span>';
           combo = syms[SCAT].emoji + " × " + w.count;
-          if (w.freeSpins) note = '<span class="bd-note">+' + w.freeSpins + ' free spins</span>';
+          if (w.freeSpins) notes.push("+" + w.freeSpins + " free spins");
         }
-        var m = (it.type === "line" ? w.base : w.mult) / S;   // paytable value; sats include the faucet boost
-        return '<li class="bd-item" tabindex="0" data-key="' + key + '">' + tag + '<span class="bd-combo">' + combo + '</span>' + note +
-          '<span class="bd-amt">' + fmtMult(m) + '×' + (it.type === "line" && w.wildMult > 1 ? ' ×' + w.wildMult : '') + (mult > 1 ? ' ×' + mult : '') + ' = ' + fmt(it.sats) + '</span></li>';
+        if (mult > 1) notes.push("wins ×" + mult);
+        return '<li class="bd-item" tabindex="0" data-key="' + key + '">' + tag + '<span class="bd-combo">' + combo + '</span>' +
+          (notes.length ? '<span class="bd-note">' + notes.join(" · ") + '</span>' : "") +
+          '<span class="bd-amt">' + fmt(it.sats) + ' sats</span></li>';
       }).join("");
     }
     function focusWin(key) {
@@ -585,7 +612,8 @@
     breakdown.addEventListener("focusin", function (e) { var li = e.target.closest(".bd-item"); focusWin(li && li.getAttribute("data-key")); });
     breakdown.addEventListener("focusout", function () { focusWin(null); });
 
-    function describe(res, p, t) {
+    function describe(ph, p, t) {
+      var res = { lines: ph.lines || [], scatter: ph.scatter && ph.scatter.win > 0 ? ph.scatter : null };
       if (t.tier === "jackpot") return "JACKPOT! 5× " + syms[t.jp.symbol].emoji + " on line " + (t.jp.line + 1) + " · " + fmt(p.total) + " sats";
       var parts = [];
       if (res.lines.length === 1) {
@@ -649,31 +677,24 @@
         lcdSub.textContent = "Free spin " + feature.played + " / " + (feature.played + feature.left) +
           (feature.mult > 1 ? " · wins ×" + feature.mult : "") + " · feature won " + fmt(feature.total);
       } else {
-        lcdSub.textContent = "Bet " + fmt(bet) + " sats · 10 lines · demo sats only";
+        lcdSub.textContent = "Bet " + fmt(bet) + " sats · 10 lines · testnet sats";
       }
     }
-    function syncBalance(flash) {
-      var b = DemoWallet.get();
-      balShown = b;
-      meterBal.textContent = fmt(b);
-      balanceEls.forEach(function (n) {
-        n.textContent = fmt(b);
-        if (flash) { n.classList.remove("flash-up"); void n.offsetWidth; n.classList.add("flash-up"); }
-      });
+    function syncBalance() {
+      balShown = currentBalance();
+      meterBal.textContent = fmt(balShown);
     }
     function credit(sats, token, ms) {
       if (sats <= 0) return;
-      DemoWallet.set(DemoWallet.get() + sats);
       var from = balShown;
-      balShown = DemoWallet.get();
-      countUp(meterBal, from, balShown, ms, token, false).then(function () { if (token === presentToken) syncBalance(); });
-      balanceEls.forEach(function (n) { n.textContent = fmt(balShown); n.classList.remove("flash-up"); void n.offsetWidth; n.classList.add("flash-up"); });
+      balShown += sats;
+      countUp(meterBal, from, balShown, ms, token, false);
     }
     function renderFeature() {
       if (!feature) { fsSign.hidden = true; return; }
       fsSign.hidden = false;
       var extra = "";
-      if (FS.sticky) extra = '<span>' + syms[WILD].emoji + ' STICKY ' + Object.keys(feature.sticky).length + '</span>';
+      if (FS.sticky) extra = '<span>' + syms[WILD].emoji + ' STICKY ' + feature.sticky + '</span>';
       fsSign.innerHTML = '<span><span class="e">' + syms[SCAT].emoji + '</span> FREE SPINS</span><span>' + feature.left + ' LEFT</span>' +
         (feature.mult > 1 || FS.progressive ? '<span class="mult">WINS ×' + feature.mult + '</span>' : '') + extra +
         '<span>WON ' + fmt(feature.total) + '</span>';
@@ -732,106 +753,112 @@
     function betChanged() {
       if (cantAfford()) showReady(); else setLcd("Bet " + fmt(bet) + " sats. " + flavor.action, "");
     }
-    function cantAfford() { return DemoWallet.get() < bet; }
+    function cantAfford() { return signedIn() && currentBalance() < bet; }
     function updateControls() {
-      var off = !busy && cantAfford();
+      var out = authKnown && !signedIn();
+      var off = !busy && (cantAfford() || out);
       spinBtn.disabled = busy || off;
       spinBtn.classList.toggle("busy", busy);
       spinBtn.setAttribute("aria-busy", busy ? "true" : "false");
       spinWrap.classList.toggle("busy", busy);
       spinWrap.classList.toggle("off", off);
-      spinSub.textContent = busy ? (stage.hidden ? (feature ? "FREE SPINS" : "GOOD LUCK") : "BONUS") : "BET " + fmt(bet);
-      [down, up, betInput, resetBtn].forEach(function (x) { x.disabled = busy; });
+      spinSub.textContent = busy ? (stage.hidden ? (feature ? "FREE SPINS" : "GOOD LUCK") : "BONUS") : out ? "SIGN IN" : "BET " + fmt(bet);
+      [down, up, betInput].forEach(function (x) { x.disabled = busy; });
       quickBtns.forEach(function (b) { b.disabled = busy; });
       if (betRange) betRange.disabled = busy;
       if (betDial) { betDial.setAttribute("aria-disabled", busy ? "true" : "false"); betDial.tabIndex = busy ? -1 : 0; }
+      lockEl.hidden = !out || busy;
+      if (Auth) lockBtn.href = Auth.loginHref();
     }
     function tilt() {
-      var b = DemoWallet.get();
-      setLcd(b < MIN_BET ? "TILT! Out of demo sats. Reset your balance." : "TILT! Bet " + fmt(bet) + " is more than your " + fmt(b) + " sats.", "tilt");
+      var b = currentBalance();
+      setLcd(b < MIN_BET ? "TILT! Out of sats. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " is more than your " + fmt(b) + " sats.", "tilt");
       sfx.tilt();
     }
     function showReady() {
+      if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get 10,000 sats.", ""); return; }
       if (cantAfford()) {
-        var b = DemoWallet.get();
-        setLcd(b < MIN_BET ? "Out of demo sats. Reset your balance to play on." : "Lower your bet: balance is " + fmt(b) + " sats.", "tilt");
+        var b = currentBalance();
+        setLcd(b < MIN_BET ? "Out of sats. Claim your daily bonus to play on." : "Lower your bet: balance is " + fmt(b) + " sats.", "tilt");
       }
     }
+    function askSignIn() {
+      setLcd("Sign in to play. New accounts get 10,000 sats.", "tilt");
+      lockBtn.focus({ preventScroll: false });
+    }
 
-    /* --- One spin: a paid spin, or one free spin. May have several phases (respins). --- */
-    async function playRound(free) {
+    /* --- One `spin` step: the paid spin or one free spin. Several phases = respins. --- */
+    // prespun: the reels are already turning (the paid spin starts before the server answers).
+    async function playSpinStep(st, prespun) {
+      var free = !!st.free;
       var token = ++presentToken;
-      hideBanner();
-      clearWins();
-      meterWin.textContent = "0";
-      if (!free) {
-        DemoWallet.set(DemoWallet.get() - bet);
-        syncBalance();
-      } else {
-        feature.left--;
-        feature.played++;
+      if (!prespun) { hideBanner(); clearWins(); meterWin.textContent = "0"; }
+      if (free) {
+        if (feature.played > 0 && st.multiplier > feature.mult) { toast("🌊 THE TIDE RISES: WINS ×" + st.multiplier + "!", "feat"); sfx.feature(); }
+        feature.played = st.freeSpin;
+        feature.left = st.spinsLeft;
+        feature.mult = st.multiplier;
         renderFeature();
+        setLcd("Free spin " + feature.played + "… good luck!", "");
       }
-      setLcd(free ? "Free spin " + feature.played + "… good luck!" : "Reels spinning… good luck!", "");
+      var roundTotal = 0, lastTier = "none", phases = st.phases || [];
 
-      var r = Engine.round(game, pickers, randInt, free ? feature : null);
-      var roundTotal = 0, lastTier = "none";
-
-      for (var pi = 0; pi < r.phases.length; pi++) {
-        var ph = r.phases[pi];
+      for (var pi = 0; pi < phases.length; pi++) {
+        var ph = phases[pi];
+        var fixedKeys = (ph.fixed || []).map(function (rc) { return rc[0] + "," + rc[1]; });
         if (pi > 0) {
           token = ++presentToken;
           hideBanner();
           clearWins();
           toast(syms[WILD].emoji + " LUCKY RESPIN!", "feat");
-          setLcd("Lucky respin " + pi + ": " + Object.keys(ph.fixed).length + " " + syms[WILD].emoji + " stay put…", "win");
+          setLcd("Lucky respin " + pi + ": " + fixedKeys.length + " " + syms[WILD].emoji + " stay put…", "win");
           sfx.feature();
           await sleep(reduce ? 300 : 900);
         }
-        renderSticky(Object.keys(ph.fixed));
-        sfx.spinStart();
-        startReels();
-        await sleep(reduce ? 200 : (pi ? 450 : 650));
+        if (feature && FS.sticky) { feature.sticky = fixedKeys.length; renderFeature(); }
+        renderSticky(fixedKeys);
+        if (!(prespun && pi === 0)) {
+          sfx.spinStart();
+          startReels();
+          await sleep(reduce ? 200 : (pi ? 450 : 650));
+        }
         await stopAll(ph.grid);
         renderSticky([]);
-        grid = ph.grid;
+        grid = ph.display || ph.grid;
 
-        if (ph.expanded.length) await expandReels(ph.expanded);
-        await showWildMults(ph.wildMults);
+        if (ph.expanded && ph.expanded.length) await expandReels(ph.expanded);
+        if (ph.wildMults) await showWildMults(ph.wildMults);
         reelsWin.setAttribute("aria-label", "Reels: " + [0, 1, 2].map(function (row) {
-          return ph.display.map(function (col) { return syms[col[row]].name; }).join(", ");
+          return grid.map(function (col) { return syms[col[row]].name; }).join(", ");
         }).join("; "));
 
-        var p = payout(ph.res, ph.mult);
-        var t = tierOf(ph.res, p.total);
+        var p = phaseItems(ph);
+        var t = tierOf(ph, p.total);
         roundTotal += p.total;
         lastTier = t.tier;
         highlight(p, token);
-        if (ph.res.bonus) markCells(ph.res.bonus.cells, "b");
-        renderBreakdown(p, ph.mult);
+        if (ph.bonusCells) markCells(ph.bonusCells, "b");
+        renderBreakdown(p, st.multiplier);
         if (!p.items.length) {
-          if (!ph.res.bonus) { setLcd(free ? "No win on this free spin." : quip(ph.grid), ""); sfx.noWin(); }
+          if (!ph.bonusCells) { setLcd(free ? "No win on this free spin." : quip(grid), ""); sfx.noWin(); }
         } else {
-          setLcd(describe(ph.res, p, t), "win" + (t.tier === "jackpot" ? " blink" : ""));
+          setLcd(describe(ph, p, t), "win" + (t.tier === "jackpot" ? " blink" : ""));
           celebrate(p.total, t.tier, token);
         }
-        if (pi < r.phases.length - 1) await sleep(Math.max(reduce ? 400 : 1100, WAIT[t.tier]));
+        if (pi < phases.length - 1) await sleep(Math.max(reduce ? 400 : 1100, WAIT[t.tier]));
       }
 
       if (free) {
         feature.total += roundTotal;
-        var before = feature.mult;
-        Engine.afterFreeSpin(game, feature, roundTotal);
-        if (feature.mult > before) { toast("🌊 THE TIDE RISES: WINS ×" + feature.mult + "!", "feat"); sfx.feature(); }
         renderFeature();
         renderLcdSub();
       }
       addHistory(free ? "free spin" : "bet " + fmt(bet), free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
-      return { award: r.freeSpins, bonus: r.bonus, wait: WAIT[lastTier] };
+      return WAIT[lastTier];
     }
 
     /* --- Bonus games --- */
-    async function runBonus() {
+    async function runBonus(script) {
       var token = ++presentToken;
       await sleep(reduce ? 300 : 700);
       hideBanner();
@@ -844,7 +871,6 @@
       hideBanner();
       clearWins();
 
-      var script = Engine.bonusGame(game, randInt);
       stage.hidden = false;
       stage.className = "bonus-stage bonus-" + BON.type;
       updateControls();
@@ -852,14 +878,14 @@
       else if (BON.type === "wheel") await playWheel(script);
       else await playLadder(script);
 
-      var won = toSats(bet * script.mult);
+      var won = script.win;
       await sleep(reduce ? 400 : 1300);
       stage.hidden = true;
       stage.innerHTML = "";
       token = ++presentToken;
       var tier = won >= bet * 50 ? "mega" : won >= bet * 10 ? "big" : won > 0 ? "win" : "none";
       if (won > 0) {
-        setLcd(BON.name + " paid " + fmtMult(script.mult) + "× = " + fmt(won) + " sats", "win");
+        setLcd(BON.name + " paid " + fmtMult(script.prize) + "× = " + fmt(won) + " sats", "win");
         celebrate(won, tier === "win" ? "big" : tier, token, "BONUS WIN!");
       } else {
         setLcd(BON.name + ": no prize this time.", "");
@@ -895,18 +921,6 @@
             tile.classList.add("worm");
             tile.innerHTML = "<span>🐛</span><small>COLLECT</small>";
             sfx.collect();
-            done = true;
-            clearInterval(autoTimer);
-            sub.textContent = "A worm! The harvest is in: " + fmtMult(total) + "× your bet.";
-            // Show what the other baskets held.
-            var rest = script.order.slice(revealed);
-            tiles.filter(function (t) { return !t.disabled; }).forEach(function (t, i) {
-              var x = rest[i];
-              t.disabled = true;
-              t.classList.add("open", "ghost");
-              t.innerHTML = x === 0 ? "<span>🐛</span>" : "<span>" + pickFruit(x) + "</span><small>" + x + "×</small>";
-            });
-            setTimeout(resolve, 900);
           } else {
             total += v;
             tile.innerHTML = "<span>" + pickFruit(v) + "</span><small>+" + v + "×</small>";
@@ -914,6 +928,20 @@
             sub.textContent = "+" + v + "× (≈" + rawSats(v) + " sats). Keep picking!";
             sfx.reveal(v);
           }
+          if (v !== 0 && revealed < script.picks) return;
+          // The server fixed how many baskets open; the harvest ends here.
+          done = true;
+          clearInterval(autoTimer);
+          sub.textContent = (v === 0 ? "A worm! " : "") + "The harvest is in: " + fmtMult(total) + "× your bet.";
+          // Show what the other baskets held.
+          var rest = script.order.slice(revealed);
+          tiles.filter(function (t) { return !t.disabled; }).forEach(function (t, i) {
+            var x = rest[i];
+            t.disabled = true;
+            t.classList.add("open", "ghost");
+            t.innerHTML = x === 0 ? "<span>🐛</span>" : "<span>" + pickFruit(x) + "</span><small>" + x + "×</small>";
+          });
+          setTimeout(resolve, 900);
         }
         function pickFruit(v) { return v >= 15 ? "🍉" : v >= 10 ? "🍇" : v >= 5 ? "🍊" : v >= 2 ? "🍋" : "🍒"; }
         tiles.forEach(function (t) { t.addEventListener("click", function () { reveal(t); }); });
@@ -1004,11 +1032,12 @@
           if (started) return;
           started = true;
           btn.disabled = true;
-          for (var s = 0; s < script.steps.length; s++) {
+          var boosts = script.boosts || [];
+          for (var s = 0; s < boosts.length; s++) {
             sub.textContent = "Boosting to level " + (level + 2) + "…";
             rocket.className = "rocket boost";
             await sleep(reduce ? 250 : 850);
-            if (script.steps[s]) {
+            if (boosts[s]) {
               level++;
               mark();
               sfx.ladderUp(level);
@@ -1033,9 +1062,10 @@
       });
     }
 
-    /* --- A paid spin plus whatever it triggers --- */
+    /* --- A paid spin: ask the server, then play its steps in order --- */
     async function spin() {
       if (busy) return;
+      if (!signedIn()) { askSignIn(); return; }
       setBet(parseInt(betInput.value, 10));
       if (cantAfford()) { tilt(); updateControls(); return; }
       spinBtn.classList.add("pressed");
@@ -1043,63 +1073,133 @@
       sfx.press();
       busy = true;
       updateControls();
-      var r = await playRound(false);
 
-      if (r.bonus) { await sleep(Math.max(600, r.wait)); await runBonus(); }
+      // The reels start at once and keep turning while the server answers.
+      ++presentToken;
+      hideBanner();
+      clearWins();
+      meterWin.textContent = "0";
+      balShown = currentBalance() - bet;
+      meterBal.textContent = fmt(balShown);
+      setLcd("Reels spinning… good luck!", "");
+      sfx.spinStart();
+      startReels();
+      var t0 = Date.now();
 
-      if (r.award) {
-        var award = r.award;
-        await sleep(Math.max(900, r.wait));
-        feature = Engine.newFeature(game, award);
-        updateControls();
-        renderFeature();
-        var token = ++presentToken;
-        hideBanner();
-        clearWins();
-        showBanner("free", "FREE SPINS!", award + " SPINS · " + flavor.twist);
-        machine.classList.add("celebrate", "in-feature");
-        setLcd(award + " " + FS.name.toLowerCase() + "!", "win blink");
-        sfx.freeSpins();
-        fx.burst(flavor.burst, 30);
-        await sleep(reduce ? 900 : 2400);
-        if (token === presentToken) hideBanner();
+      var r = await requestSpin(bet);
+      if (r.status !== 200 || !r.data || !r.data.steps) { await spinFailed(r); return; }
+      await sleep(Math.max(0, (reduce ? 200 : 650) - (Date.now() - t0)));
 
-        while (feature.left > 0 && feature.played < Engine.MAX_FREE_SPINS) {
-          var fr = await playRound(true);
-          if (fr.bonus) { await sleep(Math.max(600, fr.wait)); await runBonus(); }
-          if (fr.award) {
-            var add = Math.max(0, Math.min(fr.award, Engine.MAX_FREE_SPINS - feature.played - feature.left));
-            if (add) {
-              feature.left += add;
-              renderFeature();
-              renderLcdSub();
-              toast(syms[SCAT].emoji + " RETRIGGER +" + add + "!", "feat");
-              sfx.scatter(5);
-            }
-          }
-          await sleep(Math.max(reduce ? 400 : 900, fr.wait));
-        }
-
-        var total = feature.total, played = feature.played;
+      try { await playSteps(r.data.steps); }
+      finally {
+        busy = false;
         feature = null;
         renderFeature();
-        renderSticky([]);
-        machine.classList.remove("in-feature");
-        var t2 = ++presentToken;
-        hideBanner();
-        clearWins();
-        showBanner(total >= bet * 10 ? "big" : "free", "FEATURE OVER", played + " SPINS WON " + fmt(total) + " SATS");
-        setLcd("Free spins over: " + played + " spins won " + fmt(total) + " sats", total ? "win" : "");
-        meterWin.textContent = fmt(total);
-        if (total >= bet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
-        else if (total > 0) sfx.win(); else sfx.noWin();
-        setTimeout(function () { if (t2 === presentToken) hideBanner(); }, 2600);
+        if (Auth) Auth.setBalance(r.data.balance);
         syncBalance();
+        updateControls();
+        showReady();
       }
+    }
 
+    // One spin = one requestId. A network error, timeout or 5xx retries with the
+    // SAME id: the server then returns the original result and charges nothing extra.
+    function requestSpin(amount) {
+      var rid = newRequestId();
+      return (function attempt(n) {
+        return api.spin(id, amount, rid).then(function (r) {
+          var retry = r.status === 0 || r.status === 502 || r.status === 503 || r.status === 504;
+          if (retry && n < SPIN_RETRIES) {
+            if (n === 0) setLcd("Connection hiccup. Retrying your spin…", "");
+            return sleep(800 * Math.pow(2, n)).then(function () { return attempt(n + 1); });
+          }
+          return r;
+        });
+      }(0));
+    }
+
+    async function spinFailed(r) {
+      sfx.stopSpinLoop();
+      for (var c = 0; c < REELS; c++) setStatic(c, grid[c]);   // back to the last result
       busy = false;
+      var code = api.errorCode(r);
+      if (r.status === 401) {
+        if (Auth) Auth.set(null);
+        setLcd("Your session ended. Sign in to keep playing.", "tilt");
+      } else if (code === "insufficient_funds") {
+        if (Auth) await Auth.refresh();
+        syncBalance();
+        if (cantAfford()) tilt(); else { setLcd(api.errorText(r), "tilt"); sfx.tilt(); }
+      } else {
+        setLcd(api.errorText(r), "tilt");
+        sfx.tilt();
+        // The spin may have been played before the connection dropped: re-read the balance.
+        if ((r.status === 0 || r.status >= 500) && Auth) await Auth.refresh();
+      }
+      syncBalance();
       updateControls();
-      showReady();
+    }
+
+    async function playSteps(steps) {
+      var wait = 0, first = true;
+      for (var i = 0; i < steps.length; i++) {
+        var st = steps[i];
+        if (st.type === "spin") {
+          if (st.free && i > 0 && steps[i - 1].type !== "freeSpinsStart") await sleep(Math.max(reduce ? 400 : 900, wait));
+          wait = await playSpinStep(st, first);
+          first = false;
+        } else if (st.type === "bonus") {
+          await sleep(Math.max(600, wait));
+          await runBonus(st);
+          wait = 0;
+        } else if (st.type === "freeSpinsStart") {
+          await sleep(Math.max(900, wait));
+          await startFeature(st.spins);
+          wait = 0;
+        } else if (st.type === "retrigger") {
+          if (feature) { feature.left = st.spinsLeft; renderFeature(); renderLcdSub(); }
+          toast(syms[SCAT].emoji + " RETRIGGER +" + st.added + "!", "feat");
+          sfx.scatter(5);
+        } else if (st.type === "freeSpinsEnd") {
+          await sleep(Math.max(reduce ? 400 : 900, wait));
+          endFeature(st);
+          wait = 0;
+        }
+      }
+    }
+
+    async function startFeature(spins) {
+      feature = { left: spins, played: 0, total: 0, sticky: 0,
+                  mult: FS.progressive ? FS.progressive.start : (FS.multiplier || 1) };
+      updateControls();
+      renderFeature();
+      var token = ++presentToken;
+      hideBanner();
+      clearWins();
+      showBanner("free", "FREE SPINS!", spins + " SPINS · " + flavor.twist);
+      machine.classList.add("celebrate", "in-feature");
+      setLcd(spins + " " + FS.name.toLowerCase() + "!", "win blink");
+      sfx.freeSpins();
+      fx.burst(flavor.burst, 30);
+      await sleep(reduce ? 900 : 2400);
+      if (token === presentToken) hideBanner();
+    }
+
+    function endFeature(st) {
+      var total = st.win, played = st.played;
+      feature = null;
+      renderFeature();
+      renderSticky([]);
+      machine.classList.remove("in-feature");
+      var t2 = ++presentToken;
+      hideBanner();
+      clearWins();
+      showBanner(total >= bet * 10 ? "big" : "free", "FEATURE OVER", played + " SPINS WON " + fmt(total) + " SATS");
+      setLcd("Free spins over: " + played + " spins won " + fmt(total) + " sats", total ? "win" : "");
+      meterWin.textContent = fmt(total);
+      if (total >= bet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
+      else if (total > 0) sfx.win(); else sfx.noWin();
+      setTimeout(function () { if (t2 === presentToken) hideBanner(); }, 2600);
     }
 
     function addHistory(kind, net, win, tier) {
@@ -1127,7 +1227,7 @@
     // The whole page goes full screen; CSS hides the site chrome and fitMachine()
     // scales the machine (with the `scale` property, so the shake animation's
     // transform still works) to fill the screen.
-    var fsBtn = $("#fs-toggle"), docEl = document.documentElement, stage = machine.parentNode;
+    var fsBtn = $("#fs-toggle"), docEl = document.documentElement, machineStage = machine.parentNode;
     var FS_ICON = {
       enter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
       exit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
@@ -1141,7 +1241,7 @@
       fsBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
     }
     function fitMachine() {
-      machine.style.scale = ""; stage.style.height = "";
+      machine.style.scale = ""; machineStage.style.height = "";
       if (!document.body.classList.contains("is-fullscreen")) return;
       var cs = getComputedStyle(document.querySelector(".page"));
       var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
@@ -1150,7 +1250,7 @@
       if (!h || !w) return;
       var k = Math.max(0.4, Math.min(availH / h, availW / w, 1.4));
       machine.style.scale = String(k);
-      stage.style.height = Math.ceil(h * k) + "px";
+      machineStage.style.height = Math.ceil(h * k) + "px";
     }
     function onFsChange() {
       document.body.classList.toggle("is-fullscreen", !!fsElement());
@@ -1240,17 +1340,8 @@
       });
     }
     spinBtn.addEventListener("click", spin);
-    resetBtn.addEventListener("click", function () {
-      var token = ++presentToken;
-      var from = balShown;
-      DemoWallet.reset();
-      hideBanner();
-      clearWins();
-      countUp(meterBal, from, DemoWallet.get(), 900, token, true).then(function () { syncBalance(true); });
-      balShown = DemoWallet.get();
-      setLcd("The house refilled your rack: " + fmt(DEMO_START) + " demo sats", "win");
-      sfx.win();
-      updateControls();
+    lockBtn.addEventListener("click", function (e) {
+      if (Auth) { e.preventDefault(); location.assign(Auth.loginHref()); }
     });
     document.addEventListener("keydown", function (e) {
       var t = e.target, tag = t && t.tagName;
@@ -1261,11 +1352,13 @@
       if (tag === "BUTTON" || tag === "A" || tag === "SUMMARY" || (t && t.closest && t.closest(".bd-item"))) return;
       e.preventDefault();
       if (busy) return;
-      if (cantAfford()) tilt(); else spin();
+      spin();
     });
-    window.addEventListener("storage", function (e) {
-      if (e.key === STORAGE_KEY && !busy) { syncBalance(); updateControls(); showReady(); }
-    });
+    // Balance or session changed (sign-out, daily bonus, another tab): follow it between spins.
+    if (Auth) {
+      Auth.onChange(function () { authKnown = true; if (!busy) { syncBalance(); updateControls(); showReady(); } });
+      (Auth.ready || Promise.resolve()).then(function () { authKnown = true; if (!busy) { syncBalance(); updateControls(); showReady(); } });
+    }
     window.addEventListener("resize", function () { placeChrome(); if (stickyKeys.length) renderSticky(stickyKeys); });
 
     /* --- Initial state --- */
@@ -1308,9 +1401,6 @@
     requestAnimationFrame(go);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { requestAnimationFrame(go); });
   }
-
-  window.TNC_DemoWallet = DemoWallet;
-  window.TNC_DEMO_START = DEMO_START;
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

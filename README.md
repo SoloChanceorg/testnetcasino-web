@@ -8,10 +8,13 @@ A Bitcoin Cash **Testnet4** faucet as a set of slot machines. A project from [So
 
 ## Status
 
-Frontend only, in demo mode. The backoffice and backend (accounts, server-side spins, Testnet4 withdrawals) are not built yet.
+A static frontend (this repo, GitHub Pages) for the backend [testnetcasino-service](https://api.testnetcasino.com), which runs every
+game, balance and account. There is no demo or guest mode: playing requires signing in.
 
-- Demo balance: **10,000 sats**, kept in the browser (`localStorage`) and shared by all games. It can be reset at any time.
-- Bets: **1 to 1,000 sats** per spin.
+- Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
+  **1,000 sat** daily bonus (resets at 00:00 UTC).
+- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **100.01%** (it is a faucet, so it pays back slightly more than it takes).
+- Withdrawals go to the account's verified Testnet4 address (switched off on the server for now).
 
 ## Games
 
@@ -31,18 +34,13 @@ Every machine has:
 | Bonus game (🧺/🧭/🛰️) | **Harvest Pick**: pick baskets until a 🐛 | **Ship's Wheel**: 16 segments, 5×–100× | **Warp Ladder**: 8 levels 3×–1,000×, 60% per boost |
 | Sound | Marimba, plucks, birdsong | Bubbles, sonar, whale calls | Synth arps, lasers, space drone |
 | World | Sunlit orchard, leaves and butterflies | Ocean depths, light shafts, bubbles, fish | Starfield, nebulae, shooting stars |
-| RTP · hit rate | 96.4% · 34% | 95.6% · 32% | 95.9% · 25% |
-| Free spins · bonus | 1 in 76 · 1 in 202 | 1 in 66 · 1 in 432 | 1 in 129 · 1 in 787 |
+| RTP · hit rate | 100.01% · 34% | 100.01% · 32% | 100.01% · 25% |
+| Free spins · bonus | 1 in 75 · 1 in 202 | 1 in 66 · 1 in 431 | 1 in 130 · 1 in 783 |
 | Volatility | Low | Medium | High |
 
-Symbols, weights, paytables, features and bonus settings are in `assets/js/games.js`. The rules (including every feature and the bonus games) are in `assets/js/engine.js`.
-RTP figures come from the Monte Carlo simulator, which runs the same engine code:
-
-```sh
-node tools/simulate.js 10000000 fruit-orchard   # or deep-sea / cosmic-voyage; omit for all
-```
-
-Re-run it after changing any game math and paste the printed `stats` into `games.js`. Use 10M spins: the high-volatility games need that many for a stable RTP.
+Every spin is played on the server (testnetcasino-service), which is the source of truth for the game math: `GET /games/{id}/config`
+returns the symbols, paytables, features and stats, and the algorithm is described in its `docs/FAIRNESS.md` (provably fair:
+HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every game's RTP is 100.01%.
 
 ## Look & feel
 
@@ -65,7 +63,10 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 
 ## Live faucet stats
 
-Every page has a bar at the top with live numbers from `GET https://api.testnetcasino.com/faucet`: the faucet wallet, the house balance, players and pending withdrawals. It refreshes every minute while the tab is visible. A switch shows amounts in tBCH (8 decimals) or in whole tSats; the choice is remembered in `localStorage` (display preference only). This endpoint is public, so it is called for real even in mock mode. The API allows CORS only from `https://testnetcasino.com`, so on localhost the bar shows "Faucet offline".
+Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`), the hot wallet,
+the sum of player balances and pending withdrawals. The server recomputes them at most every 5 minutes; the bar re-reads them every
+minute while the tab is visible and says so when the server marks them `stale`. A switch shows amounts in tBCH (8 decimals) or in
+whole tSats, for the bar and the header balance; the choice is remembered in `localStorage` (display preference only).
 
 ## Returning coins
 
@@ -104,29 +105,74 @@ On/off and volume are remembered across pages, and the current song is remembere
 that was playing resumes on the first tap or key press. Media keys and the OS media controls (Media Session API) work too.
 Recipes live in `PLAYLISTS` in `assets/js/music.js` (the section plan is `FORM`). Add a song by adding a recipe.
 
-## Auth (mock mode)
+## How the site talks to the API
 
-Sign-in lives on `login.html` and has two methods: a **Testnet4 wallet** (address plus a signed message) and a **passkey** (WebAuthn).
-There are no passwords, no email and no social logins. Guests can still play the demo without signing in.
+The contract is `docs/API.md` in testnetcasino-service. `assets/js/api.js` is the only file that knows endpoint paths.
 
-- `assets/js/config.js`: `window.TNC_CONFIG = { apiBase: "https://api.testnetcasino.com", mock: true }`.
-  Set `mock: false` when the Spring Boot backend is live.
-- `?mock=1` or `?mock=0` on any page URL overrides the config for testing. The override sticks for the browser tab (sessionStorage),
-  and `?mock=default` clears it.
-- `assets/js/api.js` is the only file that knows endpoint paths. Real calls use `fetch` with `credentials: "include"` and the header
-  `X-Requested-With: tnc`. The session is an HttpOnly cookie set by the backend, and the frontend never stores a token.
-- Mock mode answers after 300 to 700 ms and keeps a **fake** session in `sessionStorage` (`tnc.mock.session`). Nothing is sent anywhere.
-- `assets/js/cashaddr.js` validates addresses (CashAddr checksum). Only `bchtest:q...` (P2PKH) can sign in. Mainnet, script (`p`),
-  token-aware (`z`) and legacy addresses get a specific message.
-- `assets/js/auth.js` runs the sign-in page and renders the nav pill on every page from `GET /me` (401 = guest).
+- Base URL: `TNC_CONFIG.apiBase` in `assets/js/config.js` (`https://api.testnetcasino.com`).
+- Every call uses `fetch` with `credentials: "include"`; every call except the public ones (`/faucet`, `/games/{id}/config`) sends
+  `X-Requested-With: tnc`, which the server requires on every POST (CSRF). The session is the HttpOnly cookie `__Host-session`: the
+  frontend never stores a token or user data.
+- Every method resolves to `{ status, data }` and never throws (status 0 = network error or 20 s timeout). Errors are
+  `{ error, message }`: the page branches on `error` and shows `message` (`TNC_API.errorText`).
+- CORS allows `https://testnetcasino.com` (plus localhost when the backend runs with the `dev` profile). Passkeys only work on
+  `https://testnetcasino.com` (rp id).
 
-Testing in mock mode:
-- Use any Testnet4 address, for example `bchtest:qr6m7j9njldwwzlg9v7v53unlr4jkmx6eymt9qmp0k`. The `bchtest:` prefix is optional.
-- Any base64 signature of 80+ characters signs you in, and the page has a "Mock: fill a test signature" button.
-  **A signature starting with `bad` fails** with `invalid_signature`. Reusing a message gives `challenge_used`, and waiting
-  5 minutes gives `challenge_expired`.
-- Passkey buttons succeed after a short delay. In mock mode `navigator.credentials` is never called, so no test passkeys end up in
-  your password manager.
+## Playing a game
+
+`assets/js/slot.js` holds no game math. On load it reads `GET /games/{id}/config` (symbols, paytable, features, paylines, stats)
+and builds the machine and the paytable from it. A spin sends `POST /spins { gameId, bet, requestId }` with a new
+`crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
+The reels start turning at once and land on the server's result. The response's `steps[]` are then animated in order:
+`spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
+`retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed) and `freeSpinsEnd`. Every win is shown in sats
+exactly as the server sent it, and the balance is set to the response's `balance` at the end.
+
+Signed-out visitors see the machine with a "Sign in to play" button. Errors show the server's message
+(`insufficient_funds`, `invalid_bet`, `rate_limited`, ...); a 401 means the session ended and shows the sign-in button.
+
+## Account and withdrawals
+
+`account.html` (`assets/js/account.js`), reached from the account pill in the nav:
+
+- **Withdraw**: `POST /withdrawals { amount }`, 100,000 to 10,000,000 sats (1,000,000 a day). The destination is never sent from
+  the browser: wallet accounts withdraw to their sign-in address, passkey accounts to their verified withdrawal address.
+  `503 withdrawals_disabled / withdrawals_paused` and every other error show the server's message.
+- **Withdrawal address** (passkey accounts): `POST /account/withdrawal-address/challenge { address }`, sign the message in a
+  Testnet4 wallet, then `POST /account/withdrawal-address { address, nonce, signature }`. Same pattern as wallet sign-in.
+- **Withdrawals**: `GET /withdrawals`, with each txid linked to the Testnet4 explorer `https://tbch4.loping.net/tx/<txid>`. The list
+  re-reads itself every 15 s while a withdrawal is pending.
+- **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
+
+## Provably fair
+
+`fairness.html` (`assets/js/fairness.js`):
+
+- **Your seeds**: server seed hash, client seed and next nonce (`GET /fairness/seed`). Set a client seed
+  (`POST /fairness/client-seed`) or reveal the server seed (`POST /fairness/rotate`); the page checks the revealed seed against the
+  hash it showed before.
+- **Your spins**: `GET /spins?cursor=`. Once a spin's seed is revealed it can be verified, one by one or all at once.
+- **Verify any spin**: replays a spin from server seed, client seed, nonce, game and bet. Nothing is sent to the server.
+
+`assets/js/fairness-engine.js` is an independent implementation of the backend's `docs/FAIRNESS.md`: HMAC-SHA256 stream with
+`crypto.subtle`, rejection sampling, the slot rules and exact `BigInt` win arithmetic. It decides nothing; it only checks.
+It must reproduce every backend test vector:
+
+```sh
+node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-test-vectors.json; prints 35/35
+```
+
+## Sign-in, account and daily bonus
+
+Sign-in lives on `login.html`: a **Testnet4 wallet** (address plus a signed message) or a **passkey** (WebAuthn). There are no
+passwords, no email and no social logins.
+
+- `assets/js/cashaddr.js` validates addresses (CashAddr checksum) before calling the server. Only `bchtest:q...` (P2PKH) can sign in.
+  Mainnet, script (`p`), token-aware (`z`) and legacy addresses get a specific message.
+- `assets/js/auth.js` reads `GET /me` (`{ user, balance, dailyBonus }`, 401 = signed out) on every page and renders the nav: the
+  balance, the daily bonus pill, the account and "Sign out". It refreshes when the tab becomes visible again.
+- Daily bonus: "Claim 1,000 sats" (`POST /bonus/daily`) when available, otherwise a countdown to `nextClaimAt`. It is in the nav on
+  every page and in a card on the lobby. `409 daily_bonus_claimed` just switches to the countdown.
 - `?next=` sends you back after sign-in (same-origin paths only).
 
 ## Structure
@@ -134,22 +180,26 @@ Testing in mock mode:
 ```
 index.html            Landing page (lobby)
 login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
+account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
+fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
 games/*.html          One page per game (body[data-game] selects the config)
 assets/css/style.css  "Vegas Casino" theme + per-game cabinet skins (.theme-orchard / -deepsea / -cosmic)
-assets/js/engine.js   Slot rules: grid, paylines, wild/scatter/free-spin evaluation (browser + Node)
-assets/js/games.js    Game definitions (symbols, weights, paytables, stats)
-assets/js/slot.js     UI: cabinet, reels, win presentation, free spins, demo wallet
+assets/js/slot.js     UI: loads the game config, sends POST /spins and animates the returned steps
 assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio files), mute saved per browser
 assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
-assets/js/faucet.js   Live faucet stats bar and the tBCH / tSats switch
+assets/js/faucet.js   Live faucet totals bar (GET /faucet)
+assets/js/units.js    tBCH / tSats display switch, shared by the faucet bar and the balance
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
-assets/js/config.js   apiBase + mock switch (?mock=1 / ?mock=0)
-assets/js/api.js      API client: the only place with endpoint paths; mock implementation
+assets/js/config.js   apiBase
+assets/js/api.js      API client: the only place with endpoint paths
 assets/js/cashaddr.js CashAddr decode + checksum validation
-assets/js/auth.js     Session helper (nav pill on every page) + sign-in page logic
-tools/simulate.js     RTP simulator (Node, not used by the site)
+assets/js/auth.js     Session helper (nav, balance, daily bonus) + sign-in page logic
+assets/js/account.js  Account page
+assets/js/fairness.js Fairness page
+assets/js/fairness-engine.js  Provably fair verifier (browser + Node, no DOM)
+tools/verify-vectors.mjs      Checks the verifier against the backend test vectors
 .nojekyll             Serve files as-is on GitHub Pages
 ```
 
@@ -164,8 +214,3 @@ Run it locally:
 ```sh
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
-
-## When the backend arrives
-
-Spin outcomes are generated in the browser (`crypto.getRandomValues`) only because this is a demo.
-Real Testnet4 payouts must use server-side results; replace `DemoWallet` and the `Engine.spinGrid` call in `assets/js/slot.js` with API calls (the server can reuse `engine.js` to evaluate).

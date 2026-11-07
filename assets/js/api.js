@@ -1,22 +1,23 @@
 /*
  * TestnetCasino.com: API client. The ONLY place that knows endpoint paths.
+ * Contract: testnetcasino-service docs/API.md.
  *
- * Every method resolves to { status, data }:
- *   status  HTTP status (0 = network error, never throws)
+ * Every method resolves to { status, data } and never throws:
+ *   status  HTTP status (0 = network error or timeout)
  *   data    parsed JSON body, or null (e.g. 204)
+ * Error bodies are { error, message }; TNC_API.errorText(r) gives the text
+ * to show the player.
  *
- * Real mode: fetch(TNC_CONFIG.apiBase + path) with credentials: "include"
- * (the backend sets an HttpOnly session cookie) and the header
- * "X-Requested-With: tnc". No token is ever stored by the frontend.
- *
- * Mock mode (TNC_CONFIG.mock): answers locally after 300 to 700 ms. See the
- * MOCK section below. It keeps a FAKE session in sessionStorage; this exists
- * only for the mock and must never be used with the real backend.
+ * Calls use credentials: "include" (the session is the HttpOnly cookie
+ * __Host-session) and the header "X-Requested-With: tnc" (required on every
+ * POST). No token or user data is ever stored by the frontend.
  */
 (function () {
   "use strict";
 
-  var cfg = window.TNC_CONFIG || { apiBase: "", mock: true };
+  var cfg = window.TNC_CONFIG || { apiBase: "" };
+  var BASE = cfg.apiBase.replace(/\/$/, "");
+  var TIMEOUT_MS = 20000;
 
   var PATHS = {
     me: "/me",
@@ -27,128 +28,95 @@
     passkeyRegisterVerify: "/auth/passkey/register/verify",
     passkeyLoginOptions: "/auth/passkey/login/options",
     passkeyLoginVerify: "/auth/passkey/login/verify",
-    faucet: "/faucet"
+    bonusDaily: "/bonus/daily",
+    faucet: "/faucet",
+    gameConfig: "/games/",          // + id + "/config"
+    fairnessSeed: "/fairness/seed",
+    fairnessClientSeed: "/fairness/client-seed",
+    fairnessRotate: "/fairness/rotate",
+    spins: "/spins",
+    ledger: "/ledger",
+    withdrawals: "/withdrawals",
+    withdrawalAddressChallenge: "/account/withdrawal-address/challenge",
+    withdrawalAddress: "/account/withdrawal-address"
   };
 
-  /* ═══════════════ Real backend ═══════════════ */
-  function request(method, path, body) {
-    var headers = { "X-Requested-With": "tnc", "Accept": "application/json" };
+  function request(method, path, body, opts) {
+    opts = opts || {};
+    var headers = { "Accept": "application/json" };
+    // Public GETs stay "simple" requests (no preflight); everything else
+    // carries the CSRF header.
+    if (!opts.public) headers["X-Requested-With"] = "tnc";
     if (body !== undefined) headers["Content-Type"] = "application/json";
-    return fetch(cfg.apiBase.replace(/\/$/, "") + path, {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeout || TIMEOUT_MS) : null;
+    return fetch(BASE + path, {
       method: method,
-      credentials: "include",
+      credentials: opts.public ? "omit" : "include",
+      cache: "no-store",
       headers: headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: ctrl ? ctrl.signal : undefined
     }).then(function (res) {
+      clearTimeout(timer);
       if (res.status === 204) return { status: 204, data: null };
       var type = res.headers.get("Content-Type") || "";
       if (type.indexOf("json") === -1) return { status: res.status, data: null };
       return res.json().then(function (data) { return { status: res.status, data: data }; },
                              function () { return { status: res.status, data: null }; });
     }, function () {
+      clearTimeout(timer);
       return { status: 0, data: { error: "network" } };
     });
   }
 
-  // Public, read-only data (no session): a plain GET with no cookies and no
-  // custom headers, so the browser sends no preflight.
-  function publicGet(path) {
-    return fetch(cfg.apiBase.replace(/\/$/, "") + path, { credentials: "omit", cache: "no-cache" })
-      .then(function (res) {
-        return res.json().then(function (data) { return { status: res.status, data: data }; },
-                               function () { return { status: res.status, data: null }; });
-      }, function () { return { status: 0, data: { error: "network" } }; });
-  }
+  function get(path, opts) { return request("GET", path, undefined, opts); }
+  function post(path, body) { return request("POST", path, body); }
+  function withCursor(path, cursor) { return cursor ? path + "?cursor=" + encodeURIComponent(cursor) : path; }
 
-  /* ═══════════════ MOCK (no backend) ═══════════════ */
-  // MOCK ONLY: fake session + issued challenges in sessionStorage. The real
-  // backend keeps the session in an HttpOnly cookie the frontend cannot read.
-  var MOCK_SESSION = "tnc.mock.session";
-  var MOCK_CHALLENGES = "tnc.mock.challenges";
-
-  function mockGet(k, d) { try { var v = sessionStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
-  function mockSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-  function delay() { return 300 + Math.floor(Math.random() * 401); }
-  function reply(status, data) {
-    return new Promise(function (resolve) { setTimeout(function () { resolve({ status: status, data: data }); }, delay()); });
-  }
-  function randHex(n) {
-    var b = new Uint8Array(Math.ceil(n / 2)); crypto.getRandomValues(b);
-    return Array.from(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("").slice(0, n);
-  }
-  function randB64url(bytes) {
-    var b = new Uint8Array(bytes); crypto.getRandomValues(b);
-    return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
-  function mockUser(extra) { return Object.assign({ id: "mock-" + randHex(8) }, extra); }
-  function signIn(user) { mockSet(MOCK_SESSION, user); return reply(200, { user: user }); }
-
-  var mock = {
-    me: function () {
-      var u = mockGet(MOCK_SESSION, null);
-      return u ? reply(200, { user: u }) : reply(401, { error: "unauthorized" });
-    },
-    logout: function () { mockSet(MOCK_SESSION, null); return reply(204, null); },
-
-    walletChallenge: function (body) {
-      var nonce = randHex(10), now = new Date(), exp = new Date(now.getTime() + 5 * 60 * 1000);
-      var message = "testnetcasino.com sign-in | " + body.address + " | nonce " + nonce +
-        " | issued " + now.toISOString() + " | expires " + exp.toISOString();
-      var all = mockGet(MOCK_CHALLENGES, {});
-      all[nonce] = { address: body.address, expiresAt: exp.toISOString(), used: false };
-      mockSet(MOCK_CHALLENGES, all);
-      return reply(200, { message: message, nonce: nonce, expiresAt: exp.toISOString() });
-    },
-    walletVerify: function (body) {
-      var all = mockGet(MOCK_CHALLENGES, {}), ch = all[body.nonce];
-      var sig = String(body.signature || "");
-      // Mock rules: base64 of 80+ chars passes; anything starting with "bad" fails.
-      if (!ch || ch.address !== body.address) return reply(401, { error: "invalid_signature" });
-      if (ch.used) return reply(401, { error: "challenge_used" });
-      if (Date.now() > Date.parse(ch.expiresAt)) return reply(401, { error: "challenge_expired" });
-      if (sig.indexOf("bad") === 0 || sig.length < 80 || !/^[A-Za-z0-9+/]+={0,2}$/.test(sig)) return reply(401, { error: "invalid_signature" });
-      ch.used = true;
-      mockSet(MOCK_CHALLENGES, all);
-      return signIn(mockUser({ method: "wallet", address: body.address }));
-    },
-
-    passkeyRegisterOptions: function () {
-      return reply(200, {
-        challenge: randB64url(32),
-        rp: { name: "TestnetCasino.com", id: location.hostname },
-        user: { id: randB64url(16), name: "player-" + randHex(6), displayName: "TestnetCasino player" },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-        timeout: 60000,
-        attestation: "none",
-        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
-        excludeCredentials: []
-      });
-    },
-    passkeyRegisterVerify: function () { return signIn(mockUser({ method: "passkey" })); },
-    passkeyLoginOptions: function () {
-      return reply(200, { challenge: randB64url(32), rpId: location.hostname, timeout: 60000, userVerification: "preferred", allowCredentials: [] });
-    },
-    passkeyLoginVerify: function () { return signIn(mockUser({ method: "passkey" })); }
-  };
-
-  /* ═══════════════ Public API ═══════════════ */
-  function pick(name, method, path, body) {
-    return cfg.mock ? mock[name](body || {}) : request(method, path, body);
-  }
+  var NETWORK = "Cannot reach the server. Check your connection and try again.";
+  var GENERIC = "Something went wrong. Please try again.";
 
   window.TNC_API = {
-    isMock: !!cfg.mock,
-    // Live even in mock mode: the faucet endpoint is public and already online.
-    faucet: function () { return publicGet(PATHS.faucet); },
-    me: function () { return pick("me", "GET", PATHS.me); },
-    logout: function () { return pick("logout", "POST", PATHS.logout); },
-    walletChallenge: function (address) { return pick("walletChallenge", "POST", PATHS.walletChallenge, { address: address }); },
-    walletVerify: function (address, nonce, signature) {
-      return pick("walletVerify", "POST", PATHS.walletVerify, { address: address, nonce: nonce, signature: signature });
+    // Text to show for a failed call: the server's message when it sent one.
+    errorText: function (r, fallback) {
+      if (!r || r.status === 0) return NETWORK;
+      if (r.data && typeof r.data.message === "string" && r.data.message) return r.data.message;
+      return fallback || GENERIC;
     },
-    passkeyRegisterOptions: function () { return pick("passkeyRegisterOptions", "POST", PATHS.passkeyRegisterOptions); },
-    passkeyRegisterVerify: function (credential) { return pick("passkeyRegisterVerify", "POST", PATHS.passkeyRegisterVerify, { credential: credential }); },
-    passkeyLoginOptions: function () { return pick("passkeyLoginOptions", "POST", PATHS.passkeyLoginOptions); },
-    passkeyLoginVerify: function (credential) { return pick("passkeyLoginVerify", "POST", PATHS.passkeyLoginVerify, { credential: credential }); }
+    errorCode: function (r) { return (r && r.data && r.data.error) || null; },
+
+    /* Account */
+    me: function () { return get(PATHS.me); },
+    logout: function () { return post(PATHS.logout); },
+    walletChallenge: function (address) { return post(PATHS.walletChallenge, { address: address }); },
+    walletVerify: function (address, nonce, signature) {
+      return post(PATHS.walletVerify, { address: address, nonce: nonce, signature: signature });
+    },
+    passkeyRegisterOptions: function () { return post(PATHS.passkeyRegisterOptions); },
+    passkeyRegisterVerify: function (credential) { return post(PATHS.passkeyRegisterVerify, { credential: credential }); },
+    passkeyLoginOptions: function () { return post(PATHS.passkeyLoginOptions); },
+    passkeyLoginVerify: function (credential) { return post(PATHS.passkeyLoginVerify, { credential: credential }); },
+    claimDailyBonus: function () { return post(PATHS.bonusDaily); },
+
+    /* Public */
+    faucet: function () { return get(PATHS.faucet, { public: true }); },
+    gameConfig: function (id) { return get(PATHS.gameConfig + encodeURIComponent(id) + "/config", { public: true }); },
+
+    /* Games and fairness */
+    fairnessSeed: function () { return get(PATHS.fairnessSeed); },
+    setClientSeed: function (clientSeed) { return post(PATHS.fairnessClientSeed, { clientSeed: clientSeed }); },
+    rotateSeed: function () { return post(PATHS.fairnessRotate); },
+    spin: function (gameId, bet, requestId) { return post(PATHS.spins, { gameId: gameId, bet: bet, requestId: requestId }); },
+    spinHistory: function (cursor) { return get(withCursor(PATHS.spins, cursor)); },
+    ledger: function (cursor) { return get(withCursor(PATHS.ledger, cursor)); },
+
+    /* Withdrawals */
+    withdraw: function (amount) { return post(PATHS.withdrawals, { amount: amount }); },
+    withdrawals: function () { return get(PATHS.withdrawals); },
+    withdrawalAddressChallenge: function (address) { return post(PATHS.withdrawalAddressChallenge, { address: address }); },
+    setWithdrawalAddress: function (address, nonce, signature) {
+      return post(PATHS.withdrawalAddress, { address: address, nonce: nonce, signature: signature });
+    }
   };
 })();

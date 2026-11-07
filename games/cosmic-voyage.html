@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cosmic Voyage · TestnetCasino.com</title>
-  <meta name="description" content="Cosmic Voyage: Rare hits, astronomical jackpots. Demo slot on TestnetCasino.com, a Bitcoin Cash Testnet4 faucet. Not a real casino, no real money.">
+  <meta name="description" content="Cosmic Voyage: Rare hits, astronomical jackpots. Slot on TestnetCasino.com, a Bitcoin Cash Testnet4 faucet. Not a real casino, no real money.">
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,7 @@
   <canvas id="coin-shower" aria-hidden="true"></canvas>
 
   <div class="warning-strip" role="note">
-    <span aria-hidden="true">⚠️</span> Demo only. Not a real casino: no real money, no mainnet crypto, no deposits. <a href="../#notice">House notice</a>
+    <span aria-hidden="true">⚠️</span> Testnet only. Not a real casino: no real money, no mainnet crypto, no deposits. <a href="../#notice">House notice</a>
   </div>
 
   <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>
@@ -36,12 +36,12 @@
       <a class="chip-link" href="fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
       <a class="chip-link" href="deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
       <a class="chip-link" href="cosmic-voyage.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="../fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
       <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="../login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
-      <span class="chip-balance"><span class="tag">DEMO</span><img class="tbch" src="../assets/img/bch-testnet4.svg" alt=""><strong data-balance>10,000</strong> SATS</span>
     </nav>
 
     <main id="app" tabindex="-1">
-      <noscript><p class="panel">This demo needs JavaScript to spin the reels.</p></noscript>
+      <noscript><p class="panel">This game needs JavaScript to spin the reels.</p></noscript>
     </main>
 
     <section class="panel house-return" id="return" aria-labelledby="return-title">
@@ -49,12 +49,12 @@
       <div class="hr-body">
         <img class="hr-coin" src="../assets/img/bch-testnet4.svg" alt="" width="44" height="44">
         <div class="hr-text">
-          <p>Once you are satisfied with the games and have had enough fun, please return the coins to the house:</p>
+          <p>Done playing? Please send your tBCH back so others can play:</p>
           <div class="copy-field">
             <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
             <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the house address">📋 Copy</button>
           </div>
-          <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+          <p class="hr-note">This address is also for donations from developers. <span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
         </div>
       </div>
     </section>
@@ -67,13 +67,12 @@
 
   <script src="../assets/js/config.js"></script>
   <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/units.js"></script>
   <script src="../assets/js/faucet.js"></script>
   <script src="../assets/js/auth.js"></script>
   <script src="../assets/js/copy.js"></script>
   <script src="../assets/js/fx.js"></script>
   <script src="../assets/js/audio.js"></script>
-  <script src="../assets/js/engine.js"></script>
-  <script src="../assets/js/games.js"></script>
   <script src="../assets/js/slot.js"></script>
   <script src="../assets/js/music.js"></script>
 </body>

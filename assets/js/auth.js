@@ -2,22 +2,24 @@
  * TestnetCasino.com: session helper (every page) + sign-in page logic.
  *
  * Session helper
- *   On load it calls GET /me (via TNC_API) and renders the nav pill in
- *   #auth-nav: "Sign in" for guests (401), or a short wallet address /
- *   "Passkey account" plus "Sign out" when signed in. Guest play is never
- *   blocked. No token is stored: the real backend uses an HttpOnly cookie.
+ *   On load it calls GET /me (via TNC_API): { user, balance, dailyBonus }, or
+ *   401 when signed out. It renders the nav (#auth-nav): "Sign in" for
+ *   visitors; for players the balance, the daily bonus pill, the account
+ *   and "Sign out". On the lobby it also fills the daily bonus card
+ *   (#daily-bonus). No token is stored: the session is an HttpOnly cookie.
  *   Exposed as window.TNC_Auth.
  *
  * Sign-in page (<body data-page="login">)
  *   Two tabs: Testnet4 wallet (address, signed challenge) and Passkey
- *   (WebAuthn). In mock mode navigator.credentials is never called.
+ *   (WebAuthn).
  *
- * Depends on: config.js, api.js; cashaddr.js on the sign-in page.
+ * Depends on: config.js, api.js, units.js; cashaddr.js on the sign-in page.
  */
 (function () {
   "use strict";
 
   var api = window.TNC_API;
+  var U = window.TNC_Units;
   var script = document.currentScript;
   var SITE = new URL("../../", script ? script.src : location.href);   // site root (works under a sub-path too)
   var LOGIN = new URL("login.html", SITE);
@@ -31,33 +33,156 @@
   }
   function userLabel(u) { return u.method === "wallet" && u.address ? short(u.address) : "Passkey account"; }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function fmtSats(n) { return Number(n).toLocaleString("en-US") + " sats"; }
+  function fmtBalance(n) { return U ? U.format(n) : fmtSats(n); }
+  function reducedMotion() { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
+
+  // "5h 12m" (an hour or more), "12m 30s" (less than an hour), "45s"
+  function fmtLeft(ms) {
+    var s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    if (h) return h + "h " + m + "m";
+    if (m) return m + "m " + ("0" + sec).slice(-2) + "s";
+    return sec + "s";
+  }
 
   /* ═══════════════ Session helper (all pages) ═══════════════ */
   var listeners = [];
   var Auth = {
-    user: null,
+    user: null,          // { id, method, address?, withdrawalAddress? }
+    balance: null,       // sats
+    dailyBonus: null,    // { available, amount, nextClaimAt? }
     ready: null,
     short: short,
     label: userLabel,
     onChange: function (fn) { listeners.push(fn); },
-    set: function (u) { Auth.user = u || null; renderNav(); listeners.forEach(function (fn) { fn(Auth.user); }); },
+    // me: a GET /me body, or { user } alone after sign-in.
+    set: function (me) {
+      Auth.user = me && me.user || null;
+      Auth.balance = Auth.user && typeof me.balance === "number" ? me.balance : null;
+      Auth.dailyBonus = Auth.user && me.dailyBonus || null;
+      changed();
+    },
+    setBalance: function (sats) { if (Auth.user && typeof sats === "number") { Auth.balance = sats; changed(); } },
     refresh: function () {
-      return api.me().then(function (r) { Auth.set(r.status === 200 && r.data ? r.data.user : null); return Auth.user; });
+      return api.me().then(function (r) {
+        Auth.set(r.status === 200 && r.data ? r.data : null);
+        return Auth.user;
+      });
     },
     signOut: function () {
       return api.logout().then(function () { Auth.set(null); announce("You are signed out."); });
     },
     loginHref: function () {
       return LOGIN.pathname + "?next=" + encodeURIComponent(location.pathname + location.search + location.hash);
-    }
+    },
+    claimBonus: claimBonus
   };
 
+  function changed() {
+    renderNav();
+    renderBonusCard();
+    tickCountdowns();
+    listeners.forEach(function (fn) { fn(Auth.user, Auth); });
+  }
+
   function announce(msg) { var l = $("auth-live"); if (l) { l.textContent = ""; setTimeout(function () { l.textContent = msg; }, 50); } }
+
+  /* --- Daily bonus --- */
+  var claiming = false, bonusNote = "";
+  function claimBonus() {
+    if (claiming || !Auth.user) return Promise.resolve(false);
+    claiming = true; bonusNote = "";
+    renderNav(); renderBonusCard();
+    return api.claimDailyBonus().then(function (r) {
+      claiming = false;
+      if (r.status === 200 && r.data) {
+        Auth.balance = r.data.balance;
+        Auth.dailyBonus = { available: false, amount: r.data.amount, nextClaimAt: r.data.nextClaimAt };
+        changed();
+        announce("Daily bonus claimed: " + fmtSats(r.data.amount) + " added. Balance " + fmtBalance(r.data.balance) + ".");
+        if (window.TNC_fx && !reducedMotion()) window.TNC_fx.coinShower(40);
+        return true;
+      }
+      if (api.errorCode(r) === "daily_bonus_claimed") return Auth.refresh().then(function () { return false; });
+      if (r.status === 401) { Auth.set(null); return false; }
+      bonusNote = api.errorText(r);
+      changed();
+      announce(bonusNote);
+      return false;
+    });
+  }
+
+  function bonusAmount() { return Auth.dailyBonus && Auth.dailyBonus.amount || 1000; }
+  function nextClaimMs() {
+    var t = Auth.dailyBonus && Date.parse(Auth.dailyBonus.nextClaimAt);
+    return isNaN(t) ? null : t - Date.now();
+  }
+
+  // One timer drives every "Next bonus in ..." label; at zero, /me is read again.
+  var countdownTimer = null, refreshing = false;
+  function tickCountdowns() {
+    var els = document.querySelectorAll("[data-bonus-left]");
+    var left = nextClaimMs();
+    if (!els.length || left === null) { clearInterval(countdownTimer); countdownTimer = null; return; }
+    els.forEach(function (el) { el.textContent = fmtLeft(left); });
+    if (left <= 0 && !refreshing) {
+      refreshing = true;
+      clearInterval(countdownTimer); countdownTimer = null;
+      sleep(1500).then(Auth.refresh).then(function () { refreshing = false; });
+      return;
+    }
+    if (!countdownTimer) countdownTimer = setInterval(tickCountdowns, 1000);
+  }
+
+  function bonusPill() {
+    var b = Auth.dailyBonus;
+    if (!b) return null;
+    if (b.available) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip-link bonus-pill is-ready";
+      btn.disabled = claiming;
+      btn.innerHTML = '<span class="chip-emoji" aria-hidden="true">🎁</span> ' + (claiming ? "Claiming..." : "Claim " + fmtSats(bonusAmount()));
+      if (bonusNote) btn.title = bonusNote;
+      btn.addEventListener("click", function () { claimBonus(); });
+      return btn;
+    }
+    if (nextClaimMs() === null) return null;
+    var span = document.createElement("span");
+    span.className = "chip-link bonus-pill";
+    span.title = "The daily bonus resets at 00:00 UTC.";
+    span.innerHTML = '<span class="chip-emoji" aria-hidden="true">🎁</span> Next bonus in <span data-bonus-left></span>';
+    return span;
+  }
+
+  function renderBonusCard() {
+    var body = $("daily-bonus-body");
+    if (!body) return;
+    var amount = fmtSats(bonusAmount());
+    if (!Auth.user) {
+      body.innerHTML = '<p class="db-text">Sign in and claim <strong>' + amount + '</strong> every day. New accounts also get a 10,000 sat sign-up bonus.</p>' +
+        '<a class="btn-gold db-btn" href="' + Auth.loginHref() + '">🔑 Sign in to claim</a>';
+      return;
+    }
+    var b = Auth.dailyBonus || {};
+    if (b.available) {
+      body.innerHTML = '<p class="db-text">Your free <strong>' + amount + '</strong> for today are waiting.</p>' +
+        '<button type="button" class="btn-red db-btn" id="db-claim"' + (claiming ? " disabled" : "") + '>🎁 ' + (claiming ? "Claiming..." : "Claim " + amount) + '</button>' +
+        (bonusNote ? '<p class="db-note is-error">' + esc(bonusNote) + '</p>' : "");
+      $("db-claim").addEventListener("click", function () { claimBonus(); });
+    } else {
+      body.innerHTML = '<p class="db-text">Claimed for today. Your next <strong>' + amount + '</strong> is ready in</p>' +
+        '<p class="db-left"><span data-bonus-left></span></p>' +
+        '<p class="db-note">The bonus resets every day at 00:00 UTC.</p>';
+    }
+  }
 
   function renderNav() {
     var nav = $("auth-nav");
     if (!nav) return;
     var onLogin = document.body.getAttribute("data-page") === "login";
+    var hadFocus = nav.contains(document.activeElement) && document.activeElement.classList.contains("bonus-pill");
     nav.textContent = "";
     if (!Auth.user) {
       var a = document.createElement("a");
@@ -67,12 +192,24 @@
       a.innerHTML = '<span class="chip-emoji" aria-hidden="true">🔑</span> Sign in';
       nav.appendChild(a);
     } else {
-      var who = document.createElement("span");
+      if (Auth.balance !== null) {
+        var bal = document.createElement("span");
+        bal.className = "chip-balance";
+        bal.innerHTML = TBCH_ICON + "<strong></strong>";
+        bal.querySelector("strong").textContent = fmtBalance(Auth.balance);
+        bal.setAttribute("aria-label", "Balance " + fmtSats(Auth.balance));
+        nav.appendChild(bal);
+      }
+      var pill = bonusPill();
+      if (pill) nav.appendChild(pill);
+      var who = document.createElement("a");
       who.className = "chip-link auth-user";
+      who.href = new URL("account.html", SITE).pathname;
+      if (document.body.getAttribute("data-page") === "account") who.setAttribute("aria-current", "page");
       if (Auth.user.address) who.title = Auth.user.address;
       who.innerHTML = (Auth.user.method === "wallet" ? TBCH_ICON : '<span class="chip-emoji" aria-hidden="true">🔐</span>') + " ";
       who.appendChild(document.createTextNode(userLabel(Auth.user)));
-      who.setAttribute("aria-label", "Signed in as " + (Auth.user.address || "a passkey account"));
+      who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account"));
       var out = document.createElement("button");
       out.type = "button";
       out.className = "chip-link auth-out";
@@ -80,6 +217,7 @@
       out.addEventListener("click", function () { out.disabled = true; Auth.signOut(); });
       nav.appendChild(who);
       nav.appendChild(out);
+      if (hadFocus) { var p = nav.querySelector(".bonus-pill"); if (p && p.tagName === "BUTTON") p.focus(); }
     }
     var live = document.createElement("span");
     live.id = "auth-live"; live.className = "sr-only"; live.setAttribute("aria-live", "polite");
@@ -89,7 +227,11 @@
   window.TNC_Auth = Auth;
   function start() {
     renderNav();
+    renderBonusCard();
+    if (U) U.onChange(function () { renderNav(); tickCountdowns(); });
     Auth.ready = Auth.refresh();
+    // Coming back to the tab: the balance or the bonus may have changed elsewhere.
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && Auth.user) Auth.refresh(); });
     if (document.body.getAttribute("data-page") === "login") loginPage();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
@@ -111,8 +253,6 @@
       return SITE.pathname;
     }
     $("auth-back").href = nextUrl();
-
-    if (api.isMock) $("auth-mock").hidden = false;
 
     /* --- Tabs (WAI-ARIA tabs pattern) --- */
     var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
@@ -152,7 +292,8 @@
     var redirecting = false;
     function succeed(user, statusEl) {
       redirecting = true;
-      Auth.set(user);
+      Auth.set({ user: user });
+      Auth.refresh();
       var dest = nextUrl();
       setStatus(statusEl, "Signed in as " + userLabel(user) + ". Taking you back now.", "ok");
       return sleep(1200).then(function () { location.assign(dest); });
@@ -166,8 +307,6 @@
       if (on) { btn.dataset.label = btn.textContent; btn.textContent = label; btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
       else { btn.textContent = btn.dataset.label || btn.textContent; btn.disabled = false; btn.removeAttribute("aria-busy"); }
     }
-    var NETWORK = "Cannot reach the server. Check your connection and try again.";
-    var GENERIC = "Something went wrong. Please try again.";
 
     /* ═══ Wallet: step 1 (address) → step 2 (sign) → step 3 (done) ═══ */
     var w = { address: null, nonce: null, expiresAt: 0, timer: null };
@@ -212,7 +351,8 @@
       return api.walletChallenge(address).then(function (r) {
         busy(btn, false);
         if (r.status !== 200 || !r.data || !r.data.message) {
-          setStatus(wStatus, r.status === 0 ? NETWORK : r.data && r.data.error === "invalid_address" ? CA.MESSAGES.invalid : GENERIC, "error");
+          if (api.errorCode(r) === "invalid_address") { fieldError(addrInput, addrErr, api.errorText(r, CA.MESSAGES.invalid)); addrInput.focus(); return; }
+          setStatus(wStatus, api.errorText(r), "error");
           return;
         }
         w.address = address;
@@ -271,17 +411,6 @@
     $("w-change").addEventListener("click", function () { resetWallet(); addrInput.focus(); addrInput.select(); });
     $("w-renew").addEventListener("click", function () { requestChallenge(w.address, this); });
 
-    if (api.isMock) {
-      var fill = $("w-fill");
-      fill.hidden = false;
-      fill.addEventListener("click", function () {
-        var b = new Uint8Array(65); crypto.getRandomValues(b); b[0] = 31;   // looks like a real compact signature
-        sigInput.value = btoa(String.fromCharCode.apply(null, b));
-        fieldError(sigInput, sigErr, "");
-        sigInput.focus();
-      });
-    }
-
     var VERIFY_ERRORS = {
       invalid_signature: "The signature does not match this address and message. Sign the exact message with the same address.",
       challenge_expired: "This message expired. Get a new message and sign again.",
@@ -314,7 +443,7 @@
         var code = r.data && r.data.error;
         if (code === "challenge_expired" || code === "challenge_used") { clearInterval(w.timer); expired(VERIFY_ERRORS[code]); return; }
         if (code === "invalid_signature") { fieldError(sigInput, sigErr, VERIFY_ERRORS.invalid_signature); sigInput.focus(); return; }
-        setStatus(wStatus, r.status === 0 ? NETWORK : GENERIC, "error");
+        setStatus(wStatus, api.errorText(r), "error");
       });
     });
 
@@ -381,8 +510,7 @@
       setStatus(pkStatus, "");
       var getOptions = creating ? api.passkeyRegisterOptions() : api.passkeyLoginOptions();
       return getOptions.then(function (r) {
-        if (r.status !== 200 || !r.data) throw { api: r.status === 0 ? NETWORK : GENERIC };
-        if (api.isMock) return { mock: true };   // MOCK: never touch navigator.credentials
+        if (r.status !== 200 || !r.data) throw { api: api.errorText(r) };
         return creating
           ? navigator.credentials.create({ publicKey: creationOptions(r.data) }).then(serialize)
           : navigator.credentials.get({ publicKey: requestOptions(r.data) }).then(serialize);
@@ -390,8 +518,10 @@
         return creating ? api.passkeyRegisterVerify(credential) : api.passkeyLoginVerify(credential);
       }).then(function (r) {
         if (r.status === 200 && r.data && r.data.user) return succeed(r.data.user, pkStatus);
-        if (r.status === 401) throw { api: creating ? "The passkey could not be registered. Please try again." : "That passkey is not registered here. Create a passkey account first." };
-        throw { api: r.status === 0 ? NETWORK : GENERIC };
+        var code = api.errorCode(r);
+        if (code === "challenge_expired") throw { api: "That took too long. Please try again." };
+        if (code === "invalid_passkey") throw { api: creating ? "The passkey could not be registered. Please try again." : "That passkey is not registered here. Create a passkey account first." };
+        throw { api: api.errorText(r) };
       }).catch(function (err) {
         busy(btn, false);
         other.disabled = false;

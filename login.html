@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sign in · TestnetCasino.com</title>
-  <meta name="description" content="Sign in to TestnetCasino.com with your Testnet4 wallet or a passkey. Guests can play the demo without signing in.">
+  <meta name="description" content="Sign in to TestnetCasino.com with your Testnet4 wallet or a passkey. New accounts get a 10,000 sat sign-up bonus.">
   <meta name="theme-color" content="#052a19">
   <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -38,6 +38,7 @@
       <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
       <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
       <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
       <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
     </nav>
 
@@ -45,8 +46,7 @@
       <section class="panel auth-card" aria-labelledby="auth-title">
         <p class="panel-label">♠ PLAYER SIGN-IN ♠</p>
         <h1 class="auth-title" id="auth-title">Sign in</h1>
-        <p class="auth-lead">Guests can play the demo without signing in. Sign in to play with a real tBCH balance and withdraw it to your Testnet4 wallet.</p>
-        <p class="auth-mock" id="auth-mock" hidden><strong>Mock mode.</strong> No real backend is used. Any signature of 80+ base64 characters works. Start it with "bad" to test a failure.</p>
+        <p class="auth-lead">Sign in to play. New accounts get a 10,000 sat sign-up bonus, plus 1,000 sats every day. Your balance is kept on the server and you can withdraw it to your Testnet4 wallet.</p>
 
         <!-- Already signed in -->
         <div class="auth-signed-in" id="auth-signed-in" hidden>
@@ -106,7 +106,6 @@
                           placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="w-signature-note w-signature-error"></textarea>
                 <p class="auth-error" id="w-signature-error" hidden></p>
                 <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals can only go to this address.</p>
-                <button type="button" class="auth-link" id="w-fill" hidden>Mock: fill a test signature</button>
                 <div class="auth-row">
                   <button type="submit" class="btn-red auth-wide" id="w-submit">Sign in</button>
                   <button type="button" class="btn-gold auth-wide" id="w-renew" hidden>Get a new message</button>
@@ -162,6 +161,7 @@
 
   <script src="assets/js/config.js"></script>
   <script src="assets/js/api.js"></script>
+  <script src="assets/js/units.js"></script>
   <script src="assets/js/faucet.js"></script>
   <script src="assets/js/cashaddr.js"></script>
   <script src="assets/js/auth.js"></script>
