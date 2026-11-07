@@ -784,16 +784,17 @@ body.theme-cosmic {
 }
 .or-spin-wrap::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(255,209,102,.8); pointer-events: none; animation: ping 2.4s ease-out infinite; }
 .or-spin-wrap.busy::before, .or-spin-wrap.off::before { animation: none; opacity: 0; }
-/* A ring of bulbs set into the bezel: they twinkle while idle and chase while the reels run. */
-.or-spin-wrap::after {
+/* A ring of bulbs set into the bezel (shared, colour from --bulb): they twinkle while
+   idle and chase while the reels run. */
+.b3-wrap::after {
   content: ""; position: absolute; inset: 3px; border-radius: 50%; pointer-events: none;
-  background: repeating-conic-gradient(from 0deg, #ffe79a 0 6deg, transparent 6deg 30deg);
+  background: repeating-conic-gradient(from 0deg, var(--bulb, #ffe79a) 0 6deg, transparent 6deg 30deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px), #000 calc(100% - 2px), transparent 100%);
           mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px), #000 calc(100% - 2px), transparent 100%);
-  filter: drop-shadow(0 0 3px #ffe79a); opacity: .45; animation: b3-twinkle 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px var(--bulb, #ffe79a)); opacity: .45; animation: b3-twinkle 2.2s ease-in-out infinite;
 }
-.or-spin-wrap.busy::after { opacity: 1; animation: b3-chase .36s steps(1) infinite; }
-.or-spin-wrap.off::after { opacity: .15; animation: none; }
+.b3-wrap.busy::after { opacity: 1; animation: b3-chase .36s steps(1) infinite; }
+.b3-wrap.off::after { opacity: .15; animation: none; }
 .or-spin {
   --w: 136px; --h: 108px; --depth: 16px;
   --cap: radial-gradient(ellipse at 50% 26%, #ffc2c2 0%, #ff4458 26%, #c3101f 62%, #7a0b15 100%);
@@ -889,7 +890,7 @@ body.theme-cosmic {
 .m-orchard .m-tool:active { transform: translateY(2px); box-shadow: 0 0 0 #2e1806, 0 2px 3px rgba(0,0,0,.4); }
 @media (prefers-reduced-motion: reduce) {
   .b3-cap, .spin-wrap:not(.busy):not(.off) .b3-cap, .spin-wrap.busy .b3-cap { animation: none !important; }
-  .b3-shine::before, .or-spin-wrap::after { animation: none !important; }
+  .b3-shine::before, .b3-wrap::after { animation: none !important; }
 }
 .m-orchard .m-hint { color: #f3e2c0; margin-top: 22px; }   /* clears the sloped deck and its plinth */
 .m-orchard .bonus-stage { border-radius: 8px 8px 18px 18px; }
@@ -998,7 +999,7 @@ body.theme-cosmic {
 }
 .ds-dial-center span { display: block; margin-top: 1px; font-size: .7rem; font-weight: 800; letter-spacing: 1.5px; color: #2a1c02; }
 .ds-dial-btns { display: flex; align-items: center; gap: 10px; }
-.ds-dial-btns span { font-size: .7rem; font-weight: 700; letter-spacing: 2px; color: #9fdcf5; }
+.ds-dial-btns span { font-size: .7rem; font-weight: 700; letter-spacing: 2px; color: #9fdcf5; white-space: nowrap; }
 .ds-dial-btns button {
   width: 40px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font: 400 .85rem var(--sign); color: #2a1c02;
   background: linear-gradient(180deg, #f6dd9b, #a87a12); box-shadow: 0 3px 0 #5c4410;
@@ -1007,27 +1008,21 @@ body.theme-cosmic {
 .ds-dial-btns button:disabled { opacity: .5; cursor: not-allowed; }
 
 .ds-dive-wrap {
-  grid-area: dive; position: relative; padding: 10px; border-radius: 50%;
-  background: conic-gradient(from 200deg, #f6dd9b, #6b4e22, #e8c78a, #5c4410, #f6dd9b); box-shadow: 0 8px 18px rgba(0,0,0,.6);
+  grid-area: dive; justify-self: center; position: relative; padding: 12px; border-radius: 50%; --bulb: #7ff3ff;
+  background: conic-gradient(from 200deg, #f6dd9b, #6b4e22, #e8c78a, #5c4410, #f6dd9b);
+  box-shadow: inset 0 3px 3px rgba(255,246,220,.5), inset 0 -5px 9px rgba(0,0,0,.5), 0 9px 0 #4a3510, 0 16px 20px rgba(0,0,0,.6);
 }
-.ds-dive-wrap::before { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(46,197,255,.8); pointer-events: none; animation: ping 2s ease-out infinite; }
+.ds-dive-wrap::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(46,197,255,.8); pointer-events: none; animation: ping 2.4s ease-out infinite; }
 .ds-dive-wrap.busy::before, .ds-dive-wrap.off::before { animation: none; opacity: 0; }
 @keyframes ping { from { transform: scale(1); opacity: .9; } to { transform: scale(1.4); opacity: 0; } }
+/* DIVE: a glossy sea-blue 3D push button (see "3D push button"). */
 .ds-dive {
-  --size: 118px;
-  position: relative; width: var(--size); height: var(--size); border: none; border-radius: 50%; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font: 400 1.4rem var(--sign); letter-spacing: 2px; color: #eaffff; text-shadow: 0 2px 0 #03263d, 0 0 12px rgba(160,240,255,.8);
-  background: radial-gradient(circle at 50% 30%, #b8f6ff 0%, #2ec5ff 25%, #0a5a8a 65%, #052a44 100%);
-  box-shadow: inset 0 -10px 18px rgba(0,0,0,.5), inset 0 8px 14px rgba(255,255,255,.35), 0 5px 0 #03263d;
-  transform: translateY(-3px); transition: transform .08s, box-shadow .08s, filter .2s; -webkit-tap-highlight-color: transparent;
+  --w: 128px; --h: 102px; --depth: 15px;
+  --cap: radial-gradient(ellipse at 50% 26%, #d6fbff 0%, #48d4ff 26%, #0a6aa0 62%, #04304d 100%);
+  --side: linear-gradient(90deg, #021624 0%, #063a5c 22%, #0a5a8a 50%, #063a5c 78%, #021624 100%);
+  --glow: rgba(90,220,255,.95);
+  font: 400 1.5rem var(--sign); letter-spacing: 2px; color: #eaffff; text-shadow: 0 2px 0 #03263d, 0 0 12px rgba(160,240,255,.8);
 }
-.ds-dive::after { content: ""; position: absolute; top: 8%; left: 22%; width: 56%; height: 30%; border-radius: 50%; background: linear-gradient(180deg, rgba(255,255,255,.65), rgba(255,255,255,0)); pointer-events: none; }
-.ds-dive:hover:not(:disabled) { filter: brightness(1.1); }
-.ds-dive:active:not(:disabled), .ds-dive.pressed { transform: translateY(3px); box-shadow: inset 0 -4px 10px rgba(0,0,0,.5), inset 0 6px 10px rgba(255,255,255,.25), 0 0 0 #03263d; }
-.ds-dive:disabled { cursor: not-allowed; filter: grayscale(.8) brightness(.7); }
-.ds-dive-wrap.busy .ds-dive:disabled { cursor: progress; filter: brightness(.82); }
-.dive-sub { margin-top: 2px; font: 700 .7rem var(--body); letter-spacing: 1.5px; text-shadow: none; opacity: .9; }
 .ds-gauges { grid-area: gauges; display: flex; flex-direction: column; gap: 10px; }
 .m-deepsea .m-readout { padding: 6px 8px; border-radius: 12px; background: #021a12; border: 3px solid #b08d57; box-shadow: inset 0 0 10px #000; }
 .m-deepsea .ro-label { color: #f0d38a; }
@@ -1035,6 +1030,39 @@ body.theme-cosmic {
 .m-deepsea .ro-unit { color: #6fb9d6; }
 .m-deepsea .m-hint { color: #a8d8ea; }
 .m-deepsea .bonus-stage { border-radius: 30px; }
+
+/* ═══════════════════════ 🐚 Deep Sea in 3D ═══════════════════════
+   The hull leans back, the console slopes toward the player, the brass keys
+   are raised and the screens are recessed. */
+.ms-deepsea { perspective: 1600px; perspective-origin: 50% 25%; }
+.m-deepsea { rotate: x 4deg; transform-origin: 50% 100%; }
+.ds-hull { box-shadow: 0 0 0 3px #3b2a12, 0 14px 0 #2a1d0b, 0 30px 46px rgba(0,0,0,.65), inset 0 0 30px rgba(0,0,0,.6), 0 0 60px rgba(46,197,255,.2); }
+.m-deepsea.in-feature .ds-hull { box-shadow: 0 0 0 3px #3b2a12, 0 14px 0 #2a1d0b, 0 30px 46px rgba(0,0,0,.65), inset 0 0 30px rgba(0,0,0,.6), 0 0 90px rgba(46,197,255,.7); }
+.ds-plate { box-shadow: 0 6px 0 #5c4410, 0 12px 16px rgba(0,0,0,.45), inset 0 1px 0 #fff6dc; }
+.ds-porthole { box-shadow: 0 8px 0 #4a3510, 0 14px 20px rgba(0,0,0,.6), inset 0 2px 2px rgba(255,255,255,.5); }
+.ds-console {
+  transform: perspective(900px) rotateX(14deg); transform-origin: 50% 0;
+  border-color: #b08d57 #4a3510 #3b2a12 #4a3510;
+  box-shadow: inset 0 3px 10px rgba(0,0,0,.6), inset 0 1px 0 rgba(240,211,138,.35), 0 10px 0 #2a1d0b, 0 18px 22px rgba(0,0,0,.55);
+}
+.m-deepsea .slot-lcd { border-color: #5c4410 #b08d57 #d9b56a #5c4410; box-shadow: inset 0 4px 16px #000, 0 3px 0 #3b2a12; }
+.m-deepsea .m-readout { border-color: #6b4e22 #c9a46a #e8c78a #6b4e22; box-shadow: inset 0 4px 12px #000, 0 2px 0 rgba(240,211,138,.2); }
+.ds-input { border-color: #3b2a12 #b08d57 #c9a46a #3b2a12; box-shadow: inset 0 2px 6px rgba(0,0,0,.8); }
+.ds-dial { box-shadow: 0 0 0 6px #b08d57, 0 0 0 9px #6b4e22, 0 9px 0 3px #3b2a12, 0 14px 20px rgba(0,0,0,.6), inset 0 0 16px #000; }
+.ds-knob {
+  box-shadow: 0 6px 0 #5c4410, 0 10px 14px rgba(0,0,0,.6), inset 0 2px 2px rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
+  translate: 0 -4px;
+}
+.ds-dial.turning .ds-knob { translate: 0 -1px; box-shadow: 0 3px 0 #5c4410, 0 5px 8px rgba(0,0,0,.6), inset 0 2px 2px rgba(255,255,255,.5); }
+.ds-dial-btns button {
+  box-shadow: inset 0 2px 0 rgba(255,246,220,.6), 0 6px 0 #5c4410, 0 10px 10px rgba(0,0,0,.45);
+  transform: translateY(-3px); transition: transform .08s, box-shadow .08s;
+}
+.ds-dial-btns button:hover:not(:disabled) { filter: brightness(1.08); }
+.ds-dial-btns button:active:not(:disabled) { transform: translateY(3px); box-shadow: inset 0 2px 0 rgba(255,246,220,.4), 0 0 0 #5c4410, 0 2px 4px rgba(0,0,0,.4); }
+.m-deepsea .m-tool { box-shadow: inset 0 2px 0 rgba(240,211,138,.3), 0 4px 0 #3b2a12, 0 7px 8px rgba(0,0,0,.5); transform: translateY(-2px); transition: transform .08s, box-shadow .08s; }
+.m-deepsea .m-tool:active { transform: translateY(2px); box-shadow: 0 0 0 #3b2a12, 0 2px 3px rgba(0,0,0,.4); }
+.m-deepsea .m-hint { margin-top: 22px; }   /* clears the sloped console and its plinth */
 
 /* ═══════════════════════ 🌙 Cosmic: starship cockpit + throttle + LAUNCH ═══════════════════════ */
 .m-cosmic { max-width: 720px; color: #e0eaff; filter: drop-shadow(0 0 22px rgba(138,70,240,.45)) drop-shadow(0 18px 28px rgba(0,0,0,.6)); }
@@ -1222,8 +1250,10 @@ body.theme-cosmic {
   .ds-dial { --dial-r: 47px; width: 138px; height: 138px; }
   .ds-knob { width: 62px; height: 62px; margin: -31px 0 0 -31px; }
   .ds-tick { width: 28px; height: 24px; margin: -12px 0 0 -14px; font-size: .64rem; }
-  .ds-dive { --size: 96px; font-size: 1.15rem; }
+  .ds-dive { --w: 96px; --h: 76px; --depth: 12px; font-size: 1.15rem; }
   .ds-dive-wrap { padding: 8px; }
+  .ms-deepsea { perspective: 1100px; }
+  .ds-console { transform: perspective(700px) rotateX(10deg); }
 
   .cx-launch { width: 112px; height: 98px; font-size: .95rem; }
   .m-cosmic .m-tools { top: 8px; left: 16px; right: 16px; }

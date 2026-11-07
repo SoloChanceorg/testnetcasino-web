@@ -225,7 +225,7 @@
                 }).join("") + '</div>' +
               '</div>' +
             '</div>' +
-            '<div class="or-spin-wrap spin-wrap" id="spin-wrap">' +
+            '<div class="or-spin-wrap spin-wrap b3-wrap" id="spin-wrap">' +
               '<button type="button" class="or-spin btn3d" id="spin-btn" aria-label="Spin the reels">' +
                 '<span class="b3-base" aria-hidden="true"></span>' +
                 '<span class="b3-cap"><span class="b3-shine" aria-hidden="true"></span><span class="or-leaf" aria-hidden="true"></span>' +
@@ -256,8 +256,12 @@
               '</div>' +
               '<div class="ds-dial-btns"><button type="button" id="bet-down" aria-label="Lower bet">◀</button><span>BET DIAL</span><button type="button" id="bet-up" aria-label="Raise bet">▶</button></div>' +
             '</div>' +
-            '<div class="ds-dive-wrap spin-wrap" id="spin-wrap">' +
-              '<button type="button" class="ds-dive" id="spin-btn" aria-label="Dive: spin the reels"><span class="dive-label">DIVE</span><span class="dive-sub" id="spin-sub"></span></button>' +
+            '<div class="ds-dive-wrap spin-wrap b3-wrap" id="spin-wrap">' +
+              '<button type="button" class="ds-dive btn3d" id="spin-btn" aria-label="Dive: spin the reels">' +
+                '<span class="b3-base" aria-hidden="true"></span>' +
+                '<span class="b3-cap"><span class="b3-shine" aria-hidden="true"></span>' +
+                  '<span class="spin-label">DIVE</span><span class="spin-sub" id="spin-sub"></span></span>' +
+              '</button>' +
             '</div>' +
             '<div class="ds-gauges">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
           '</div>' +
