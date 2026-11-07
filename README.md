@@ -64,7 +64,8 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 ## Live faucet stats
 
 Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`), the hot wallet,
-the sum of player balances and pending withdrawals. The server recomputes them at most every 5 minutes; the bar re-reads them every
+the sum of player balances and pending withdrawals, plus player counts (all time, last 24 hours, last 30 days, with a
+balance). The server recomputes them at most every 5 minutes; the bar re-reads them every
 minute while the tab is visible and says so when the server marks them `stale`. They are rounded to 2 decimals (hover for the exact value).
 
 ## Units
@@ -212,7 +213,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261107e`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261107f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages

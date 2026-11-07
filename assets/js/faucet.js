@@ -7,6 +7,7 @@
  *   wallet              the hot wallet's confirmed balance
  *   users               sum of all player balances
  *   pendingWithdrawals  withdrawals requested but not yet sent
+ *   players             { allTime, withBalance, last24h, last30d } (counts)
  * The server recomputes them at most every 5 minutes; the bar re-reads them
  * every minute while the tab is visible. Amounts are shown in tBCH, rounded to
  * 2 decimals (the exact value is in the tooltip).
@@ -36,7 +37,15 @@
         stat("pending", "Pending withdrawals") +
       '</dl>' +
       '<span class="fb-time" data-k="time"></span>' +
+      '<dl class="fb-players" data-k="players" hidden>' +
+        '<dt><span aria-hidden="true">👥</span> Players</dt>' +
+        player("allTime", "all time") + player("last24h", "in 24 h") + player("last30d", "in 30 days") + player("withBalance", "with a balance") +
+      '</dl>' +
     '</div>';
+
+  function player(key, label) {
+    return '<dd><strong data-p="' + key + '">…</strong> ' + label + '</dd>';
+  }
 
   function stat(key, label, cls) {
     return '<div class="fb-stat' + (cls ? " " + cls : "") + '"><dt>' + label + '</dt><dd>' +
@@ -66,6 +75,12 @@
       var e = q(p[0]);
       e.textContent = U.round2(p[1]);
       e.parentNode.title = U.format(p[1]);
+    });
+    var pl = data.players, plEl = q("players");
+    plEl.hidden = !pl;
+    if (pl) plEl.querySelectorAll("[data-p]").forEach(function (e) {
+      var v = pl[e.getAttribute("data-p")];
+      e.textContent = typeof v === "number" ? v.toLocaleString("en-US") : "n/a";
     });
     var t = fmtTime(data.updatedAt);
     if (stale) t = (t ? t + ", " : "") + "node unreachable";

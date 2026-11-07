@@ -1646,3 +1646,17 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .seed-list div { grid-template-columns: 1fr; }
 }
 .history-foot { margin: 10px 0 0; font-size: .84rem; color: var(--muted); }
+
+/* Faucet bar: player counts on their own line */
+.fb-players { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 12px; margin: 0; font-size: .92em; color: rgba(255,240,214,.7); }
+.fb-players[hidden] { display: none; }
+.fb-players dt { font-weight: 600; color: rgba(255,240,214,.85); }
+.fb-players dd { margin: 0; white-space: nowrap; }
+.fb-players dd + dd::before { content: "·"; margin-right: 12px; color: rgba(245,197,66,.6); }
+.fb-players strong { color: var(--gold-light); font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  /* Phones: "Players" on its own row, then the four counts as a 2 × 2 grid. */
+  .fb-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; justify-items: start; }
+  .fb-players dt { grid-column: 1 / -1; }
+  .fb-players dd + dd::before { content: none; }
+}
