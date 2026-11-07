@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Sign in · TestnetCasino.com</title>
+  <meta name="description" content="Sign in to TestnetCasino.com with your Testnet4 wallet or a passkey. Guests can play the demo without signing in.">
+  <meta name="theme-color" content="#052a19">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="login">
+  <a class="skip-link" href="#main">Skip to sign-in</a>
+  <canvas id="casino-bg" aria-hidden="true"></canvas>
+  <canvas id="coin-shower" aria-hidden="true"></canvas>
+
+  <div class="warning-strip" role="note">
+    <span aria-hidden="true">⚠️</span> Not a real casino: no real money, no mainnet crypto, no deposits. <a href="./#notice">House notice</a>
+  </div>
+
+  <div class="page">
+    <header class="logo-area">
+      <a class="marquee small" id="marquee" href="./" aria-label="TestnetCasino.com lobby">
+        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
+      </a>
+    </header>
+
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="./"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
+    </nav>
+
+    <main class="auth-main" id="main" tabindex="-1">
+      <section class="panel auth-card" aria-labelledby="auth-title">
+        <p class="panel-label">♠ PLAYER SIGN-IN ♠</p>
+        <h1 class="auth-title" id="auth-title">Sign in</h1>
+        <p class="auth-lead">Guests can play the demo without signing in. Sign in to play with a real tBCH balance and withdraw it to your Testnet4 wallet.</p>
+        <p class="auth-mock" id="auth-mock" hidden><strong>Mock mode.</strong> No real backend is used. Any signature of 80+ base64 characters works. Start it with "bad" to test a failure.</p>
+
+        <!-- Already signed in -->
+        <div class="auth-signed-in" id="auth-signed-in" hidden>
+          <p class="auth-ok-big" aria-hidden="true">✅</p>
+          <p>You are signed in as <strong class="auth-mono" id="auth-who"></strong>.</p>
+          <div class="auth-row">
+            <a class="btn-gold" id="auth-back" href="./">Continue</a>
+            <button type="button" class="btn-ghost" id="auth-signout">Sign out</button>
+          </div>
+        </div>
+
+        <div id="auth-forms">
+          <div class="auth-tabs" role="tablist" aria-label="Sign-in method">
+            <button type="button" class="auth-tab" role="tab" id="tab-wallet" aria-selected="true" aria-controls="panel-wallet" tabindex="0">
+              <span class="chip-emoji" aria-hidden="true">👛</span> Testnet4 wallet</button>
+            <button type="button" class="auth-tab" role="tab" id="tab-passkey" aria-selected="false" aria-controls="panel-passkey" tabindex="-1">
+              <span class="chip-emoji" aria-hidden="true">🔐</span> Passkey</button>
+          </div>
+
+          <!-- ═══ Testnet4 wallet ═══ -->
+          <div class="auth-panel" role="tabpanel" id="panel-wallet" aria-labelledby="tab-wallet">
+            <ol class="auth-steps" aria-label="Wallet sign-in steps">
+              <li id="w-dot1" aria-current="step"><span>1</span> Address</li>
+              <li id="w-dot2"><span>2</span> Sign</li>
+              <li id="w-dot3"><span>3</span> Done</li>
+            </ol>
+
+            <!-- Step 1 -->
+            <form class="auth-step" id="w-step1" novalidate>
+              <label class="auth-label" for="w-address">Your Testnet4 address</label>
+              <input class="auth-input auth-mono" id="w-address" name="address" type="text" inputmode="text"
+                     autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="bchtest:q..."
+                     aria-describedby="w-address-hint w-address-error" required>
+              <p class="auth-hint" id="w-address-hint">Starts with bchtest:q. The prefix is optional.</p>
+              <p class="auth-error" id="w-address-error" hidden></p>
+              <button type="submit" class="btn-red auth-wide" id="w-get">Get sign-in message</button>
+            </form>
+
+            <!-- Step 2 -->
+            <div class="auth-step" id="w-step2" hidden>
+              <p class="auth-for">Signing in as <strong class="auth-mono" id="w-addr-short"></strong>
+                <button type="button" class="auth-link" id="w-change">Change address</button></p>
+
+              <label class="auth-label" for="w-message">Sign this message</label>
+              <textarea class="auth-input auth-mono auth-message" id="w-message" rows="4" readonly aria-describedby="w-expiry"></textarea>
+              <div class="auth-row auth-row-tight">
+                <button type="button" class="btn-ghost" id="w-copy">📋 Copy message</button>
+                <span class="auth-copied" id="w-copy-state" aria-live="polite"></span>
+                <span class="auth-expiry" id="w-expiry">Expires in <strong id="w-countdown">5:00</strong></span>
+              </div>
+
+              <p class="auth-howto">In Electron Cash (testnet4): Tools &gt; Sign/verify Message. Paste this message, choose your address, click Sign, then copy the signature here.</p>
+
+              <form id="w-form-sign" novalidate>
+                <label class="auth-label" for="w-signature">Signature</label>
+                <textarea class="auth-input auth-mono" id="w-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none"
+                          placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="w-signature-note w-signature-error"></textarea>
+                <p class="auth-error" id="w-signature-error" hidden></p>
+                <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals can only go to this address.</p>
+                <button type="button" class="auth-link" id="w-fill" hidden>Mock: fill a test signature</button>
+                <div class="auth-row">
+                  <button type="submit" class="btn-red auth-wide" id="w-submit">Sign in</button>
+                  <button type="button" class="btn-gold auth-wide" id="w-renew" hidden>Get a new message</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="auth-step auth-done" id="w-step3" tabindex="-1" hidden>
+              <p class="auth-ok-big" aria-hidden="true">✅</p>
+              <p>Wallet verified: <strong class="auth-mono" id="w-done-addr"></strong></p>
+              <p class="auth-status" id="w-done-status" role="status" aria-live="polite"></p>
+            </div>
+
+            <p class="auth-status" id="w-status" role="status" aria-live="polite"></p>
+          </div>
+
+          <!-- ═══ Passkey ═══ -->
+          <div class="auth-panel" role="tabpanel" id="panel-passkey" aria-labelledby="tab-passkey" hidden>
+            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Testnet4 wallet option.</p>
+            <div id="pk-actions">
+              <p class="auth-hint">Use Face ID, Touch ID, Windows Hello or a security key. No password needed.</p>
+              <div class="auth-col">
+                <button type="button" class="btn-red auth-wide" id="pk-login">🔐 Sign in with passkey</button>
+                <button type="button" class="btn-gold auth-wide" id="pk-create">✨ Create a passkey account</button>
+              </div>
+              <p class="auth-hint">Passkey accounts add a withdrawal address later in account settings.</p>
+            </div>
+            <p class="auth-status" id="pk-status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel notice auth-notice" aria-labelledby="auth-notice-title">
+        <p class="panel-label">♦ HOUSE NOTICE ♦</p>
+        <div class="notice-body">
+          <span class="notice-icon" aria-hidden="true">⚠️</span>
+          <div>
+            <h2 id="auth-notice-title">Not a real casino</h2>
+            <p>Testnet4 coins have no monetary value and there are no deposits.
+              <strong>We never ask for a password, a private key or a seed phrase.</strong>
+              Signing a message proves you own an address. It cannot move your coins.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="casino-footer">
+      <p>TestnetCasino.com · A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
+      <p>♠ Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. ♦</p>
+    </footer>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/cashaddr.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/fx.js"></script>
+  <script src="assets/js/music.js"></script>
+</body>
+</html>

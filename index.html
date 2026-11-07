@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TestnetCasino.com — Bitcoin Cash Testnet4 Faucet</title>
+  <title>TestnetCasino.com | Bitcoin Cash Testnet4 Faucet</title>
   <meta name="description" content="TestnetCasino.com is a Bitcoin Cash Testnet4 faucet with slot machines. Not a real casino: no real money, no mainnet crypto, no deposits. A project from SoloChance.org.">
   <meta name="theme-color" content="#052a19">
-  <meta property="og:title" content="TestnetCasino.com — Bitcoin Cash Testnet4 Faucet">
+  <meta property="og:title" content="TestnetCasino.com | Bitcoin Cash Testnet4 Faucet">
   <meta property="og:description" content="Spin the slots for fun and win Testnet4 BCH coins. No real money, no deposits.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
@@ -15,16 +15,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
+<body data-page="lobby">
+  <a class="skip-link" href="#main">Skip to content</a>
   <canvas id="casino-bg" aria-hidden="true"></canvas>
   <canvas id="coin-shower" aria-hidden="true"></canvas>
 
   <div class="page">
     <header class="logo-area hero">
-      <a class="marquee" id="marquee" href="./" aria-label="TestnetCasino.com home">
+      <h1 class="logo-h1"><a class="marquee" id="marquee" href="./">
         <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
-        <span class="mq-sub">♠ <span class="suit-red">♥</span> BCH TESTNET4 FAUCET ♣ <span class="suit-red">♦</span></span>
-      </a>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
+      </a></h1>
       <p class="tagline">The fun way to get Bitcoin Cash Testnet4 coins. Spin the reels, win test sats and withdraw them to your Testnet4 address.</p>
       <p class="by">A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
       <div class="hero-cta">
@@ -33,13 +34,15 @@
       </div>
     </header>
 
-    <nav class="nav-bar" aria-label="Games">
-      <a class="chip-link" href="./" aria-current="page"><span class="chip-emoji">🎰</span> Lobby</a>
-      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji">🍒</span> Fruit Orchard</a>
-      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji">🐚</span> Deep Sea</a>
-      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji">🚀</span> Cosmic Voyage</a>
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="./" aria-current="page"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
     </nav>
 
+    <main id="main" tabindex="-1">
     <section class="panel notice" id="notice" aria-labelledby="notice-title">
       <p class="panel-label">♦ HOUSE NOTICE ♦</p>
       <div class="notice-body">
@@ -60,7 +63,7 @@
 
     <section class="panel" id="floor" aria-labelledby="floor-title">
       <h2 class="panel-label" id="floor-title">THE CASINO FLOOR</h2>
-      <p class="panel-sub">Pick a game. Every seat starts with <strong>10,000 demo sats</strong>, and bets run from 1 to 1,000 sats a spin.</p>
+      <p class="panel-sub">Pick a game. Every seat starts with <strong>10,000 demo sats</strong>, and bets run from 1 to 1,000 sats a spin. All machines pay on 10 lines with an RTP of 100.01%.</p>
       <div class="games">
         <a class="game-card theme-orchard" href="games/fruit-orchard.html">
           <div class="gc-topper"><h3>FRUIT ★ ORCHARD</h3></div>
@@ -68,7 +71,7 @@
           <div class="gc-body">
             <p>Sunny classic fruits with frequent small wins.</p>
             <ul class="gc-feats"><li>🌟 <b>Lucky Respin</b>: wilds stick, the rest respin</li><li>🍀 <b>Sticky Wild</b> free spins</li><li>🧺 <b>Harvest Pick</b> bonus game</li></ul>
-            <div class="gc-meta"><span class="badge hot">LOW VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <div class="gc-meta"><span class="badge hot">LOW VOLATILITY</span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
@@ -78,7 +81,7 @@
           <div class="gc-body">
             <p>Dive for pearls, sharks and sunken diamonds.</p>
             <ul class="gc-feats"><li>🔱 <b>Expanding Trident</b> fills its reel</li><li>💎 <b>Rising Tide</b> free spins up to ×10</li><li>🧭 <b>Ship's Wheel</b> bonus game</li></ul>
-            <div class="gc-meta"><span class="badge hot">MEDIUM VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <div class="gc-meta"><span class="badge hot">MEDIUM VOLATILITY</span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
@@ -88,7 +91,7 @@
           <div class="gc-body">
             <p>Rare hits and astronomical jackpots.</p>
             <ul class="gc-feats"><li>🛸 <b>Multiplier Wilds</b> up to ×25</li><li>🌌 <b>Hyperspace</b> free spins, wins ×3</li><li>🛰️ <b>Warp Ladder</b> bonus to 1,000×</li></ul>
-            <div class="gc-meta"><span class="badge hot">HIGH VOLATILITY</span><span class="badge">RTP 100.01%</span><span class="badge">10 LINES</span></div>
+            <div class="gc-meta"><span class="badge hot">HIGH VOLATILITY</span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
@@ -145,12 +148,17 @@
       </details>
     </section>
 
+    </main>
+
     <footer class="casino-footer">
       <p>TestnetCasino.com · A project from <a href="https://solochance.org" rel="noopener">SoloChance.org</a></p>
       <p>♠ Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. ♦</p>
     </footer>
   </div>
 
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/auth.js"></script>
   <script src="assets/js/fx.js"></script>
   <script src="assets/js/music.js"></script>
 </body>

@@ -1,11 +1,14 @@
 /*
- * TestnetCasino.com — jukebox with procedurally composed music (Web Audio API).
+ * TestnetCasino.com: jukebox with procedurally composed music (Web Audio API).
  *
  * No audio files: every song is described by a small recipe (tempo, meter,
- * chord progression, drum groove, bass style, comping style, lead
- * instrument) and played live by a look-ahead step sequencer. The lead
- * melody is composed once per song from a fixed seed, so a song always
- * sounds the same.
+ * chord progressions, drum groove, bass, comping, lead and a backing band)
+ * and played live by a look-ahead step sequencer. Each song is a 40-bar
+ * arrangement (intro, theme, theme with harmony, bridge, full-band theme,
+ * outro) with up to nine parts at once: drums, bass, comping, lead, harmony,
+ * counter-line, pad, ostinato and ambient layers. Melodies are composed once
+ * per song from a fixed seed, so a song always sounds the same. A song
+ * repeats until the player presses next or previous.
  *
  * Each venue has its own playlist, picked by <body data-ambient>:
  *   (none)   lobby: lounge jazz, disco, bossa nova
@@ -24,7 +27,6 @@
 
   var THEME = document.body.getAttribute("data-ambient") || "lobby";
   var KEY = "tnc.music", TRACK_KEY = "tnc.music.track." + THEME, UI_KEY = "tnc.music.open";
-  var LOOPS_PER_SONG = 3;
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function load(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -54,50 +56,79 @@
       PENT = [0, 2, 4, 7, 9], MPENT = [0, 3, 5, 7, 10];
 
   /* ═══════════════ Playlists ═══════════════ */
+  // Per song: groove recipe (drums, bass, comp, lead) plus the band for the
+  // longer arrangement: bridge = chords of the B section, lead2 = who takes the
+  // melody in the bridge, harm = harmony voice a third under the lead,
+  // counter = slow counter-line on the chord's guide tones, pad = sustained
+  // chords, ost = ostinato pattern (digits are chord tones, "." is a rest).
   var PLAYLISTS = {
     lobby: [
       { name: "Velvet Lounge", genre: "Lounge swing", bpm: 92, meter: 4, sub: 4, swing: 0.22, root: 60, scale: MAJ,
         prog: ["Dm7", "G7", "Cmaj7", "A7", "Dm7", "G7", "Em7", "A7"],
-        drums: "lounge", bass: "walk", bassInst: "upright", comp: "charleston", compInst: "epiano", lead: "vibes", density: 0.42, seed: 11 },
+        bridge: ["Fmaj7", "Fm6", "Em7", "A7", "Dm7", "G7", "Em7", "A7"],
+        drums: "lounge", bass: "walk", bassInst: "upright", comp: "charleston", compInst: "epiano", lead: "vibes", density: 0.42, seed: 11,
+        lead2: "piano", harm: "vibes", counter: "muted", pad: "strings" },
       { name: "Neon Strip", genre: "Disco funk", bpm: 116, meter: 4, sub: 4, swing: 0, root: 57, scale: MIN,
         prog: ["Am7", "Am7", "Dm7", "Dm7", "Fmaj7", "G", "Am7", "E7"],
-        drums: "disco", bass: "octave", bassInst: "synthbass", comp: "stabs", compInst: "organ", lead: "sawlead", density: 0.34, seed: 22 },
+        bridge: ["Dm7", "Em7", "Fmaj7", "G", "Dm7", "Em7", "Fmaj7", "E7"],
+        drums: "disco", bass: "octave", bassInst: "synthbass", comp: "stabs", compInst: "organ", lead: "sawlead", density: 0.34, seed: 22,
+        lead2: "brass", harm: "sawlead", counter: "strings", ost: { inst: "clav", pat: "0.1.2.0.1.0.2.1.", oct: 12 } },
       { name: "High Roller Bossa", genre: "Bossa nova", bpm: 124, meter: 4, sub: 4, swing: 0, root: 65, scale: MAJ,
         prog: ["Fmaj7", "Fmaj7", "G7", "G7", "Gm7", "C7", "Fmaj7", "C7"],
-        drums: "bossa", bass: "bossa", bassInst: "upright", comp: "bossa", compInst: "nylon", lead: "flute", density: 0.3, seed: 33 }
+        bridge: ["Bbmaj7", "Bbm6", "Am7", "D7", "Gm7", "C7", "Fmaj7", "C7"],
+        drums: "bossa", bass: "bossa", bassInst: "upright", comp: "bossa", compInst: "nylon", lead: "flute", density: 0.3, seed: 33,
+        lead2: "vibes", harm: "flute", counter: "cello", pad: "strings" }
     ],
     orchard: [
       { name: "Morning Harvest", genre: "Country shuffle", bpm: 104, meter: 4, sub: 4, swing: 0.16, root: 60, scale: PENT,
         prog: ["C", "F", "C", "G", "C", "F", "G", "C"],
-        drums: "country", bass: "root5", bassInst: "upright", comp: "strum", compInst: "banjo", lead: "whistle", density: 0.4, seed: 41, under: "accordion" },
+        bridge: ["F", "C", "Am", "G", "F", "C", "Dm", "G"],
+        drums: "country", bass: "root5", bassInst: "upright", comp: "strum", compInst: "banjo", lead: "whistle", density: 0.4, seed: 41, under: "accordion",
+        lead2: "harmonica", harm: "whistle", counter: "cello", ost: { inst: "glock", pat: "0...2...1...2...", oct: 24 } },
       { name: "Cider Barn Hoedown", genre: "Hoedown", bpm: 148, meter: 4, sub: 4, swing: 0.08, root: 67, scale: MAJ,
         prog: ["G", "C", "G", "D", "G", "C", "D", "G"],
-        drums: "hoedown", bass: "boomchick", bassInst: "upright", comp: "offbeat", compInst: "banjo", lead: "fiddle", density: 0.6, seed: 42 },
+        bridge: ["C", "G", "Em", "D", "C", "G", "A", "D"],
+        drums: "hoedown", bass: "boomchick", bassInst: "upright", comp: "offbeat", compInst: "banjo", lead: "fiddle", density: 0.6, seed: 42,
+        lead2: "harmonica", harm: "fiddle", counter: "accordion", ost: { inst: "mandolin", pat: "0.1.2.1.0.1.2.1.", oct: 12 } },
       { name: "Sunset Picnic Waltz", genre: "Marimba waltz", bpm: 96, meter: 3, sub: 4, swing: 0, root: 65, scale: MAJ,
         prog: ["F", "Am", "Bb", "C", "F", "Dm", "Bb", "C"],
-        drums: "waltz", bass: "waltz", bassInst: "upright", comp: "waltz", compInst: "marimba", lead: "marimba", density: 0.45, seed: 43, under: "pad" }
+        bridge: ["Bb", "C", "Am", "Dm", "Gm", "C", "F", "C"],
+        drums: "waltz", bass: "waltz", bassInst: "upright", comp: "waltz", compInst: "marimba", lead: "marimba", density: 0.45, seed: 43, under: "pad",
+        lead2: "flute", harm: "marimba", counter: "cello", pad: "strings", ost: { inst: "glock", pat: "....2...1...", oct: 24 } }
     ],
     deepsea: [
       { name: "Abyssal Drift", genre: "Deep ambient", bpm: 68, meter: 4, sub: 4, swing: 0, root: 62, scale: DOR,
         prog: ["Dm7", "Em7", "Dm7", "Cmaj7", "Dm7", "Em7", "Fmaj7", "Em7"],
-        drums: "drift", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.16, seed: 51, arp: "bubbles" },
+        bridge: ["Fmaj7", "G", "Am7", "Em7", "Fmaj7", "G", "Cmaj7", "Am7"],
+        drums: "drift", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.16, seed: 51, arp: "bubbles",
+        lead2: "choir", harm: "glock", counter: "cello", pad: "strings", ost: { inst: "kalimba", pat: "0...1.......2...", oct: 12 } },
       { name: "Coral Reef Calypso", genre: "Steel-drum calypso", bpm: 112, meter: 4, sub: 4, swing: 0, root: 60, scale: MAJ,
         prog: ["C", "F", "G", "C", "C", "F", "G7", "C"],
-        drums: "calypso", bass: "calypso", bassInst: "synthbass", comp: "steel", compInst: "steel", lead: "steel", density: 0.5, seed: 52 },
+        bridge: ["Am", "Em", "F", "C", "Dm", "G", "C", "G7"],
+        drums: "calypso", bass: "calypso", bassInst: "synthbass", comp: "steel", compInst: "steel", lead: "steel", density: 0.5, seed: 52,
+        lead2: "marimba", harm: "steel", counter: "brass", ost: { inst: "kalimba", pat: "..0...1...2...1.", oct: 24 } },
       { name: "Sunken Galleon Shanty", genre: "Sea shanty", bpm: 112, meter: 3, sub: 2, swing: 0, root: 62, scale: MIN,
         prog: ["Dm", "C", "Dm", "A", "Dm", "C", "Bb", "A"],
-        drums: "shanty", bass: "waltz", bassInst: "tuba", comp: "accordion", compInst: "accordion", lead: "fiddle", density: 0.62, seed: 53 }
+        bridge: ["F", "C", "Dm", "A", "Bb", "F", "Gm", "A"],
+        drums: "shanty", bass: "waltz", bassInst: "tuba", comp: "accordion", compInst: "accordion", lead: "fiddle", density: 0.62, seed: 53,
+        lead2: "whistle", harm: "fiddle", counter: "cello", pad: "choir" }
     ],
     cosmic: [
       { name: "Hyperdrive", genre: "Synthwave", bpm: 108, meter: 4, sub: 4, swing: 0, root: 57, scale: MIN,
         prog: ["Am", "F", "C", "G", "Am", "F", "C", "E"],
-        drums: "synthwave", bass: "pulse8", bassInst: "synthbass", comp: "arp16", compInst: "arpsaw", lead: "sawlead", density: 0.36, seed: 61 },
+        bridge: ["Dm", "Am", "F", "G", "Dm", "Am", "F", "E"],
+        drums: "synthwave", bass: "pulse8", bassInst: "synthbass", comp: "arp16", compInst: "arpsaw", lead: "sawlead", density: 0.36, seed: 61,
+        lead2: "brass", harm: "sawlead", counter: "strings", pad: "choir", ost: { inst: "pluck", pat: "0..1..2..1..0.2.", oct: 24 } },
       { name: "Nebula Dreams", genre: "Space ambient", bpm: 64, meter: 4, sub: 4, swing: 0, root: 60, scale: MAJ,
         prog: ["Cmaj7", "Am7", "Fmaj7", "G6", "Cmaj7", "Em7", "Fmaj7", "G"],
-        drums: "none", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.18, seed: 62, arp: "stars" },
+        bridge: ["Am7", "Em7", "Fmaj7", "Cmaj7", "Dm7", "Am7", "Fmaj7", "G"],
+        drums: "none", bass: "sub", bassInst: "subbass", comp: "pad", compInst: "pad", lead: "bell", density: 0.18, seed: 62, arp: "stars",
+        lead2: "choir", harm: "glock", counter: "cello", pad: "strings", ost: { inst: "kalimba", pat: "0...1...2...3...", oct: 12 } },
       { name: "Starport 8-bit", genre: "Chiptune", bpm: 132, meter: 4, sub: 4, swing: 0, root: 60, scale: MAJ,
         prog: ["C", "Am", "F", "G", "C", "Am", "F", "G"],
-        drums: "chip", bass: "pulse8", bassInst: "chipbass", comp: "arp16", compInst: "chip", lead: "chip", density: 0.58, seed: 63 }
+        bridge: ["F", "G", "Em", "Am", "F", "G", "C", "G"],
+        drums: "chip", bass: "pulse8", bassInst: "chipbass", comp: "arp16", compInst: "chip", lead: "chip", density: 0.58, seed: 63,
+        lead2: "chiptri", harm: "chip", counter: "chipsq" }
     ]
   };
   var LIST = PLAYLISTS[THEME] || PLAYLISTS.lobby;
@@ -199,7 +230,22 @@
     synthbass: function (t, f, d, v) { voice(t, f, d, { vol: 0.12 * v, type: "sawtooth", d: 0.25, s: 0.4, r: 0.08, lp: 900, lpTo: 260, lpTime: 0.18, q: 3 }); },
     subbass:   function (t, f, d, v) { voice(t, f, d, { vol: 0.2 * v, a: 0.25, d: 0.5, s: 0.85, r: 0.8 }); },
     tuba:      function (t, f, d, v) { voice(t, f, d, { vol: 0.12 * v, type: "square", a: 0.03, d: 0.2, s: 0.6, r: 0.1, lp: 420 }); },
-    chipbass:  function (t, f, d, v) { voice(t, f, d, { vol: 0.12 * v, type: "triangle", a: 0.002, d: 0.1, s: 0.8, r: 0.03 }); }
+    chipbass:  function (t, f, d, v) { voice(t, f, d, { vol: 0.12 * v, type: "triangle", a: 0.002, d: 0.1, s: 0.8, r: 0.03 }); },
+    // Arrangement band (harmony, counter-lines, pads, ostinatos, bridge leads)
+    piano:     function (t, f, d, v) { voice(t, f, d, { vol: 0.07 * v, parts: [[1, 1], [2, 0.45, 0.35], [3, 0.2, 0.18], [4, 0.08, 0.1]], a: 0.003, d: 1.6 }); },
+    muted:     function (t, f, d, v) { voice(t, f, d, { vol: 0.035 * v, type: "sawtooth", a: 0.03, d: 0.15, s: 0.7, r: 0.12, lp: 1300, q: 2, vib: [5, 0.005], vibDelay: 0.15 }); },
+    brass:     function (t, f, d, v) { voice(t, f, d, { vol: 0.03 * v, type: "sawtooth", parts: [[1, 1], [1.004, 0.7]], a: 0.04, d: 0.2, s: 0.75, r: 0.15, lp: 700, lpTo: 2400, lpTime: 0.09 }); },
+    strings:   function (t, f, d, v) { voice(t, f, d, { vol: 0.02 * v, type: "sawtooth", parts: [[1, 1], [1.007, 0.9], [0.995, 0.8]], a: 0.35, d: 0.3, s: 0.85, r: 0.6, lp: 2000, q: 0.5, vib: [5, 0.003], vibDelay: 0.3 }); },
+    cello:     function (t, f, d, v) { voice(t, f, d, { vol: 0.045 * v, type: "sawtooth", a: 0.12, d: 0.2, s: 0.8, r: 0.3, lp: 1100, vib: [5, 0.004], vibDelay: 0.2 }); },
+    choir:     function (t, f, d, v) { voice(t, f, d, { vol: 0.028 * v, type: "sawtooth", parts: [[1, 1], [1.005, 0.8]], a: 0.5, d: 0.3, s: 0.85, r: 0.9, lp: 1000, q: 3, vib: [4.5, 0.004] }); },
+    glock:     function (t, f, d, v) { voice(t, f, d, { vol: 0.04 * v, parts: [[1, 1], [2.76, 0.25, 0.25], [5.4, 0.1, 0.1]], a: 0.002, d: 1.1 }); },
+    kalimba:   function (t, f, d, v) { voice(t, f, d, { vol: 0.08 * v, parts: [[1, 1], [4.2, 0.25, 0.04]], a: 0.002, d: 0.8 }); },
+    harmonica: function (t, f, d, v) { voice(t, f, d, { vol: 0.03 * v, type: "square", parts: [[1, 1], [1.003, 0.6]], a: 0.03, d: 0.1, s: 0.8, r: 0.1, lp: 1800, vib: [6, 0.006], vibDelay: 0.1 }); },
+    mandolin:  function (t, f, d, v) { voice(t, f, d, { vol: 0.035 * v, type: "triangle", parts: [[1, 1], [2, 0.5, 0.06, "sawtooth"]], a: 0.002, d: 0.25, lp: 3500 }); },
+    clav:      function (t, f, d, v) { voice(t, f, d, { vol: 0.035 * v, type: "square", parts: [[1, 1], [2, 0.3]], a: 0.002, d: 0.18, lp: 3000, lpTo: 900, lpTime: 0.12, q: 2 }); },
+    pluck:     function (t, f, d, v) { voice(t, f, d, { vol: 0.03 * v, type: "sawtooth", a: 0.002, d: 0.22, lp: 3000, lpTo: 500, lpTime: 0.18, q: 3 }); },
+    chiptri:   function (t, f, d, v) { voice(t, f, d, { vol: 0.06 * v, type: "triangle", a: 0.002, d: 0.08, s: 0.7, r: 0.04 }); },
+    chipsq:    function (t, f, d, v) { voice(t, f, d, { vol: 0.018 * v, type: "square", a: 0.01, d: 0.1, s: 0.6, r: 0.05 }); }
   };
   var DRUM = {
     s: function (t, v) { noise(t, 0.16, 0.22 * v, "bandpass", 1900, 0.9); voice(t, 190, 0.05, { vol: 0.1 * v, type: "triangle", d: 0.09 }); },
@@ -209,7 +255,8 @@
     b: function (t, v) { noise(t, 0.14, 0.07 * v, "bandpass", 3200, 0.5); },          // brush
     x: function (t, v) { noise(t, 0.05, 0.06 * v, "highpass", 5200); },               // shaker
     r: function (t, v) { voice(t, 1700, 0.02, { vol: 0.06 * v, type: "triangle", d: 0.04 }); noise(t, 0.03, 0.08 * v, "bandpass", 2600, 2); }, // rim
-    t: function (t, v) { voice(t, 170, 0.2, { vol: 0.25 * v, d: 0.3 }); },             // tom
+    t: function (t, v, f) { voice(t, f || 170, 0.2, { vol: 0.25 * v, d: 0.3 }); },     // tom (pitch for fills)
+    y: function (t, v) { noise(t, 1.4, 0.1 * v, "highpass", 4500); noise(t, 0.5, 0.06 * v, "bandpass", 8000, 0.6); }, // crash
     n: function (t, v) { noise(t, 0.06, 0.08 * v, "lowpass", 9000); }                 // chip noise
   };
   function kickDrop(t, v) {
@@ -238,49 +285,115 @@
   var VEL = { a: 1, x: 0.75, g: 0.4 };
 
   /* ═══════════════ Song engine ═══════════════ */
+  // Song form: 40 bars, then the whole arrangement repeats. Each section turns
+  // layers on or off so the song builds up, breaks into the bridge and returns.
+  var FORM = [
+    { name: "intro", bars: 4, chords: "A", from: 4, mel: null, drums: "light", pad: true, ost: true },
+    { name: "A1",    bars: 8, chords: "A", mel: "A",  drums: "full" },
+    { name: "A2",    bars: 8, chords: "A", mel: "A2", drums: "full", harm: true, counter: true, ost: true },
+    { name: "B",     bars: 8, chords: "B", mel: "B",  drums: "full", lead2: true, counter: true, pad: true, ost: true },
+    { name: "A3",    bars: 8, chords: "A", mel: "A",  drums: "full", harm: true, counter: true, pad: true, ost: true },
+    { name: "outro", bars: 4, chords: "A", from: 4, mel: "A", drums: "full", harm: true, pad: true }
+  ];
+  function inScale(song, m) { return song.scale.indexOf(((m - song.root) % 12 + 12) % 12) !== -1; }
+  function scaleBelow(song, m, steps) { var x = m; while (steps > 0) { x--; if (inScale(song, x)) steps--; } return x; }
+  function clone(bar) { return bar.map(function (n) { return Object.assign({}, n); }); }
+
   function compose(song) {
-    var r = rng(song.seed), N = song.meter * song.sub;
-    var chords = song.prog.map(chord);
-    // Melody pitch pool: song scale from root to root + 19 semitones.
+    var N = song.meter * song.sub;
+    var chA = song.prog.map(chord), chB = (song.bridge || song.prog).map(chord);
+    // Melody pitch pool: song scale from root - 3 to root + 19 semitones.
     var pool = [];
-    for (var m = song.root - 3; m <= song.root + 19; m++) if (song.scale.indexOf(((m - song.root) % 12 + 12) % 12) !== -1) pool.push(m);
-    var idx = Math.floor(pool.length / 2);
-    function nearestChordTone(ch) {
-      var best = idx, bd = 99;
-      pool.forEach(function (p, i) {
-        if (ch.iv.some(function (iv) { return (ch.root + iv) % 12 === p % 12; }) && Math.abs(i - idx) < bd) { bd = Math.abs(i - idx); best = i; }
-      });
+    for (var m = song.root - 3; m <= song.root + 19; m++) if (inScale(song, m)) pool.push(m);
+
+    // One 8-bar phrase. `base` + `from`: keep base's first bars, write new ones after.
+    function phrase(r, chords, endNote, base, from) {
+      var idx = Math.floor(pool.length / 2);
+      function nearestChordTone(ch) {
+        var best = idx, bd = 99;
+        pool.forEach(function (p, i) {
+          if (ch.iv.some(function (iv) { return (ch.root + iv) % 12 === p % 12; }) && Math.abs(i - idx) < bd) { bd = Math.abs(i - idx); best = i; }
+        });
+        return best;
+      }
+      function genBar(b) {
+        var notes = [], ch = chords[b];
+        for (var s = 0; s < N; s++) {
+          var strong = s % song.sub === 0;
+          var p = song.density * (s === 0 ? 1.5 : strong ? 1.0 : (song.sub === 4 && s % 2 === 0) ? 0.55 : 0.22);
+          if (r() < p) {
+            if (strong && r() < 0.7) idx = nearestChordTone(ch);
+            else idx = Math.max(0, Math.min(pool.length - 1, idx + (r() < 0.5 ? -1 : 1) * (r() < 0.75 ? 1 : 2)));
+            notes.push({ s: s, m: pool[idx] });
+          }
+        }
+        notes.forEach(function (n, i) { n.len = Math.min((i + 1 < notes.length ? notes[i + 1].s : N) - n.s, song.sub * 2); });
+        return notes;
+      }
+      var bars = [];
+      for (var b = 0; b < 8; b++) {
+        if (base && b < from) bars.push(clone(base[b]));
+        else if (!base && (b === 2 || b === 6)) bars.push(clone(bars[0]));
+        else bars.push(genBar(b));
+      }
+      // End the phrase on a long note (tonic for A, the fifth for the bridge).
+      var last = bars[7];
+      last.push({ s: N - song.sub * Math.min(2, song.meter - 1), m: endNote, len: song.sub * 2 });
+      last.sort(function (a, c) { return a.s - c.s; });
+      for (var i = last.length - 2; i >= 0; i--) if (last[i].s >= last[last.length - 1].s) last.splice(i, 1);
+      return bars;
+    }
+    var A = phrase(rng(song.seed), chA, song.root + 12);                 // the original theme, unchanged
+    var mel = {
+      A: A,
+      A2: phrase(rng(song.seed + 202), chA, song.root + 12, A, 4),       // same question, new answer
+      B: phrase(rng(song.seed + 101), chB, song.root + 7)                // bridge melody, ends on the dominant
+    };
+
+    var form = [];
+    FORM.forEach(function (sec) {
+      var chs = sec.chords === "B" ? chB : chA, from = sec.from || 0;
+      for (var i = 0; i < sec.bars; i++) {
+        form.push({ sec: sec, ch: chs[from + i], mel: sec.mel ? mel[sec.mel][from + i] : null, first: i === 0, last: i === sec.bars - 1 });
+      }
+    });
+    form.forEach(function (bd, i) { bd.next = form[(i + 1) % form.length].ch; });
+
+    // Counter-line: the chord's guide tones (3rd, then 7th or 5th), moving by the smallest step.
+    var prev = 57;
+    function nearest(pcs, target, avoid) {
+      var best = target, bd = 99;
+      for (var m = 50; m <= 65; m++) {
+        if (m === avoid || pcs.indexOf(m % 12) === -1) continue;
+        if (Math.abs(m - target) < bd) { bd = Math.abs(m - target); best = m; }
+      }
       return best;
     }
-    function genBar(b) {
-      var notes = [], ch = chords[b];
-      for (var s = 0; s < N; s++) {
-        var strong = s % song.sub === 0;
-        var p = song.density * (s === 0 ? 1.5 : strong ? 1.0 : (song.sub === 4 && s % 2 === 0) ? 0.55 : 0.22);
-        if (r() < p) {
-          if (strong && r() < 0.7) idx = nearestChordTone(ch);
-          else idx = Math.max(0, Math.min(pool.length - 1, idx + (r() < 0.5 ? -1 : 1) * (r() < 0.75 ? 1 : 2)));
-          notes.push({ s: s, m: pool[idx] });
-        }
+    form.forEach(function (bd) {
+      var ch = bd.ch, iv = ch.iv;
+      var guide = [iv[1], iv.length > 3 ? iv[3] : iv[2]].map(function (x) { return (ch.root + x) % 12; });
+      var n1 = nearest(guide, prev);
+      if (song.meter === 4) {
+        var n2 = nearest(guide, n1, n1);
+        bd.counter = [{ s: 0, m: n1, len: N / 2 }, { s: N / 2, m: n2, len: N / 2 }];
+        prev = n2;
+      } else {
+        bd.counter = [{ s: 0, m: n1, len: N }];
+        prev = n1;
       }
-      notes.forEach(function (n, i) { n.len = Math.min((i + 1 < notes.length ? notes[i + 1].s : N) - n.s, song.sub * 2); });
-      return notes;
-    }
-    var bars = [];
-    for (var b = 0; b < 8; b++) bars.push(b === 2 || b === 6 ? bars[0].map(function (n) { return Object.assign({}, n); }) : genBar(b));
-    // End the 8-bar phrase on the tonic.
-    var last = bars[7];
-    last.push({ s: N - song.sub * Math.min(2, song.meter - 1), m: song.root + 12, len: song.sub * 2 });
-    last.sort(function (a, c) { return a.s - c.s; });
-    for (var i = last.length - 2; i >= 0; i--) if (last[i].s >= last[last.length - 1].s) last.splice(i, 1);
-    return { chords: chords, bars: bars, N: N };
+    });
+    return { form: form, N: N, seconds: form.length * song.meter * 60 / song.bpm };
   }
+  function songComp(song) { return song._comp || (song._comp = compose(song)); }
 
-  function playStep(song, comp, bar, s, t, stepDur) {
-    var ch = comp.chords[bar], N = comp.N, sub = song.sub;
+  var SOFT = { drift: true, none: true };   // ambient grooves: no fills or crashes
+  var LIGHT = { k: true, h: true, x: true, b: true, n: true };
+
+  function playStep(song, comp, bi, s, t, stepDur) {
+    var bd = comp.form[bi], sec = bd.sec, ch = bd.ch, nextCh = bd.next, N = comp.N, sub = song.sub;
     var beat = s % sub === 0, beatIdx = Math.floor(s / sub);
     var rootBass = 36 + ch.root;                                   // C2–B2
-    var B = INST[song.bassInst], C = INST[song.compInst], L = INST[song.lead];
+    var B = INST[song.bassInst], C = INST[song.compInst];
     // Close voicing: each chord tone placed at or just above `base`.
     function chordNotes(base) {
       return ch.iv.slice(0, 4).map(function (iv) {
@@ -290,15 +403,25 @@
     }
     var voicing = chordNotes(55);
 
-    // Drums
-    var groove = GROOVES[song.drums] || {};
-    Object.keys(groove).forEach(function (k) {
-      var pat = groove[k], c = pat[s % pat.length];
-      if (c && c !== ".") DRUM[k](t, VEL[c] || 0.7);
-    });
+    // Drums: groove, a fill on the last beat of each section, a crash on each new section.
+    var soft = SOFT[song.drums];
+    if (!soft && bd.last && s >= N - sub) {
+      var i = s - (N - sub);
+      if (i === 0) DRUM.s(t, 0.85);
+      else DRUM.t(t, 0.6 + 0.15 * i, [240, 200, 165, 135][Math.min(3, Math.floor(i * 4 / sub))]);
+      if (i === sub - 1 || s === 0) DRUM.k(t, 0.8);
+    } else {
+      var groove = GROOVES[song.drums] || {};
+      Object.keys(groove).forEach(function (k) {
+        if (sec.drums === "light" && !LIGHT[k]) return;
+        var pat = groove[k], c = pat[s % pat.length];
+        if (c && c !== ".") DRUM[k](t, (VEL[c] || 0.7) * (sec.drums === "light" ? 0.7 : 1));
+      });
+    }
+    if (!soft && bd.first && s === 0 && sec.name !== "intro") DRUM.y(t, 0.8);
 
     // Bass
-    var nextCh = comp.chords[(bar + 1) % 8], fifth = rootBass + 7, third = rootBass + (ch.iv[1] || 4);
+    var fifth = rootBass + 7, third = rootBass + (ch.iv[1] || 4);
     switch (song.bass) {
       case "walk":
         if (beat) {
@@ -340,8 +463,26 @@
     if (song.arp === "bubbles" && s % 2 === 0 && Math.random() < 0.35) INST.marimba(t, mtof(voicing[Math.floor(Math.random() * voicing.length)] + 24), stepDur, 0.35);
     if (song.arp === "stars" && Math.random() < 0.12) INST.bell(t, mtof(voicing[Math.floor(Math.random() * voicing.length)] + 24), stepDur * 4, 0.4);
 
-    // Lead melody
-    comp.bars[bar].forEach(function (n) { if (n.s === s) L(t, mtof(n.m), stepDur * n.len * 0.92, 1); });
+    // Arrangement layers
+    if (sec.pad && song.pad && s === 0) chordNotes(60).forEach(function (n) { INST[song.pad](t, mtof(n), stepDur * N * 0.98, 0.7); });
+    if (sec.counter && song.counter) bd.counter.forEach(function (n) { if (n.s === s) INST[song.counter](t, mtof(n.m), stepDur * n.len * 0.95, 0.9); });
+    if (sec.ost && song.ost) {
+      var oc = song.ost.pat[s % song.ost.pat.length];
+      if (oc && oc !== ".") {
+        var d = +oc, tone = voicing[d % voicing.length] + 12 * Math.floor(d / voicing.length) + song.ost.oct;
+        INST[song.ost.inst](t, mtof(tone), stepDur * 1.5, 0.6);
+      }
+    }
+
+    // Lead melody (and its harmony a third below)
+    if (bd.mel) {
+      var L = INST[sec.lead2 && song.lead2 ? song.lead2 : song.lead];
+      bd.mel.forEach(function (n) {
+        if (n.s !== s) return;
+        L(t, mtof(n.m), stepDur * n.len * 0.92, 1);
+        if (sec.harm && song.harm) INST[song.harm](t, mtof(scaleBelow(song, n.m, 2)), stepDur * n.len * 0.92, 0.6);
+      });
+    }
   }
 
   /* ═══════════════ Transport ═══════════════ */
@@ -351,7 +492,7 @@
     track: Math.min(LIST.length - 1, Math.max(0, load(TRACK_KEY, 0) | 0)),
     playing: false
   };
-  var seq = { timer: null, next: 0, step: 0, bar: 0, loops: 0, song: null, comp: null };
+  var seq = { timer: null, next: 0, step: 0, bar: 0, song: null, comp: null };
 
   function persist() { save(KEY, { on: state.on, vol: state.vol }); save(TRACK_KEY, state.track); }
   function applyVolume() { if (master) master.gain.setTargetAtTime(Math.pow(state.vol, 2) * 0.9, ctx.currentTime, 0.05); }
@@ -359,8 +500,8 @@
   function startSong() {
     var song = LIST[state.track];
     seq.song = song;
-    seq.comp = song._comp || (song._comp = compose(song));
-    seq.step = 0; seq.bar = 0; seq.loops = 0;
+    seq.comp = songComp(song);
+    seq.step = 0; seq.bar = 0;
     seq.next = ctx.currentTime + 0.12;
     bus.gain.cancelScheduledValues(ctx.currentTime);
     bus.gain.setValueAtTime(0.0001, ctx.currentTime);
@@ -379,10 +520,7 @@
       seq.next += stepDur;
       if (++seq.step >= comp.N) {
         seq.step = 0;
-        if (++seq.bar >= 8) {
-          seq.bar = 0;
-          if (++seq.loops >= LOOPS_PER_SONG) { next(); return; }   // jukebox moves on to the next record
-        }
+        if (++seq.bar >= comp.form.length) seq.bar = 0;   // the song repeats until the player picks another
       }
     }
   }
@@ -473,7 +611,8 @@
       var s = LIST[state.track];
       title.textContent = s.name;
       num.textContent = (state.track + 1) + "/" + LIST.length;
-      genre.textContent = s.genre + " · " + s.bpm + " BPM";
+      var sec = Math.round(songComp(s).seconds);
+      genre.textContent = s.genre + " · " + s.bpm + " BPM · " + Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2);
       playBtn.textContent = state.playing ? "⏸" : "▶";
       playBtn.setAttribute("aria-label", state.playing ? "Pause music" : "Play music");
       playBtn.setAttribute("aria-pressed", state.playing ? "true" : "false");

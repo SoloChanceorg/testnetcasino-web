@@ -13,30 +13,32 @@
   <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body class="theme-orchard" data-game="fruit-orchard" data-ambient="orchard">
+  <a class="skip-link" href="#app">Skip to the game</a>
   <canvas id="casino-bg" aria-hidden="true"></canvas>
   <canvas id="coin-shower" aria-hidden="true"></canvas>
 
   <div class="warning-strip" role="note">
-    ⚠️ Demo only. Not a real casino: no real money, no mainnet crypto, no deposits. <a href="../#notice">House notice</a>
+    <span aria-hidden="true">⚠️</span> Demo only. Not a real casino: no real money, no mainnet crypto, no deposits. <a href="../#notice">House notice</a>
   </div>
 
   <div class="page">
     <header class="logo-area">
       <a class="marquee small" id="marquee" href="../" aria-label="TestnetCasino.com lobby">
         <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
-        <span class="mq-sub">♠ <span class="suit-red">♥</span> BCH TESTNET4 FAUCET ♣ <span class="suit-red">♦</span></span>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
       </a>
     </header>
 
-    <nav class="nav-bar" aria-label="Games">
-      <a class="chip-link" href="../"><span class="chip-emoji">🎰</span> Lobby</a>
-      <a class="chip-link" href="fruit-orchard.html" aria-current="page"><span class="chip-emoji">🍒</span> Fruit Orchard</a>
-      <a class="chip-link" href="deep-sea.html"><span class="chip-emoji">🐚</span> Deep Sea</a>
-      <a class="chip-link" href="cosmic-voyage.html"><span class="chip-emoji">🚀</span> Cosmic Voyage</a>
-      <span class="chip-balance" aria-label="Demo balance"><span class="tag">DEMO</span><strong data-balance>10,000</strong> SATS</span>
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="../"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="fruit-orchard.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="../login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
+      <span class="chip-balance"><span class="tag">DEMO</span><strong data-balance>10,000</strong> SATS</span>
     </nav>
 
-    <main id="app">
+    <main id="app" tabindex="-1">
       <noscript><p class="panel">This demo needs JavaScript to spin the reels.</p></noscript>
     </main>
 
@@ -46,6 +48,9 @@
     </footer>
   </div>
 
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/auth.js"></script>
   <script src="../assets/js/fx.js"></script>
   <script src="../assets/js/audio.js"></script>
   <script src="../assets/js/engine.js"></script>

@@ -1,5 +1,5 @@
 /*
- * TestnetCasino.com — demo slot machine UI (5 reels × 3 rows, 10 paylines).
+ * TestnetCasino.com: demo slot machine UI (5 reels × 3 rows, 10 paylines).
  *
  * Demo mode only: the balance is fake sats kept in this browser. Nothing is
  * sent to a server. When the backend is ready, `DemoWallet`, `Engine.round`
@@ -129,8 +129,6 @@
     var titleHtml = words.length > 1
       ? esc(words.slice(0, -1).join(" ")) + " <span>★</span> " + esc(words[words.length - 1])
       : esc(words[0]);
-    var subHtml = '10 LINES · <span class="e">' + syms[WILD].emoji + '</span> ' + esc(game.featureName.toUpperCase()) +
-      ' · <span class="e">' + syms[SCAT].emoji + '</span> FREE SPINS · <span class="e">' + syms[BONUS].emoji + '</span> BONUS';
     var P = {
       sound: '<button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="false">🔊</button>',
       sign: '<div class="sign-slot"><ul class="feature-bar" aria-label="Machine features">' +
@@ -147,7 +145,7 @@
             '<div class="wb-title" id="wb-title"></div><div class="wb-amount" id="wb-amount"></div></div>' +
         '</div>',
       lcd: function (extra) {
-        return '<div class="slot-lcd" id="slot-lcd" role="status" aria-live="polite">' + (extra || '') +
+        return '<div class="slot-lcd" id="slot-lcd">' + (extra || '') +
           '<div class="lcd-text"><div class="lcd-main" id="lcd-main"></div><div class="lcd-sub" id="lcd-sub"></div></div></div>';
       },
       readout: function (id, label, unit) {
@@ -169,7 +167,7 @@
     function machineOrchard() {
       return '<div class="machine m-orchard" id="slot-machine">' +
         '<div class="or-awning" aria-hidden="true"><span class="or-bulbs"></span></div>' + P.sound +
-        '<div class="or-sign"><h1 class="m-title">' + titleHtml + '</h1><div class="m-sub">' + subHtml + '</div></div>' +
+        '<div class="or-sign"><h1 class="m-title">' + titleHtml + '</h1></div>' +
         '<div class="or-crate">' + P.sign +
           '<div class="or-window">' + P.reels + '</div>' +
           P.lcd() +
@@ -200,11 +198,11 @@
     function machineDeepSea() {
       var ticks = LADDER.map(function (v, i) {
         var a = -135 + i * 30;
-        return '<button type="button" class="ds-tick" data-bet="' + v + '" style="--a:' + a + 'deg" aria-label="Bet ' + fmt(v) + ' sats"><span>' + short(v) + '</span></button>';
+        return '<button type="button" class="ds-tick" data-bet="' + v + '" style="--a:' + a + 'deg" tabindex="-1" aria-hidden="true"><span>' + short(v) + '</span></button>';
       }).join("");
       return '<div class="machine m-deepsea" id="slot-machine">' +
         '<div class="ds-hull">' + P.sound +
-          '<div class="ds-plate"><h1 class="m-title">' + titleHtml + '</h1><div class="m-sub">' + subHtml + '</div></div>' +
+          '<div class="ds-plate"><h1 class="m-title">' + titleHtml + '</h1></div>' +
           P.sign +
           '<div class="ds-porthole"><span class="ds-bolts" aria-hidden="true"></span>' + P.reels + '</div>' +
           P.lcd('<span class="ds-sonar" aria-hidden="true"></span>') +
@@ -227,11 +225,11 @@
 
     function machineCosmic() {
       var scale = LADDER.slice().reverse().map(function (v) {
-        return '<button type="button" class="thr-mark" data-bet="' + v + '" aria-label="Bet ' + fmt(v) + ' sats">' + short(v) + '</button>';
+        return '<button type="button" class="thr-mark" data-bet="' + v + '" tabindex="-1" aria-hidden="true">' + short(v) + '</button>';
       }).join("");
       return '<div class="machine m-cosmic" id="slot-machine">' +
         '<div class="cx-hull">' + P.sound +
-          '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1><div class="m-sub">' + subHtml + '</div></div>' +
+          '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1></div>' +
           P.sign +
           '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
@@ -255,6 +253,7 @@
     var builders = { orchard: machineOrchard, deepsea: machineDeepSea, cosmic: machineCosmic };
     root.innerHTML =
       '<div class="machine-stage">' + (builders[game.theme] || machineOrchard)() + '</div>' +
+      '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       '<section class="panel" aria-labelledby="pt-title"><h2 class="panel-label" id="pt-title">PAYTABLE &amp; RULES</h2>' + buildPaytable() + '</section>' +
       '<section class="panel" aria-labelledby="hist-title">' +
         '<h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
@@ -633,6 +632,16 @@
       lcd.className = "slot-lcd" + (cls ? " " + cls : "");
       lcdMain.textContent = main;
       renderLcdSub();
+      announce(main);
+    }
+    // Screen readers get the display text without emoji ("cherry cherry cherry..." is noise).
+    var srLive = $("#sr-live"), srTimer = 0;
+    function announce(text) {
+      var plain = String(text).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+        .replace(/(\d+)×/g, "$1 of a kind").replace(/×\s?(\d)/g, "times $1").replace(/ · /g, ", ").replace(/\s+/g, " ").replace(/\s([.,:!])/g, "$1").trim();
+      clearTimeout(srTimer);
+      srLive.textContent = "";
+      srTimer = setTimeout(function () { srLive.textContent = plain; }, 60);
     }
     function renderLcdSub() {
       if (feature) {
@@ -1141,7 +1150,7 @@
       var v = LADDER[+betRange.value];
       if (v !== bet) { sfx.chip(); setBet(v); betChanged(); }
     });
-    // Deep Sea: rotary dial — drag, scroll or use the arrow keys.
+    // Deep Sea: rotary dial: drag, scroll or use the arrow keys.
     if (betDial) {
       betDial.addEventListener("keydown", function (e) {
         if (busy) return;
@@ -1219,6 +1228,36 @@
     syncBalance();
     setLcd(flavor.welcome, "");
     showReady();
+    frameMachine();
+  }
+
+  /*
+   * On load, show the reels and the spin control together. The site header sits
+   * above the machine, so without this the spin button starts below the fold.
+   * Skipped when the page was opened at an anchor, restored to a scroll position,
+   * or the player already scrolled, clicked or pressed a key.
+   */
+  function frameMachine() {
+    var nav = document.querySelector(".nav-bar"), cur = nav && nav.querySelector('[aria-current="page"]');
+    if (nav && cur && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = cur.offsetLeft - (nav.clientWidth - cur.offsetWidth) / 2;
+
+    if (location.hash) return;
+    var touched = false;
+    function mark() { touched = true; }
+    ["wheel", "touchstart", "pointerdown", "keydown"].forEach(function (t) { window.addEventListener(t, mark, { once: true, passive: true }); });
+    function go() {
+      if (touched || window.scrollY > 0) return;
+      var m = document.getElementById("slot-machine"), r = document.getElementById("reels-window"), s = document.getElementById("spin-wrap");
+      if (!m || !r || !s) return;
+      var H = window.innerHeight, y = window.scrollY;
+      var mTop = m.getBoundingClientRect().top + y, rTop = r.getBoundingClientRect().top + y, sBot = s.getBoundingClientRect().bottom + y;
+      if (sBot <= H - 8) return;                       // already fits
+      var top = sBot - mTop + 16 <= H ? mTop - 8       // whole machine top to spin control fits
+              : Math.min(rTop - 8, sBot - H + 16);     // otherwise reels first, spin control in view
+      window.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+    }
+    requestAnimationFrame(go);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { requestAnimationFrame(go); });
   }
 
   window.TNC_DemoWallet = DemoWallet;
