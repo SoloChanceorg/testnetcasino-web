@@ -107,6 +107,17 @@ h1, h2, h3 { font-weight: 400; }
 .marquee.small { padding: 18px 34px 15px; }
 .marquee.small .mq-title { font-size: clamp(1.2rem, 4.6vw, 2rem); }
 .marquee.small .mq-sub { font-size: .7rem; letter-spacing: 3px; margin-top: 5px; }
+.mottos { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 26px auto 0; max-width: 760px; }
+.motto { margin: 0; font-family: var(--sign); letter-spacing: 1px; line-height: 1.25; text-wrap: balance; }
+.motto-main {
+  font-size: clamp(1.05rem, 3.8vw, 1.6rem); color: var(--gold-light);
+  text-shadow: 0 2px 0 var(--gold-deep), 0 0 16px rgba(245,197,66,.6);
+}
+.motto-rtp {
+  display: inline-block; padding: 6px 18px; border-radius: 999px; font-size: clamp(.82rem, 2.8vw, 1.05rem); color: var(--cream);
+  background: rgba(0,0,0,.35); border: 2px solid rgba(245,197,66,.55); box-shadow: 0 0 18px rgba(215,38,61,.25);
+}
+.motto-rtp strong { font-weight: 400; color: #ff5a6e; text-shadow: 0 0 10px rgba(255,90,110,.7); }
 .tagline { font-size: 1rem; color: var(--muted); margin: 22px auto 0; font-style: italic; max-width: 640px; }
 .by { margin: 8px 0 0; color: var(--muted); font-size: .92rem; }
 .by a { font-weight: 700; }
