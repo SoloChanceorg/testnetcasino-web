@@ -282,7 +282,12 @@
           '<div class="cx-cockpit">' +
             '<div class="cx-readouts">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
             '<div class="cx-launch-wrap spin-wrap" id="spin-wrap">' +
-              '<button type="button" class="cx-launch" id="spin-btn" aria-label="Launch: spin the reels"><span class="launch-label">LAUNCH</span><span class="launch-sub" id="spin-sub"></span></button>' +
+              '<span class="cx-lights" aria-hidden="true"></span>' +
+              '<button type="button" class="cx-launch btn3d" id="spin-btn" aria-label="Launch: spin the reels">' +
+                '<span class="b3-base" aria-hidden="true"></span>' +
+                '<span class="b3-cap"><span class="b3-shine" aria-hidden="true"></span>' +
+                  '<span class="spin-label">LAUNCH</span><span class="spin-sub" id="spin-sub"></span></span>' +
+              '</button>' +
             '</div>' +
             '<div class="cx-throttle">' +
               '<div class="thr-head">THRUST <small>· bet</small></div>' +

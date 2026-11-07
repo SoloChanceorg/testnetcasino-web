@@ -1131,22 +1131,38 @@ body.theme-cosmic {
 .m-cosmic .ro-label { color: #9fdcf5; }
 .m-cosmic .ro-value { color: #fff; text-shadow: 0 0 10px rgba(46,197,255,.9); }
 .m-cosmic .ro-unit { color: #b388ff; }
-.cx-launch-wrap { grid-area: launch; position: relative; filter: drop-shadow(0 0 14px rgba(255,90,200,.7)); animation: launch-glow 1.8s ease-in-out infinite alternate; }
+/* LAUNCH: a glossy hexagonal 3D push button (see "3D push button") in a two-layer
+   metal hex frame with runway lights along its top and bottom edges. */
+.cx-launch-wrap {
+  --hex: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  grid-area: launch; justify-self: center; position: relative; padding: 13px 16px; isolation: isolate;
+  filter: drop-shadow(0 0 14px rgba(255,90,200,.6)); animation: launch-glow 1.8s ease-in-out infinite alternate;
+}
+.cx-launch-wrap::before, .cx-launch-wrap::after { content: ""; position: absolute; clip-path: var(--hex); z-index: -1; }
+.cx-launch-wrap::before { inset: 9px 0 -9px; background: linear-gradient(180deg, #2a1660, #0e0628); }   /* frame thickness */
+.cx-launch-wrap::after { inset: 0; background: linear-gradient(160deg, #b9a6ff 0%, #5a3fb0 30%, #2c1a66 70%, #8a6cff 100%); }
 .cx-launch-wrap.busy, .cx-launch-wrap.off { animation: none; filter: drop-shadow(0 0 6px rgba(255,90,200,.35)); }
 @keyframes launch-glow { to { filter: drop-shadow(0 0 28px rgba(255,90,200,1)); } }
-.cx-launch {
-  position: relative; width: 134px; height: 116px; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
-  font: 400 1.1rem var(--sign); letter-spacing: 2px; color: #fff; text-shadow: 0 2px 0 #3b1478, 0 0 10px #fff;
-  background: radial-gradient(circle at 50% 30%, #ffc6f2, #ff5ac8 32%, #8a46f0 72%, #3b1478);
-  box-shadow: inset 0 -12px 18px rgba(0,0,0,.4), inset 0 8px 12px rgba(255,255,255,.3);
-  transition: transform .1s, filter .2s; -webkit-tap-highlight-color: transparent;
+.cx-lights {
+  position: absolute; inset: 2px 0; z-index: 0; clip-path: var(--hex); pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, #9ff0ff 0 7px, transparent 7px 17px) 0 0 / 100% 4px no-repeat,
+    repeating-linear-gradient(90deg, #9ff0ff 0 7px, transparent 7px 17px) 0 100% / 100% 4px no-repeat;
+  filter: drop-shadow(0 0 3px #2ec5ff); opacity: .5; animation: b3-twinkle 2.2s ease-in-out infinite;
 }
-.cx-launch:hover:not(:disabled) { filter: brightness(1.12); }
-.cx-launch:active:not(:disabled), .cx-launch.pressed { transform: scale(.93); }
-.cx-launch:disabled { cursor: not-allowed; filter: grayscale(.8) brightness(.65); }
-.cx-launch-wrap.busy .cx-launch:disabled { cursor: progress; filter: brightness(.8); }
-.launch-sub { margin-top: 2px; font: 700 .7rem var(--body); letter-spacing: 1.5px; text-shadow: none; }
+.cx-launch-wrap.busy .cx-lights { opacity: 1; animation: cx-runway .3s steps(1) infinite; }
+.cx-launch-wrap.off .cx-lights { opacity: .15; animation: none; }
+@keyframes cx-runway { 50% { background-position: 9px 0, 9px 100%; } }
+.cx-launch {
+  --w: 136px; --h: 100px; --depth: 14px;
+  --cap: radial-gradient(ellipse at 50% 26%, #ffd6f6 0%, #ff5ac8 30%, #8a46f0 70%, #3b1478 100%);
+  --side: linear-gradient(90deg, #1c0942 0%, #4a1a8f 25%, #6a2ab8 50%, #4a1a8f 75%, #1c0942 100%);
+  --glow: rgba(255,120,220,.95);
+  z-index: 1; font: 400 1.15rem var(--sign); letter-spacing: 2px; color: #fff; text-shadow: 0 2px 0 #3b1478, 0 0 10px #fff;
+}
+.cx-launch .b3-base, .cx-launch .b3-cap, .cx-launch .b3-shine { border-radius: 0; clip-path: var(--hex); }
+.cx-launch .b3-base { box-shadow: inset 0 -3px 6px rgba(0,0,0,.4); }
+.cx-launch .b3-cap::after { left: 24%; width: 52%; }
 .cx-throttle { grid-area: thr; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .thr-head { font: 400 .72rem var(--sign); letter-spacing: 2px; color: #9ff0ff; }
 .thr-head small { font: 600 .72rem var(--body); letter-spacing: 0; color: #b388ff; }
@@ -1182,6 +1198,38 @@ body.theme-cosmic {
   border-radius: 0; border: 2px solid #8a46f0;
   clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
 }
+
+/* ═══════════════════════ 🌙 Cosmic Voyage in 3D ═══════════════════════
+   The hull leans back on a dark base plate, the cockpit slopes toward the
+   player, keys are raised and screens are recessed. */
+.ms-cosmic { perspective: 1600px; perspective-origin: 50% 25%; }
+.m-cosmic { rotate: x 4deg; transform-origin: 50% 100%; isolation: isolate; }
+.m-cosmic::after { /* hull thickness under the octagon */
+  content: ""; position: absolute; left: 0; right: 0; top: 14px; bottom: -14px; z-index: -1; pointer-events: none;
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+  background: linear-gradient(180deg, #2a1660, #0b0522);
+}
+.cx-cockpit {
+  transform: perspective(900px) rotateX(14deg); transform-origin: 50% 0;
+  background: linear-gradient(180deg, rgba(40,20,90,.75), rgba(10,4,30,.85));
+  box-shadow: inset 0 2px 0 rgba(179,136,255,.45), inset 0 -10px 0 rgba(0,0,0,.45), inset 0 0 24px rgba(46,197,255,.12);
+}
+.m-cosmic .slot-lcd { box-shadow: 0 0 14px rgba(46,197,255,.25), inset 0 4px 14px rgba(0,0,0,.8), inset 0 0 14px rgba(46,197,255,.15); }
+.m-cosmic .m-readout { box-shadow: inset 0 4px 12px rgba(0,0,0,.8), inset 0 0 10px rgba(46,197,255,.15); background: rgba(5,3,15,.85); }
+.cx-input { box-shadow: inset 0 3px 8px rgba(0,0,0,.85); }
+.thr-rail { box-shadow: inset 0 4px 12px rgba(0,0,0,.85), inset 0 0 0 1px rgba(46,197,255,.25); }
+#bet-range::-webkit-slider-thumb { box-shadow: 0 0 12px #b388ff, inset 0 0 0 2px #fff, inset 0 -5px 0 rgba(59,20,120,.6); }
+.thr-input button {
+  background: linear-gradient(180deg, rgba(120,90,220,.55), rgba(46,197,255,.18));
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.4), inset 0 -6px 0 rgba(10,4,30,.75);
+  transform: translateY(-2px); transition: transform .08s, box-shadow .08s;
+}
+.thr-input button:hover:not(:disabled) { background: linear-gradient(180deg, rgba(150,120,255,.7), rgba(46,197,255,.3)); }
+.thr-input button:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 2px 0 rgba(255,255,255,.25), inset 0 -2px 0 rgba(10,4,30,.75); }
+.m-cosmic .m-tool { box-shadow: inset 0 2px 0 rgba(159,240,255,.35), 0 4px 0 #0e3a5c, 0 7px 8px rgba(0,0,0,.5); transform: translateY(-2px); transition: transform .08s, box-shadow .08s; }
+.m-cosmic .m-tool:active { transform: translateY(2px); box-shadow: 0 0 0 #0e3a5c, 0 2px 3px rgba(0,0,0,.4); }
+.m-cosmic .m-hint { margin-top: 22px; }   /* clears the sloped cockpit */
+@media (prefers-reduced-motion: reduce) { .cx-lights { animation: none !important; } }
 
 /* ── Responsive ── */
 @media (max-width: 700px) {
@@ -1255,7 +1303,10 @@ body.theme-cosmic {
   .ms-deepsea { perspective: 1100px; }
   .ds-console { transform: perspective(700px) rotateX(10deg); }
 
-  .cx-launch { width: 112px; height: 98px; font-size: .95rem; }
+  .cx-launch { --w: 108px; --h: 80px; --depth: 12px; font-size: .95rem; }
+  .cx-launch-wrap { padding: 11px 13px; }
+  .ms-cosmic { perspective: 1100px; }
+  .cx-cockpit { transform: perspective(700px) rotateX(10deg); }
   .m-cosmic .m-tools { top: 8px; left: 16px; right: 16px; }
   .cx-head { margin: 0 40px 16px; }
 }
