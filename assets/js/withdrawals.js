@@ -1,9 +1,10 @@
 /*
- * TestnetCasino.com: "Recent payouts" on the lobby.
+ * TestnetCasino.com: withdrawals page (withdrawals.html).
  *
  * GET /faucet/withdrawals?cursor= (public): every withdrawal the faucet has
  * sent, newest first, 50 per page: { items: [ { sentAt, address, amount, txid } ],
- * nextCursor }. Fetched once when the page opens, more with "Load more"; no polling.
+ * nextCursor }. When the page opens, all pages are fetched one after another,
+ * then the whole list is shown at once with the total withdrawn on top. No polling.
  *
  * Depends on: config.js, api.js, units.js.
  */
@@ -15,9 +16,9 @@
   if (!api || !body) return;
 
   var EXPLORER_TX = (window.TNC_CONFIG && TNC_CONFIG.explorerTx) || "https://bchexplorer.cash/testnet4/tx/";
-  var more = document.getElementById("pay-more"), statusEl = document.getElementById("pay-status");
-  var empty = document.getElementById("pay-empty");
-  var cursor = null, count = 0;
+  var statusEl = document.getElementById("pay-status"), empty = document.getElementById("pay-empty");
+  var totalEl = document.getElementById("pay-total"), totalSub = document.getElementById("pay-total-sub");
+  var MAX_PAGES = 2000;   // safety stop (100,000 withdrawals)
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function when(iso) {
@@ -86,32 +87,54 @@
     return tr;
   }
 
+  // Fetch every page (following nextCursor), then render the whole list and the total.
   function load() {
-    more.disabled = true;
-    statusEl.textContent = cursor ? "Loading more…" : "";
+    var all = [], pages = 0;
     statusEl.className = "auth-status";
-    api.payouts(cursor).then(function (r) {
-      more.disabled = false;
-      if (r.status !== 200 || !r.data) {
-        statusEl.textContent = api.errorText(r, "The payouts could not be loaded.") + " ";
-        statusEl.className = "auth-status is-error";
-        var b = el("button", "auth-link", "Try again");
-        b.type = "button";
-        b.addEventListener("click", load);
-        statusEl.appendChild(b);
-        return;
-      }
-      statusEl.textContent = "";
-      var items = r.data.items || [], frag = document.createDocumentFragment();
-      items.forEach(function (w) { frag.appendChild(row(w)); });
-      body.appendChild(frag);
-      count += items.length;
-      cursor = r.data.nextCursor || null;
-      more.hidden = !cursor;
-      empty.hidden = count > 0;
-    });
+    statusEl.textContent = "Loading the withdrawals…";
+    totalEl.textContent = "…";
+    totalSub.textContent = "Counting every withdrawal…";
+    (function page(cursor) {
+      api.faucetWithdrawals(cursor).then(function (r) {
+        if (r.status !== 200 || !r.data) { fail(r); return; }
+        all = all.concat(r.data.items || []);
+        pages++;
+        if (r.data.nextCursor && pages < MAX_PAGES) {
+          statusEl.textContent = "Loading the withdrawals… " + all.length.toLocaleString("en-US") + " so far";
+          page(r.data.nextCursor);
+          return;
+        }
+        show(all);
+      });
+    }(null));
   }
-  more.addEventListener("click", load);
+
+  function show(items) {
+    statusEl.textContent = "";
+    body.textContent = "";
+    var frag = document.createDocumentFragment(), sum = 0;
+    items.forEach(function (w) { frag.appendChild(row(w)); sum += Number(w.amount) || 0; });
+    body.appendChild(frag);
+    empty.hidden = items.length > 0;
+    // Number in the sign font, unit in the body font (the sign font only has capitals).
+    totalEl.textContent = U ? U.bch(sum) : String(sum);
+    totalEl.appendChild(el("span", "pay-total-unit", U ? " tBCH" : " sats"));
+    totalEl.title = sum.toLocaleString("en-US") + " sats";
+    totalSub.textContent = items.length
+      ? "in " + items.length.toLocaleString("en-US") + " withdrawal" + (items.length === 1 ? "" : "s") + " sent to Testnet4 wallets"
+      : "No withdrawals yet.";
+  }
+
+  function fail(r) {
+    statusEl.textContent = api.errorText(r, "The withdrawals could not be loaded.") + " ";
+    statusEl.className = "auth-status is-error";
+    totalEl.textContent = "n/a";
+    totalSub.textContent = "";
+    var b = el("button", "auth-link", "Try again");
+    b.type = "button";
+    b.addEventListener("click", load);
+    statusEl.appendChild(b);
+  }
 
   load();
 })();

@@ -665,7 +665,8 @@ body.theme-cosmic {
 
 .breakdown { margin: 14px 0 0; }
 .m-hint { text-align: center; font-size: .8rem; margin: 12px 0 0; line-height: 1.6; opacity: .85; }
-.m-util { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.m-util { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.m-extras { margin-top: 22px; padding: 14px 16px; }
 .machine button:focus-visible, .machine input:focus-visible, .ds-dial:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 3px; }
 .machine input[type="number"] { -moz-appearance: textfield; }
 .machine input[type="number"]::-webkit-inner-spin-button, .machine input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -1610,6 +1611,8 @@ body.is-fullscreen #app > .panel, body.is-fullscreen .casino-footer { display: n
 body.is-fullscreen .page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding: 12px 16px; }
 body.is-fullscreen .machine-stage { margin: 0; align-items: flex-start; }
 body.is-fullscreen .machine { transform-origin: top center; }
+/* Full screen never scrolls: the machine is zoomed to fit instead. */
+html.is-fullscreen, html.is-fullscreen body { overflow: hidden; height: 100%; }
 /* The win list normally appears only after a win, which makes the machine
    taller and would make the fit-to-screen scale shrink on every win. In full
    screen it always keeps exactly one row; extra wins scroll sideways. */
@@ -1622,6 +1625,11 @@ body.is-fullscreen .bd-item { flex: none; }
 @media (max-width: 899px) {
   /* The jukebox button sits in the top-right corner: keep it clear of the machine. */
   body.is-fullscreen .page { padding-top: 56px; justify-content: flex-start; }
+}
+/* Short landscape screens: the narrow machine sits in the middle, clear of the jukebox
+   button in the corner, so it can use the full height. */
+@media (max-width: 899px) and (max-height: 500px) and (orientation: landscape) {
+  body.is-fullscreen .page { padding-top: 6px; padding-bottom: 6px; justify-content: center; }
 }
 
 /* ═══════════════════════ BCH Testnet4 coin icon ═══════════════════════ */
@@ -1912,7 +1920,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .lb-row.is-flash td { animation: none; } }
 .auth-legal { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid rgba(245,197,66,.25); font-size: .82rem; color: var(--muted); text-align: center; }
 
-/* ═══════════════════════ Recent payouts (lobby) ═══════════════════════ */
+/* ═══════════════════════ Withdrawals page (every withdrawal the faucet sent) ═══════════════════════ */
 .pay-table td { vertical-align: middle; }
 .pay-when { color: var(--muted); }
 .pay-to { white-space: nowrap; }
@@ -1930,7 +1938,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .pay-full, .pay-txid { display: none; }
   .pay-short, .pay-view { display: inline; }
 }
-/* Phones: each payout becomes a two-line card (address + amount, then time + explorer link). */
+/* Phones: each withdrawal becomes a two-line card (address + amount, then time + explorer link). */
 @media (max-width: 600px) {
   .pay-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .pay-table tr {
@@ -1945,3 +1953,9 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .pay-table td.pay-tx { grid-area: tx; text-align: right; }
   .pay-copy { margin-left: 4px; width: 26px; height: 26px; }
 }
+/* Withdrawals page: total at the top */
+.pay-total { text-align: center; }
+.pay-total-amount { margin: 4px 0 2px; font-family: var(--sign); font-size: clamp(1.6rem, 6vw, 2.4rem); letter-spacing: 1px; color: var(--gold-light); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 var(--gold-deep), 0 0 16px rgba(245,197,66,.45); }
+.pay-total-sub { margin: 0; color: var(--muted); }
+.pay-total-unit { font: 700 .5em var(--body); letter-spacing: 0; color: var(--gold); text-shadow: none; }
+.pay-main { max-width: none; }   /* the withdrawals table needs the full page width */

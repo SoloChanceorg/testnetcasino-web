@@ -31,7 +31,7 @@
     bonusDaily: "/bonus/daily",
     faucet: "/faucet",
     leaderboards: "/leaderboards",
-    payouts: "/faucet/withdrawals",
+    faucetWithdrawals: "/faucet/withdrawals",
     gameConfig: "/games/",          // + id + "/config"
     fairnessSeed: "/fairness/seed",
     fairnessClientSeed: "/fairness/client-seed",
@@ -104,7 +104,7 @@
     // Public, but sent with the session cookie so the player's own rows come back with `me: true`.
     leaderboards: function () { return get(PATHS.leaderboards); },
     // Every withdrawal the faucet has sent (public, 50 per page, newest first).
-    payouts: function (cursor) { return get(withCursor(PATHS.payouts, cursor), { public: true }); },
+    faucetWithdrawals: function (cursor) { return get(withCursor(PATHS.faucetWithdrawals, cursor), { public: true }); },
     gameConfig: function (id) { return get(PATHS.gameConfig + encodeURIComponent(id) + "/config", { public: true }); },
 
     /* Games and fairness */

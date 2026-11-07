@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261108d">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261108h">
 </head>
 <body data-page="lobby">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -47,6 +47,7 @@
       <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
       <a class="chip-link" href="fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
       <a class="chip-link" href="leaderboards.html"><span class="chip-emoji" aria-hidden="true">🏆</span> Leaderboards</a>
+      <a class="chip-link" href="withdrawals.html"><span class="chip-emoji" aria-hidden="true">📤</span> Withdrawals</a>
       <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
     </nav>
 
@@ -143,21 +144,6 @@
       </ol>
     </section>
 
-    <section class="panel payouts" id="payouts" aria-labelledby="payouts-title">
-      <h2 class="panel-label" id="payouts-title">📤 RECENT PAYOUTS</h2>
-      <p class="panel-sub">Every withdrawal the faucet has sent, newest first. Each one is a real Testnet4 transaction you can check on the explorer.</p>
-      <div class="tbl-wrap">
-        <table class="acct-table pay-table">
-          <caption class="sr-only">Withdrawals sent by the faucet, newest first</caption>
-          <thead><tr><th scope="col">Sent</th><th scope="col">To address</th><th scope="col" class="num">Amount (tBCH)</th><th scope="col" class="pay-tx">Transaction</th></tr></thead>
-          <tbody id="pay-body"></tbody>
-        </table>
-      </div>
-      <p class="acct-empty" id="pay-empty" hidden>No withdrawals yet.</p>
-      <button type="button" class="btn-ghost acct-more" id="pay-more" hidden>Load more</button>
-      <p class="auth-status" id="pay-status" role="status" aria-live="polite"></p>
-    </section>
-
     <section class="panel house-return" id="return" aria-labelledby="return-title">
       <h2 class="panel-label" id="return-title">♣ RETURN TO THE HOUSE ♣</h2>
       <div class="hr-body">
@@ -244,6 +230,7 @@
       <div class="cf-links">
         <a href="fairness.html"><span aria-hidden="true">⚖️</span> Provably fair</a>
         <a href="leaderboards.html"><span aria-hidden="true">🏆</span> Leaderboards</a>
+        <a href="withdrawals.html"><span aria-hidden="true">📤</span> Withdrawals</a>
         <a href="account.html"><span aria-hidden="true">👤</span> Your account</a>
         <a href="#notice"><span aria-hidden="true">⚠️</span> House notice</a>
         <a href="legal/terms-of-service.pdf" type="application/pdf"><span aria-hidden="true">📄</span> Terms<span class="sr-only"> of Service (PDF)</span></a>
@@ -261,14 +248,13 @@
     </footer>
   </div>
 
-  <script src="assets/js/config.js?v=20261108d"></script>
-  <script src="assets/js/api.js?v=20261108d"></script>
-  <script src="assets/js/units.js?v=20261108d"></script>
-  <script src="assets/js/faucet.js?v=20261108d"></script>
-  <script src="assets/js/auth.js?v=20261108d"></script>
-  <script src="assets/js/copy.js?v=20261108d"></script>
-  <script src="assets/js/payouts.js?v=20261108d"></script>
-  <script src="assets/js/fx.js?v=20261108d"></script>
-  <script src="assets/js/music.js?v=20261108d"></script>
+  <script src="assets/js/config.js?v=20261108h"></script>
+  <script src="assets/js/api.js?v=20261108h"></script>
+  <script src="assets/js/units.js?v=20261108h"></script>
+  <script src="assets/js/faucet.js?v=20261108h"></script>
+  <script src="assets/js/auth.js?v=20261108h"></script>
+  <script src="assets/js/copy.js?v=20261108h"></script>
+  <script src="assets/js/fx.js?v=20261108h"></script>
+  <script src="assets/js/music.js?v=20261108h"></script>
 </body>
 </html>

@@ -193,13 +193,16 @@
       input: function (cls) {
         return '<input id="bet-input" class="' + cls + '" type="number" inputmode="numeric" min="' + MIN_BET + '" max="' + MAX_BET + '" step="1" aria-label="Bet in tSats">';
       },
-      tail: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>' +
-        '<div class="m-util">' +
-          '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
-            '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
-          '<a class="btn-ghost" href="../account.html#withdraw">📤 Withdraw tBCH</a>' +
-          '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a>' +
-        '</div>',
+      tail: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>',
+      // Credit unit and account links: a section of its own under the machine (not in full screen).
+      extras: '<section class="panel m-extras" aria-label="Credit unit and account">' +
+          '<div class="m-util">' +
+            '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
+              '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
+            '<a class="btn-ghost" href="../account.html#withdraw">📤 Withdraw tBCH</a>' +
+            '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a>' +
+          '</div>' +
+        '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>'
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Testnet coins only: no real money.</p>'; }
@@ -305,6 +308,7 @@
     root.innerHTML =
       '<div class="machine-stage">' + (builders[game.theme] || machineOrchard)() + '</div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
+      P.extras +
       '<section class="panel" aria-labelledby="pt-title"><h2 class="panel-label" id="pt-title">PAYTABLE &amp; RULES</h2>' + buildPaytable() + '</section>' +
       '<section class="panel" aria-labelledby="hist-title">' +
         '<h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
@@ -1278,20 +1282,39 @@
       fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
       fsBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
     }
+    // The box everything in the machine is drawn in, in viewport pixels. It is larger than the
+    // layout box: the 3D tilt, the sloped deck, plinths and shadows reach beyond it.
+    var SHADOW = 26;   // room for the drop shadows under the cabinet and deck
+    function drawnBox() {
+      var r = machine.getBoundingClientRect(), b = { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
+      machine.querySelectorAll("*").forEach(function (el) {
+        if (el.closest("[hidden]")) return;
+        var q = el.getBoundingClientRect();
+        if (!q.width && !q.height) return;
+        b.top = Math.min(b.top, q.top); b.left = Math.min(b.left, q.left);
+        b.right = Math.max(b.right, q.right); b.bottom = Math.max(b.bottom, q.bottom);
+      });
+      return { top: b.top, left: b.left, right: b.right, bottom: b.bottom + SHADOW, mTop: r.top };
+    }
     function fitMachine() {
-      machine.style.scale = ""; machineStage.style.height = "";
+      machine.style.scale = ""; machineStage.style.height = ""; machineStage.style.paddingTop = "";
       if (!document.body.classList.contains("is-fullscreen")) return;
+      if (!machine.offsetHeight || !machine.offsetWidth) return;
       var cs = getComputedStyle(document.querySelector(".page"));
       var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
       var availW = window.innerWidth - 24;
-      var h = machine.offsetHeight, w = machine.offsetWidth;
-      if (!h || !w) return;
-      var k = Math.max(0.4, Math.min(availH / h, availW / w, 1.4));
+      var d = drawnBox(), h = d.bottom - d.top, w = d.right - d.left;
+      // Zoom out (or in, up to 1.4) until the whole drawn machine fits, with a small margin.
+      var k = Math.max(0.3, Math.min(availH / h, availW / w, 1.4) * 0.97);
       machine.style.scale = String(k);
+      // Scaling keeps the machine's top edge in place; make room for anything drawn above it.
+      var above = Math.max(0, d.mTop - d.top) * k;
+      machineStage.style.paddingTop = Math.ceil(above) + "px";
       machineStage.style.height = Math.ceil(h * k) + "px";
     }
     function onFsChange() {
       document.body.classList.toggle("is-fullscreen", !!fsElement());
+      docEl.classList.toggle("is-fullscreen", !!fsElement());
       renderFs();
       fitMachine();
       if (!fsElement()) machine.scrollIntoView({ block: "nearest" });
