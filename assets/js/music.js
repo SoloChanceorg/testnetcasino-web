@@ -20,7 +20,8 @@
  * injected into the page. Settings live in localStorage: on/off + volume are
  * shared, the current song is remembered per venue. Browsers only allow
  * audio after a user gesture, so a jukebox that was playing resumes on the
- * first tap or key press.
+ * first tap or key press. The music keeps playing while the window is
+ * minimized or another tab is in front.
  */
 (function () {
   "use strict";
@@ -156,9 +157,10 @@
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     var nd = noiseBuf.getChannelData(0); for (var j = 0; j < nd.length; j++) nd[j] = Math.random() * 2 - 1;
     applyVolume();
+    // The music keeps playing in the background (minimized window, other tab). Coming back,
+    // wake the context up in case the browser or the OS suspended it meanwhile.
     document.addEventListener("visibilitychange", function () {
-      if (!ctx) return;
-      if (document.hidden) ctx.suspend(); else if (state.playing) ctx.resume();
+      if (ctx && !document.hidden && state.playing && ctx.state !== "running") ctx.resume();
     });
     return ctx;
   }
@@ -511,17 +513,25 @@
     ui.render();
     mediaSession();
   }
+  // Look-ahead: short while visible, so play/pause and song changes are instant; long while
+  // hidden, because browsers run background timers only about once a second.
+  function ahead() { return document.hidden ? 1.6 : 0.15; }
+  function advance(comp) {
+    if (++seq.step >= comp.N) {
+      seq.step = 0;
+      if (++seq.bar >= comp.form.length) seq.bar = 0;   // the song repeats until the player picks another
+    }
+  }
   function tick() {
     var song = seq.song, comp = seq.comp, stepDur = 60 / song.bpm / song.sub;
-    while (seq.next < ctx.currentTime + 0.15) {
+    // A stalled timer (heavily throttled tab): skip the missed steps instead of firing them all at once.
+    while (seq.next < ctx.currentTime - 0.05) { seq.next += stepDur; advance(comp); }
+    while (seq.next < ctx.currentTime + ahead()) {
       var t = seq.next;
       if (song.swing && song.sub === 4 && seq.step % 2 === 1) t += song.swing * stepDur;
       playStep(song, comp, seq.bar, seq.step, t, stepDur);
       seq.next += stepDur;
-      if (++seq.step >= comp.N) {
-        seq.step = 0;
-        if (++seq.bar >= comp.form.length) seq.bar = 0;   // the song repeats until the player picks another
-      }
+      advance(comp);
     }
   }
   function stopSeq(fade) {

@@ -109,7 +109,7 @@ sounds the same. The current song repeats until you press next or previous.
 | 🌙 Cosmic Voyage | Holographic console | Hyperdrive (synthwave) · Nebula Dreams (space ambient) · Starport 8-bit (chiptune) |
 
 On/off and volume are remembered across pages, and the current song is remembered per venue. Browsers only allow sound after a user action, so a jukebox
-that was playing resumes on the first tap or key press. Media keys and the OS media controls (Media Session API) work too.
+that was playing resumes on the first tap or key press. Media keys and the OS media controls (Media Session API) work too. The music keeps playing while the window is minimized or another tab is in front (the scheduler plans about 1.6 s ahead while hidden, since browsers throttle background timers).
 Recipes live in `PLAYLISTS` in `assets/js/music.js` (the section plan is `FORM`). Add a song by adding a recipe.
 
 ## How the site talks to the API
@@ -239,7 +239,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261108c`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261108d`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages
