@@ -1,7 +1,7 @@
 /*
  * TestnetCasino.com: leaderboards page (leaderboards.html).
  *
- * GET /leaderboards (public, sent with the session cookie): six boards of up
+ * GET /leaderboards (public, sent with the session cookie): seven boards of up
  * to 1,000 entries { rank, player, method, amount, me? }, already sorted,
  * refreshed server-side every 5 minutes. Fetched once when the page opens and
  * again only when the player signs in or out (the response is up to ~500 KB).
@@ -23,6 +23,7 @@
     { key: "balances", tab: "Top balances", sub: "", title: "Top balances", what: "Balance" },
     { key: "wins24h", tab: "Biggest winners", sub: "24 hours", title: "Biggest winners: 24 hours", what: "Net win", note: "Net winnings (won minus bet) over the last 24 hours. Only players who are ahead are listed." },
     { key: "wins30d", tab: "Biggest winners", sub: "30 days", title: "Biggest winners: 30 days", what: "Net win", note: "Net winnings (won minus bet) over the last 30 days. Only players who are ahead are listed." },
+    { key: "winsAllTime", tab: "Biggest winners", sub: "all time", title: "Biggest winners: all time", what: "Net win", note: "Net winnings (won minus bet) since the start. Only players who are ahead are listed.", empty: "No one is ahead yet. Be the first!" },
     { key: "withdrawals24h", tab: "Top withdrawals", sub: "24 hours", title: "Top withdrawals: 24 hours", what: "Withdrawn", note: "Withdrawals sent in the last 24 hours." },
     { key: "withdrawals30d", tab: "Top withdrawals", sub: "30 days", title: "Top withdrawals: 30 days", what: "Withdrawn", note: "Withdrawals sent in the last 30 days." },
     { key: "withdrawalsAllTime", tab: "Top withdrawals", sub: "all time", title: "Top withdrawals: all time", what: "Withdrawn", note: "All withdrawals ever sent." }
@@ -98,7 +99,7 @@
       panel.appendChild(you);
 
       if (!entries.length) {
-        panel.appendChild(el("p", "acct-empty lb-empty", "No one here yet."));
+        panel.appendChild(el("p", "acct-empty lb-empty", b.empty || "No one here yet."));
       } else {
         var wrap = el("div", "lb-table-wrap");
         var table = el("table", "acct-table lb-table");

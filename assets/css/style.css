@@ -1847,7 +1847,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 
 /* ═══════════════════════ Leaderboards ═══════════════════════ */
 .lb-lead { margin: -6px 0 16px; text-align: center; color: var(--muted); }
-.lb-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0 0 18px; padding: 5px; border-radius: 16px; background: rgba(0,0,0,.45); border: 1px solid rgba(245,197,66,.45); }
+.lb-tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0 0 18px; padding: 5px; border-radius: 16px; background: rgba(0,0,0,.45); border: 1px solid rgba(245,197,66,.45); }
 .lb-tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 6px 4px;
   border: 0; border-radius: 12px; background: transparent; color: var(--cream); cursor: pointer; text-align: center;
@@ -1894,6 +1894,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .lb-jump[hidden] { display: none; }
 @media (max-width: 760px) {
   .lb-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lb-tab:last-child { grid-column: 1 / -1; }   /* 7 tabs: the last one spans the row */
 }
 @media (max-width: 480px) {
   .lb-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }

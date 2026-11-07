@@ -154,8 +154,8 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 ## Leaderboards
 
-`leaderboards.html` (`assets/js/leaderboards.js`): six boards from `GET /leaderboards` (top balances, biggest winners over 24
-hours and 30 days, top withdrawals over 24 hours, 30 days and all time), up to 1,000 players each. The response (up to ~500 KB)
+`leaderboards.html` (`assets/js/leaderboards.js`): seven boards from `GET /leaderboards` (top balances, biggest winners over 24
+hours, 30 days and all time, top withdrawals over 24 hours, 30 days and all time), up to 1,000 players each. The response (up to ~500 KB)
 is fetched once per page view, with the session cookie, and again only when the player signs in or out; the server refreshes it
 every 5 minutes. Rows render 50 at a time (more on scroll or "Show more"). The signed-in player's row is found only by
 `me: true` (labels can collide), highlighted with a "You" badge and `aria-current`, and a "Jump to my position (#n)" button
@@ -205,7 +205,7 @@ index.html            Landing page (lobby)
 login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
 account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
 fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
-leaderboards.html     Six leaderboards (CSP-protected)
+leaderboards.html     Seven leaderboards (CSP-protected)
 legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
 assets/css/style.css  "Vegas Casino" theme + per-game cabinet skins (.theme-orchard / -deepsea / -cosmic)
@@ -231,7 +231,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261108a`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261108b`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages
