@@ -63,6 +63,10 @@ The BCH Testnet4 coin (`assets/img/bch-testnet4.svg`) drifts through every venue
 showers and marks tBCH in the UI (balance chip, wallet sign-in, Withdraw step, lobby and sign-in tab icon).
 Respects `prefers-reduced-motion` and works down to 360px wide.
 
+## Live faucet stats
+
+Every page has a bar at the top with live numbers from `GET https://api.testnetcasino.com/faucet`: the faucet wallet, the house balance, players and pending withdrawals. It refreshes every minute while the tab is visible. A switch shows amounts in tBCH (8 decimals) or in whole tSats; the choice is remembered in `localStorage` (display preference only). This endpoint is public, so it is called for real even in mock mode. The API allows CORS only from `https://testnetcasino.com`, so on localhost the bar shows "Faucet offline".
+
 ## Returning coins
 
 The lobby and every game page end with a "Return to the house" panel asking players to send their Testnet4 coins back once they have
@@ -138,6 +142,7 @@ assets/js/slot.js     UI: cabinet, reels, win presentation, free spins, demo wal
 assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio files), mute saved per browser
 assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
+assets/js/faucet.js   Live faucet stats bar and the tBCH / tSats switch
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase + mock switch (?mock=1 / ?mock=0)

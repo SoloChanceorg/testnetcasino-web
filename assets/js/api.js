@@ -26,7 +26,8 @@
     passkeyRegisterOptions: "/auth/passkey/register/options",
     passkeyRegisterVerify: "/auth/passkey/register/verify",
     passkeyLoginOptions: "/auth/passkey/login/options",
-    passkeyLoginVerify: "/auth/passkey/login/verify"
+    passkeyLoginVerify: "/auth/passkey/login/verify",
+    faucet: "/faucet"
   };
 
   /* ═══════════════ Real backend ═══════════════ */
@@ -47,6 +48,16 @@
     }, function () {
       return { status: 0, data: { error: "network" } };
     });
+  }
+
+  // Public, read-only data (no session): a plain GET with no cookies and no
+  // custom headers, so the browser sends no preflight.
+  function publicGet(path) {
+    return fetch(cfg.apiBase.replace(/\/$/, "") + path, { credentials: "omit", cache: "no-cache" })
+      .then(function (res) {
+        return res.json().then(function (data) { return { status: res.status, data: data }; },
+                               function () { return { status: res.status, data: null }; });
+      }, function () { return { status: 0, data: { error: "network" } }; });
   }
 
   /* ═══════════════ MOCK (no backend) ═══════════════ */
@@ -127,6 +138,8 @@
 
   window.TNC_API = {
     isMock: !!cfg.mock,
+    // Live even in mock mode: the faucet endpoint is public and already online.
+    faucet: function () { return publicGet(PATHS.faucet); },
     me: function () { return pick("me", "GET", PATHS.me); },
     logout: function () { return pick("logout", "POST", PATHS.logout); },
     walletChallenge: function (address) { return pick("walletChallenge", "POST", PATHS.walletChallenge, { address: address }); },
