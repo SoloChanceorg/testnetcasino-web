@@ -9,7 +9,7 @@
   <meta property="og:title" content="TestnetCasino.com | Bitcoin Cash Testnet4 Faucet">
   <meta property="og:description" content="Spin the slots for fun and win Testnet4 BCH coins. No real money, no deposits.">
   <meta property="og:type" content="website">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -117,11 +117,50 @@
           <p>Line up 3, 4 or 5 symbols on any payline. Every machine has wilds, free spins, a bonus game and a special feature of its own.</p>
         </li>
         <li>
-          <div class="step-emoji" aria-hidden="true">📤</div>
+          <img class="step-coin" src="assets/img/bch-testnet4.svg" alt="" width="40" height="40">
           <h3>3. Withdraw</h3>
           <p>Send your winnings to any Bitcoin Cash Testnet4 address. <span class="soon">COMING SOON</span></p>
         </li>
       </ol>
+    </section>
+
+    <section class="panel house-return" id="return" aria-labelledby="return-title">
+      <h2 class="panel-label" id="return-title">♣ RETURN TO THE HOUSE ♣</h2>
+      <div class="hr-body">
+        <img class="hr-coin" src="assets/img/bch-testnet4.svg" alt="" width="44" height="44">
+        <div class="hr-text">
+          <p>Once you are satisfied with the games and have had enough fun, please return the coins to the house:</p>
+          <div class="copy-field">
+            <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
+            <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the house address">📋 Copy</button>
+          </div>
+          <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel donate" id="donate" aria-labelledby="donate-title">
+      <h2 class="panel-label" id="donate-title">♥ SUPPORT THE PROJECT ♥</h2>
+      <p class="dn-lead">Like the idea and want to support the project? Please donate:</p>
+      <div class="dn-list">
+          <div class="dn-coin">
+            <h3 class="dn-label">Bitcoin</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="btc-address">bc1qutdngpgpz8f33uep4f6tjvzvrg3lhtjpdwmptf</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#btc-address" aria-label="Copy the Bitcoin donation address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#btc-address" role="status" aria-live="polite"></span></p>
+          </div>
+          <div class="dn-coin">
+            <h3 class="dn-label">Bitcoin Cash</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="bch-address">bitcoincash:qrg67f7krwnl4zlwqnmrcjh0gkyx6dy7luyhd9fzd4</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#bch-address" aria-label="Copy the Bitcoin Cash donation address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#bch-address" role="status" aria-live="polite"></span></p>
+          </div>
+      </div>
+      <p class="dn-note">Donations are optional and separate from the games. They never add sats to your balance.</p>
     </section>
 
     <section class="panel faq" aria-labelledby="faq-title">
@@ -163,6 +202,7 @@
   <script src="assets/js/config.js"></script>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/copy.js"></script>
   <script src="assets/js/fx.js"></script>
   <script src="assets/js/music.js"></script>
 </body>

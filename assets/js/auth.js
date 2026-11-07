@@ -21,6 +21,7 @@
   var script = document.currentScript;
   var SITE = new URL("../../", script ? script.src : location.href);   // site root (works under a sub-path too)
   var LOGIN = new URL("login.html", SITE);
+  var TBCH_ICON = '<img class="tbch" src="' + new URL("assets/img/bch-testnet4.svg", SITE).href + '" alt="">';
 
   function $(id) { return document.getElementById(id); }
   function short(addr) {
@@ -69,7 +70,7 @@
       var who = document.createElement("span");
       who.className = "chip-link auth-user";
       if (Auth.user.address) who.title = Auth.user.address;
-      who.innerHTML = '<span class="chip-emoji" aria-hidden="true">' + (Auth.user.method === "wallet" ? "👛" : "🔐") + "</span> ";
+      who.innerHTML = (Auth.user.method === "wallet" ? TBCH_ICON : '<span class="chip-emoji" aria-hidden="true">🔐</span>') + " ";
       who.appendChild(document.createTextNode(userLabel(Auth.user)));
       who.setAttribute("aria-label", "Signed in as " + (Auth.user.address || "a passkey account"));
       var out = document.createElement("button");

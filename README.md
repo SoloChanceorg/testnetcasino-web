@@ -59,7 +59,15 @@ Each game page drops you into its own world and has **its own machine**:
 Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
 Each machine has a full-screen button next to its sound button: the site header, nav and paytable are hidden and the machine is scaled
 to fit the screen (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
+The BCH Testnet4 coin (`assets/img/bch-testnet4.svg`) drifts through every venue's animated background, rains down in the win coin
+showers and marks tBCH in the UI (balance chip, wallet sign-in, Withdraw step, lobby and sign-in tab icon).
 Respects `prefers-reduced-motion` and works down to 360px wide.
+
+## Returning coins
+
+The lobby and every game page end with a "Return to the house" panel asking players to send their Testnet4 coins back once they have
+had enough fun, so the faucet keeps running. The house address is shown as code with a Copy button:
+`bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy`
 
 ## Jukebox
 
@@ -129,6 +137,8 @@ assets/js/games.js    Game definitions (symbols, weights, paytables, stats)
 assets/js/slot.js     UI: cabinet, reels, win presentation, free spins, demo wallet
 assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio files), mute saved per browser
 assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
+assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
+assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase + mock switch (?mock=1 / ?mock=0)
 assets/js/api.js      API client: the only place with endpoint paths; mock implementation
