@@ -33,8 +33,8 @@
     orchard: {
       burst: ["🍒", "🍋", "🍊", "🍇", "🍉", "🍃", "🌸"],
       quips: ["No fruit this time.", "The orchard is quiet… spin again!", "Not ripe yet!", "A gentle breeze, nothing more."],
-      welcome: "Welcome to the orchard! Pick a price tag and pull the lever",
-      action: "Pull the lever!",
+      welcome: "Welcome to the orchard! Pick a price tag and press SPIN",
+      action: "Press SPIN!",
       twist: "STICKY WILDS"
     },
     deepsea: {
@@ -225,14 +225,15 @@
                 }).join("") + '</div>' +
               '</div>' +
             '</div>' +
-            '<div class="or-lever-wrap spin-wrap" id="spin-wrap">' +
-              '<button type="button" class="or-lever" id="spin-btn" aria-label="Pull the lever to spin">' +
-                '<span class="lv-slot" aria-hidden="true"></span><span class="lv-arm" aria-hidden="true"><span class="lv-knob"></span></span><span class="lv-base" aria-hidden="true"></span>' +
+            '<div class="or-spin-wrap spin-wrap" id="spin-wrap">' +
+              '<button type="button" class="or-spin btn3d" id="spin-btn" aria-label="Spin the reels">' +
+                '<span class="b3-base" aria-hidden="true"></span>' +
+                '<span class="b3-cap"><span class="b3-shine" aria-hidden="true"></span><span class="or-leaf" aria-hidden="true"></span>' +
+                  '<span class="spin-label">SPIN</span><span class="spin-sub" id="spin-sub"></span></span>' +
               '</button>' +
-              '<div class="lv-label">PULL<span id="spin-sub"></span></div>' +
             '</div>' +
           '</div>' +
-          hint("Pull the lever") + P.tail +
+          hint("Press SPIN") + P.tail +
         '</div>' + P.stage + '</div>';
     }
 
@@ -303,6 +304,7 @@
       '</section>';
 
     var machine = $("#slot-machine"), reelsWin = $("#reels-window"), svg = $("#paylines");
+    machine.parentNode.classList.add("ms-" + game.theme);   // per-theme 3D stage (perspective)
     var strips = Array.prototype.slice.call(reelsWin.querySelectorAll(".reel-strip"));
     var reelEls = strips.map(function (s) { return s.parentNode; });
     var betInput = $("#bet-input"), spinBtn = $("#spin-btn"), spinWrap = $("#spin-wrap");
@@ -556,16 +558,18 @@
       if (!p.items.length) return;
       reelsWin.classList.add("has-win");
       p.items.forEach(function (it) { markCells(it.w.cells, it.type === "line" ? "l" + it.w.line : "s"); });
-      var wr = reelsWin.getBoundingClientRect();
-      svg.setAttribute("viewBox", "0 0 " + wr.width + " " + wr.height);
+      // Layout coordinates (offset*), not getBoundingClientRect: they stay correct when the
+      // machine is tilted in 3D, because the SVG is drawn in the same untransformed space.
+      var W = reelsWin.clientWidth, H = reelsWin.clientHeight;
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
       p.items.filter(function (it) { return it.type === "line"; }).forEach(function (it, k) {
         var li = it.w.line;
         var pts = PAYLINES[li].map(function (r, c) {
-          var b = cell(c, r).getBoundingClientRect();
-          return [b.left + b.width / 2 - wr.left, b.top + b.height / 2 - wr.top];
+          var el = reelEls[c], h = el.offsetHeight / ROWS;
+          return [el.offsetLeft + el.offsetWidth / 2, el.offsetTop + (r + 0.5) * h];
         });
         pts.unshift([6, pts[0][1]]);
-        pts.push([wr.width - 6, pts[pts.length - 1][1]]);
+        pts.push([W - 6, pts[pts.length - 1][1]]);
         var len = 0;
         for (var i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
         var pl = document.createElementNS(NS, "polyline");
@@ -1093,7 +1097,7 @@
       setBet(parseInt(betInput.value, 10));
       if (cantAfford()) { tilt(); updateControls(); return; }
       spinBtn.classList.add("pressed");
-      setTimeout(function () { spinBtn.classList.remove("pressed"); }, game.theme === "orchard" ? 520 : 160);
+      setTimeout(function () { spinBtn.classList.remove("pressed"); }, 160);
       sfx.press();
       busy = true;
       updateControls();
