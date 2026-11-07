@@ -1282,9 +1282,11 @@
       fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
       fsBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
     }
-    // The box everything in the machine is drawn in, in viewport pixels. It is larger than the
-    // layout box: the 3D tilt, the sloped deck, plinths and shadows reach beyond it.
-    var SHADOW = 26;   // room for the drop shadows under the cabinet and deck
+    // Full screen: zoom the machine so that, on whichever side runs out first, there are
+    // exactly MARGIN pixels to the screen edge, and centre it. The size is measured as drawn
+    // (3D tilt, sloped deck and plinths reach beyond the layout box), and re-measured after
+    // zooming because the perspective makes the drawn size not quite proportional.
+    var MARGIN = 10, PLINTH = 16;   // PLINTH: the cabinet's base plate below the last element
     function drawnBox() {
       var r = machine.getBoundingClientRect(), b = { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
       machine.querySelectorAll("*").forEach(function (el) {
@@ -1294,23 +1296,32 @@
         b.top = Math.min(b.top, q.top); b.left = Math.min(b.left, q.left);
         b.right = Math.max(b.right, q.right); b.bottom = Math.max(b.bottom, q.bottom);
       });
-      return { top: b.top, left: b.left, right: b.right, bottom: b.bottom + SHADOW, mTop: r.top };
+      b.bottom += PLINTH * (parseFloat(machine.style.scale) || 1);
+      return { top: b.top, left: b.left, w: b.right - b.left, h: b.bottom - b.top };
     }
     function fitMachine() {
-      machine.style.scale = ""; machineStage.style.height = ""; machineStage.style.paddingTop = "";
+      machine.style.scale = ""; machine.style.translate = ""; document.body.classList.remove("fs-no-jukebox");
+      machineStage.style.height = ""; machineStage.style.paddingTop = "";
       if (!document.body.classList.contains("is-fullscreen")) return;
       if (!machine.offsetHeight || !machine.offsetWidth) return;
-      var cs = getComputedStyle(document.querySelector(".page"));
-      var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      var availW = window.innerWidth - 24;
-      var d = drawnBox(), h = d.bottom - d.top, w = d.right - d.left;
-      // Zoom out (or in, up to 1.4) until the whole drawn machine fits, with a small margin.
-      var k = Math.max(0.3, Math.min(availH / h, availW / w, 1.4) * 0.97);
-      machine.style.scale = String(k);
-      // Scaling keeps the machine's top edge in place; make room for anything drawn above it.
-      var above = Math.max(0, d.mTop - d.top) * k;
-      machineStage.style.paddingTop = Math.ceil(above) + "px";
-      machineStage.style.height = Math.ceil(h * k) + "px";
+      var W = window.innerWidth, H = window.innerHeight;
+      var d = drawnBox(), k = 1;
+      for (var pass = 0; pass < 3; pass++) {
+        k = k * Math.min((H - 2 * MARGIN) / d.h, (W - 2 * MARGIN) / d.w);
+        k = Math.max(0.2, Math.min(k, 2.5));
+        machine.style.scale = String(k);
+        d = drawnBox();
+      }
+      machine.style.translate = Math.round((W - d.w) / 2 - d.left) + "px " + Math.round((H - d.h) / 2 - d.top) + "px";
+      // The jukebox button sits in the bottom-right corner. When the machine fills that corner
+      // too (portrait phones), hide the button in full screen; the music keeps playing.
+      var fab = document.querySelector(".jb-fab");
+      document.body.classList.remove("fs-no-jukebox");
+      if (fab) {
+        var f = fab.getBoundingClientRect(), x = (W - d.w) / 2, y = (H - d.h) / 2;
+        var hit = f.width && f.left < x + d.w && f.right > x && f.top < y + d.h && f.bottom > y;
+        document.body.classList.toggle("fs-no-jukebox", !!hit);
+      }
     }
     function onFsChange() {
       document.body.classList.toggle("is-fullscreen", !!fsElement());

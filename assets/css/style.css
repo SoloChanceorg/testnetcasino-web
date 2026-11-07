@@ -1608,9 +1608,14 @@ body[data-game] .machine-stage { margin-top: 0; }
    by slot.js to fit the screen. */
 body.is-fullscreen .warning-strip, body.is-fullscreen .logo-area, body.is-fullscreen .nav-bar,
 body.is-fullscreen #app > .panel, body.is-fullscreen .casino-footer { display: none; }
-body.is-fullscreen .page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding: 12px 16px; }
+/* slot.js zooms and centres the machine itself (scale + translate), 10px from the edge
+   that runs out first, so the page adds no padding of its own. */
+body.is-fullscreen .page { min-height: 100vh; min-height: 100dvh; padding: 0; }
 body.is-fullscreen .machine-stage { margin: 0; align-items: flex-start; }
-body.is-fullscreen .machine { transform-origin: top center; }
+body.is-fullscreen .machine { transform-origin: top left; }
+/* The jukebox button moves to the bottom-right corner, away from the machine's own buttons. */
+body.is-fullscreen .jukebox { position: fixed; top: auto; bottom: 8px; right: 8px; }
+body.is-fullscreen.fs-no-jukebox .jukebox:not(.is-open) { display: none; }
 /* Full screen never scrolls: the machine is zoomed to fit instead. */
 html.is-fullscreen, html.is-fullscreen body { overflow: hidden; height: 100%; }
 /* The win list normally appears only after a win, which makes the machine
@@ -1622,15 +1627,6 @@ body.is-fullscreen .breakdown, body.is-fullscreen .breakdown:empty {
 }
 body.is-fullscreen .breakdown::-webkit-scrollbar { display: none; }
 body.is-fullscreen .bd-item { flex: none; }
-@media (max-width: 899px) {
-  /* The jukebox button sits in the top-right corner: keep it clear of the machine. */
-  body.is-fullscreen .page { padding-top: 56px; justify-content: flex-start; }
-}
-/* Short landscape screens: the narrow machine sits in the middle, clear of the jukebox
-   button in the corner, so it can use the full height. */
-@media (max-width: 899px) and (max-height: 500px) and (orientation: landscape) {
-  body.is-fullscreen .page { padding-top: 6px; padding-bottom: 6px; justify-content: center; }
-}
 
 /* ═══════════════════════ BCH Testnet4 coin icon ═══════════════════════ */
 .tbch { display: inline-block; width: 1.25em; height: 1.25em; flex: none; vertical-align: -0.28em; }
