@@ -57,6 +57,8 @@ Each game page drops you into its own world and has **its own machine**:
 
 − / + and the dial and throttle move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Any whole amount from 1 to 1,000 can be typed. Space spins on every machine.
 Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
+Each machine has a full-screen button next to its sound button: the site header, nav and paytable are hidden and the machine is scaled
+to fit the screen (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
 Respects `prefers-reduced-motion` and works down to 360px wide.
 
 ## Jukebox

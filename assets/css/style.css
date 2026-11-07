@@ -599,11 +599,16 @@ body.theme-cosmic {
 }
 .m-title { margin: 0; font-family: var(--sign); font-size: clamp(1.15rem, 4.4vw, 2rem); letter-spacing: 2px; line-height: 1.05; }
 .feature-bar .e { font-family: var(--emoji); letter-spacing: 0; }
-.sound-toggle {
-  position: absolute; z-index: 8; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+/* Machine corner buttons: sound in the top-left corner, full screen in the top-right. */
+.m-tools { position: absolute; z-index: 8; display: flex; justify-content: space-between; pointer-events: none; }
+.m-tools .m-tool { pointer-events: auto; }
+.m-tool {
+  width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--gold-light);
   font-size: .95rem; line-height: 1; cursor: pointer; border-radius: 50%; background: rgba(0,0,0,.4); border: 1px solid rgba(245,197,66,.6);
 }
-.sound-toggle:hover { background: rgba(245,197,66,.25); }
+.m-tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.m-tool[hidden] { display: none; }
+.m-tool:hover { background: rgba(245,197,66,.25); }
 .sound-toggle[aria-pressed="true"] { opacity: .6; }
 
 /* Feature strip + free-spins sign share one fixed slot (no layout shift). */
@@ -692,7 +697,8 @@ body.theme-cosmic {
   box-shadow: 0 18px 40px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,214,102,.12);
 }
 .m-orchard.in-feature .or-crate { box-shadow: 0 18px 40px rgba(0,0,0,.55), 0 0 60px rgba(255,214,102,.65), inset 0 0 0 2px rgba(255,214,102,.4); }
-.m-orchard .sound-toggle { top: 18px; right: 4px; background: #5b3412; border-color: #ffd166; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.m-orchard .m-tools { top: 18px; left: 4px; right: 4px; }
+.m-orchard .m-tool { background: #5b3412; border-color: #ffd166; color: #ffd166; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
 .or-window { padding: 10px; border-radius: 14px; background: linear-gradient(180deg, #6e421c, #4a2a10); box-shadow: inset 0 3px 8px rgba(0,0,0,.6), 0 2px 0 rgba(255,255,255,.15); }
 .m-orchard .reels-window { border-color: #3b2109; background: #2b1606; }
 .m-orchard .slot-lcd { /* chalkboard */
@@ -788,7 +794,8 @@ body.theme-cosmic {
   opacity: .85;
 }
 .m-deepsea.in-feature .ds-hull { box-shadow: 0 0 0 3px #3b2a12, 0 18px 50px rgba(0,0,0,.6), inset 0 0 30px rgba(0,0,0,.6), 0 0 90px rgba(46,197,255,.7); }
-.m-deepsea .sound-toggle { top: 18px; right: 22px; background: #0b2230; border-color: #f0d38a; }
+.m-deepsea .m-tools { top: 18px; left: 22px; right: 22px; }
+.m-deepsea .m-tool { background: #0b2230; border-color: #f0d38a; color: #f0d38a; }
 .ds-plate {
   position: relative; width: fit-content; max-width: calc(100% - 80px); margin: 4px auto 14px; padding: 10px 34px; text-align: center; border-radius: 10px;
   background: linear-gradient(180deg, #f6dd9b, #c99a3e 50%, #a87a12); box-shadow: 0 4px 0 #5c4410, 0 8px 16px rgba(0,0,0,.4), inset 0 1px 0 #fff6dc;
@@ -929,7 +936,8 @@ body.theme-cosmic {
     linear-gradient(180deg, #120a2e, #07041a) padding-box,
     linear-gradient(135deg, #b388ff, #2ec5ff 50%, #ff5ac8) border-box;
 }
-.m-cosmic .sound-toggle { top: 18px; right: 30px; background: rgba(46,197,255,.12); border-color: #2ec5ff; }
+.m-cosmic .m-tools { top: 18px; left: 30px; right: 30px; }
+.m-cosmic .m-tool { background: rgba(46,197,255,.12); border-color: #2ec5ff; color: #9ff0ff; }
 .cx-head { margin: 0 44px 12px; text-align: center; }
 .m-cosmic .m-title {
   background: linear-gradient(90deg, #9ff0ff, #e0c3ff, #ff9ae6, #9ff0ff); background-size: 200% 100%;
@@ -1075,7 +1083,8 @@ body.theme-cosmic {
   .ro-value { font-size: .85rem; }
   .ro-label { font-size: .7rem; letter-spacing: 1px; }
   .ro-unit { font-size: .7rem; letter-spacing: .5px; }
-  .sound-toggle { width: 28px; height: 28px; font-size: .8rem; }
+  .m-tool { width: 28px; height: 28px; font-size: .8rem; }
+  .m-tool svg { width: 15px; height: 15px; }
   .panel { padding: 24px 10px 16px; }
   .marquee { padding: 20px 20px 16px; }
   .marquee.small { padding: 16px 18px 13px; }
@@ -1092,10 +1101,10 @@ body.theme-cosmic {
   .or-crate-btn { width: 42px; height: 42px; }
   .or-chalk { height: 42px; font-size: 1.2rem; }
   .or-tag { padding: 6px 9px 6px 18px; font-size: .72rem; }
-  .m-orchard .sound-toggle { top: 20px; right: 2px; }
+  .m-orchard .m-tools { top: 20px; left: 2px; right: 2px; }
 
   .ds-plate { padding: 8px 24px; max-width: calc(100% - 80px); }
-  .m-deepsea .sound-toggle { top: 12px; right: 12px; }
+  .m-deepsea .m-tools { top: 12px; left: 12px; right: 12px; }
   .ds-dial { --dial-r: 47px; width: 138px; height: 138px; }
   .ds-knob { width: 62px; height: 62px; margin: -31px 0 0 -31px; }
   .ds-tick { width: 28px; height: 24px; margin: -12px 0 0 -14px; font-size: .64rem; }
@@ -1103,8 +1112,8 @@ body.theme-cosmic {
   .ds-dive-wrap { padding: 8px; }
 
   .cx-launch { width: 112px; height: 98px; font-size: .95rem; }
-  .m-cosmic .sound-toggle { top: 14px; right: 20px; }
-  .cx-head { margin: 0 40px 10px; }
+  .m-cosmic .m-tools { top: 8px; left: 16px; right: 16px; }
+  .cx-head { margin: 0 40px 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -1397,4 +1406,27 @@ body[data-game] .machine-stage { margin-top: 0; }
   .jukebox.is-open { z-index: 260; }
   .warning-strip { padding-right: 58px; padding-left: 12px; min-height: 52px; }
   body[data-page="lobby"] .page { padding-top: 58px; }
+}
+
+/* ═══════════════════════ Full screen (game pages) ═══════════════════════ */
+/* The whole page goes full screen (so coin showers, effects and the jukebox
+   still work); everything but the machine is hidden and the machine is scaled
+   by slot.js to fit the screen. */
+body.is-fullscreen .warning-strip, body.is-fullscreen .logo-area, body.is-fullscreen .nav-bar,
+body.is-fullscreen #app > .panel, body.is-fullscreen .casino-footer { display: none; }
+body.is-fullscreen .page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding: 12px 16px; }
+body.is-fullscreen .machine-stage { margin: 0; align-items: flex-start; }
+body.is-fullscreen .machine { transform-origin: top center; }
+/* The win list normally appears only after a win, which makes the machine
+   taller and would make the fit-to-screen scale shrink on every win. In full
+   screen it always keeps exactly one row; extra wins scroll sideways. */
+body.is-fullscreen .breakdown, body.is-fullscreen .breakdown:empty {
+  display: flex; flex-wrap: nowrap; height: 30px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  justify-content: flex-start; justify-content: safe center;
+}
+body.is-fullscreen .breakdown::-webkit-scrollbar { display: none; }
+body.is-fullscreen .bd-item { flex: none; }
+@media (max-width: 899px) {
+  /* The jukebox button sits in the top-right corner: keep it clear of the machine. */
+  body.is-fullscreen .page { padding-top: 56px; justify-content: flex-start; }
 }

@@ -130,7 +130,8 @@
       ? esc(words.slice(0, -1).join(" ")) + " <span>★</span> " + esc(words[words.length - 1])
       : esc(words[0]);
     var P = {
-      sound: '<button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="false">🔊</button>',
+      sound: '<div class="m-tools"><button type="button" class="m-tool sound-toggle" id="sound-toggle" aria-pressed="false">🔊</button>' +
+        '<button type="button" class="m-tool fs-toggle" id="fs-toggle" aria-pressed="false"></button></div>',
       sign: '<div class="sign-slot"><ul class="feature-bar" aria-label="Machine features">' +
           '<li><span class="e">' + syms[WILD].emoji + '</span>' + esc(game.featureName) + '</li>' +
           '<li><span class="e">' + syms[SCAT].emoji + '</span>' + esc(FS.name) + '</li>' +
@@ -1122,6 +1123,54 @@
       soundBtn.setAttribute("aria-label", m ? "Unmute sound effects" : "Mute sound effects");
       soundBtn.title = m ? "Unmute sound effects" : "Mute sound effects";
     }
+    /* --- Full screen --- */
+    // The whole page goes full screen; CSS hides the site chrome and fitMachine()
+    // scales the machine (with the `scale` property, so the shake animation's
+    // transform still works) to fill the screen.
+    var fsBtn = $("#fs-toggle"), docEl = document.documentElement, stage = machine.parentNode;
+    var FS_ICON = {
+      enter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+      exit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+    };
+    function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    function renderFs() {
+      var on = !!fsElement();
+      fsBtn.innerHTML = on ? FS_ICON.exit : FS_ICON.enter;
+      fsBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+      fsBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
+    }
+    function fitMachine() {
+      machine.style.scale = ""; stage.style.height = "";
+      if (!document.body.classList.contains("is-fullscreen")) return;
+      var cs = getComputedStyle(document.querySelector(".page"));
+      var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      var availW = window.innerWidth - 24;
+      var h = machine.offsetHeight, w = machine.offsetWidth;
+      if (!h || !w) return;
+      var k = Math.max(0.4, Math.min(availH / h, availW / w, 1.4));
+      machine.style.scale = String(k);
+      stage.style.height = Math.ceil(h * k) + "px";
+    }
+    function onFsChange() {
+      document.body.classList.toggle("is-fullscreen", !!fsElement());
+      renderFs();
+      fitMachine();
+      if (!fsElement()) machine.scrollIntoView({ block: "nearest" });
+    }
+    if (!(docEl.requestFullscreen || docEl.webkitRequestFullscreen)) fsBtn.hidden = true;   // e.g. iPhone Safari
+    fsBtn.addEventListener("click", function () {
+      var p;
+      if (fsElement()) p = (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else p = (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(function () {});
+    });
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    window.addEventListener("resize", fitMachine);
+    if (window.ResizeObserver) new ResizeObserver(function () { fitMachine(); }).observe(machine);
+    renderFs();
+
     soundBtn.addEventListener("click", function () {
       sfx.setMuted(!sfx.isMuted());
       renderSound();
