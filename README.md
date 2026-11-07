@@ -152,6 +152,13 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
   re-reads itself every 15 s while a withdrawal is pending.
 - **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
 
+## Recent payouts
+
+The lobby lists every withdrawal the faucet has sent (`assets/js/payouts.js`, `GET /faucet/withdrawals?cursor=`, public,
+50 per page with "Load more"): time in the visitor's time zone, the full address (shortened on narrow screens, with the full
+one in the tooltip and a copy button), the amount in tBCH (sats on hover) and the txid linked to the explorer in a new tab.
+Fetched once when the lobby opens; no polling. The explorer URL is `TNC_CONFIG.explorerTx` in `assets/js/config.js`.
+
 ## Leaderboards
 
 `leaderboards.html` (`assets/js/leaderboards.js`): seven boards from `GET /leaderboards` (top balances, biggest winners over 24
@@ -224,6 +231,7 @@ assets/js/auth.js     Session helper (nav, balance, daily bonus) + sign-in page 
 assets/js/account.js  Account page
 assets/js/fairness.js Fairness page
 assets/js/leaderboards.js  Leaderboards page
+assets/js/payouts.js  Recent payouts list on the lobby
 assets/js/fairness-engine.js  Provably fair verifier (browser + Node, no DOM)
 tools/verify-vectors.mjs      Checks the verifier against the backend test vectors
 .nojekyll             Serve files as-is on GitHub Pages
@@ -231,7 +239,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261108b`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261108c`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages

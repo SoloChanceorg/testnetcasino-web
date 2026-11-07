@@ -15,7 +15,7 @@
   var api = window.TNC_API, Auth = window.TNC_Auth, CA = window.TNC_CashAddr, U = window.TNC_Units;
   if (!api || !Auth || document.body.getAttribute("data-page") !== "account") return;
 
-  var EXPLORER_TX = "https://bchexplorer.cash/testnet4/tx/";   // always bchexplorer.cash
+  var EXPLORER_TX = (window.TNC_CONFIG && TNC_CONFIG.explorerTx) || "https://bchexplorer.cash/testnet4/tx/";
   var MIN_WD = 1000, MAX_WD = 10000000;   // sats per withdrawal (API.md); daily caps are checked by the server
   var POLL_MS = 15000;
 
