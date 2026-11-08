@@ -9,10 +9,13 @@
  *   - slot rules: the same as the backend's frozen reference engine;
  *   - wins: exact BigInt arithmetic, 1 unit = 10^-7 of the bet, each item
  *     rounded to whole sats with one draw when there is a remainder;
- *   - jackpots (config version 2+): after every other draw, one draw for the
- *     game's Major, then one for the shared Grand; a hit when
- *     randInt(oneInSats) < bet. The amount won is the pool at that moment, so
- *     it is not part of the random outcome and is not checked here.
+ *   - game versions: the API serves the current config (version 3). Versions 1
+ *     and 3 have the same rules; version 2 (2026-11-08 to 2026-11-09) adds two
+ *     jackpot draws after every other draw: the game's Major, then the shared
+ *     Grand, a hit when randInt(oneInSats) < bet (FAIRNESS.md section 4, step 5).
+ *     configFor() rebuilds a version from the current config;
+ *   - jackpot meters (FAIRNESS.md section 8): meter() derives a cycle's target
+ *     and display scale from its revealed seed; verifyMeterWin() checks a win.
  *
  * No DOM. Works in browsers (window.TNC_Fair) and in Node 20+ (module.exports).
  */
@@ -39,6 +42,22 @@
   /** SHA-256 of the seed's raw bytes, as hex (this is what serverSeedHash commits to). */
   function sha256Hex(hex) {
     return subtle.digest("SHA-256", hexToBytes(hex)).then(function (d) { return bytesToHex(new Uint8Array(d)); });
+  }
+
+  /* ═══════════════ Game versions ═══════════════ */
+  // Version 2's jackpot draws (the same for all three games; frozen, they never change).
+  var V2_JACKPOTS = { major: { oneInSats: 730000 }, grand: { oneInSats: 9300000 } };
+  /** The rules a spin of `version` was played with, built from the current config (version 3). */
+  function configFor(game, version) {
+    version = Number(version || game.version);
+    if (game.version !== 3 || [1, 2, 3].indexOf(version) === -1) {
+      throw new Error("Game version " + version + " cannot be checked with the version " + game.version + " rules the server serves.");
+    }
+    var g = {};
+    Object.keys(game).forEach(function (k) { if (k !== "jackpots") g[k] = game[k]; });
+    g.version = version;
+    if (version === 2) g.jackpots = V2_JACKPOTS;
+    return g;
   }
 
   /* ═══════════════ Random stream ═══════════════ */
@@ -271,7 +290,7 @@
       }
       steps.push({ type: "freeSpinsEnd", played: feat.played, win: featureWin });
     }
-    // Jackpot draws (FAIRNESS.md section 4): after everything else, Major first, then Grand.
+    // Version 2 only: the old jackpot draws (FAIRNESS.md section 4), after everything else, Major first, then Grand.
     var jackpotHits = null;
     if (game.jackpots) {
       jackpotHits = {
@@ -303,7 +322,47 @@
     });
   }
 
-  var api = { sha256Hex: sha256Hex, makeStream: makeStream, play: play, replay: replay };
+  /* ═══════════════ Jackpot meters (FAIRNESS.md section 8) ═══════════════ */
+  var TWO96 = 1n << 96n, TWO32 = 1n << 32n;
+  /**
+   * A meter cycle from its revealed seed (64 hex) and the tier's range in sats:
+   * resolves to { seedHash, target, displayScale } (exact BigInt arithmetic).
+   */
+  function meter(seedHex, minSats, maxSats) {
+    var seed = hexToBytes(seedHex), min = BigInt(minSats), max = BigInt(maxSats);
+    if (max < min) return Promise.reject(new Error("The maximum is below the minimum."));
+    var msg = new TextEncoder().encode("tnc-jackpot-meter");
+    var mac = subtle.importKey("raw", seed, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
+      .then(function (key) { return subtle.sign("HMAC", key, msg); });
+    return Promise.all([mac, sha256Hex(seedHex)]).then(function (r) {
+      var v = new DataView(r[0]);
+      var x = BigInt(v.getUint32(0, false)), y = BigInt(v.getUint32(4, false));
+      var target = min + (max - min) * x * x * x / TWO96;
+      var displayScale = target + (max - target) * y / TWO32;
+      return { seedHash: r[1], target: Number(target), displayScale: Number(displayScale) };
+    });
+  }
+  /**
+   * Checks one meter win from GET /jackpots recentWins (it needs seed, seedHash,
+   * minSats, maxSats, target, displayScale and amount). Resolves to
+   * { ok, checks: [ { id, ok, text } ], derived }.
+   */
+  function verifyMeterWin(w) {
+    return meter(w.seed, w.minSats, w.maxSats).then(function (d) {
+      var checks = [
+        { id: "hash", ok: d.seedHash === String(w.seedHash).toLowerCase(),
+          text: "SHA-256 of the seed equals the seed hash published when the cycle started" },
+        { id: "target", ok: d.target === Number(w.target) && d.displayScale === Number(w.displayScale),
+          text: "The seed gives target " + d.target + " and display scale " + d.displayScale + " (the server said " + w.target + " and " + w.displayScale + ")" },
+        { id: "amount", ok: Number(w.amount) >= d.target,
+          text: "The amount won (" + w.amount + ") is at least the target (" + d.target + ")" }
+      ];
+      return { ok: checks.every(function (c) { return c.ok; }), checks: checks, derived: d };
+    });
+  }
+
+  var api = { sha256Hex: sha256Hex, makeStream: makeStream, play: play, replay: replay,
+              configFor: configFor, meter: meter, verifyMeterWin: verifyMeterWin };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TNC_Fair = api;
 })(typeof window !== "undefined" ? window : globalThis);

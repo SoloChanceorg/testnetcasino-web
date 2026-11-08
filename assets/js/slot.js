@@ -209,13 +209,14 @@
           '</div>' +
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
-      // Progressive jackpots at the top of the machine: the shared Grand (one style on every
-      // machine), then this game's Major (in the machine's theme). In the machine's unit (the
-      // tSats / tBCH switch under it: exact tSats or tBCH with 8 decimals); filled by jackpots.js.
-      jackpots: game.jackpots ? '<div class="jp-rows" role="group" aria-label="Progressive jackpots">' +
-          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
-          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
-        '</div>' : ''
+      // Jackpot meters at the top of the machine: the shared Grand (one style on every machine,
+      // the biggest), then this game's Major and Minor (in the machine's theme, Minor the
+      // smallest). Only the fill level is shown; filled by jackpots.js.
+      jackpots: '<div class="jp-rows" role="group" aria-label="Jackpot meters">' +
+          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-meter" data-meter="grand"></span></div>' +
+          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:' + esc(id) + '"></span></div>' +
+          '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:' + esc(id) + '"></span></div>' +
+        '</div>'
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
@@ -331,7 +332,7 @@
 
     var machine = $("#slot-machine"), reelsWin = $("#reels-window"), svg = $("#paylines");
     machine.parentNode.classList.add("ms-" + game.theme);   // per-theme 3D stage (perspective)
-    if (window.TNC_Jackpots) window.TNC_Jackpots.render();   // the board was just built
+    if (window.TNC_Jackpots) window.TNC_Jackpots.render();   // the meters were just built
     var strips = Array.prototype.slice.call(reelsWin.querySelectorAll(".reel-strip"));
     var reelEls = strips.map(function (s) { return s.parentNode; });
     var betInput = $("#bet-input"), spinBtn = $("#spin-btn"), spinWrap = $("#spin-wrap");
@@ -383,7 +384,8 @@
         '</ul></div>' +
         '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
         '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
-          '<div><dt>RTP</dt><dd>' + RTP + '</dd></div>' +
+          '<div><dt>RTP</dt><dd>' + RTP + ' (the game)</dd></div>' +
+          '<div><dt>Jackpots</dt><dd>Extra, from the faucet</dd></div>' +
           '<div><dt>Faucet boost</dt><dd>' + BOOST + '</dd></div>' +
           '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
           '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
@@ -392,28 +394,18 @@
         '</dl><p class="pt-note">This is a faucet, so the machine pays back slightly more than it takes in: every win, including free spins and bonus prizes, gets a ' + BOOST +
           ' faucet boost on top of the paytable, for an RTP of ' + RTP + '. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
           'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
+          'The jackpot meters come on top: the faucet pays them, nothing is taken from your bets. ' +
           'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
         '</details>';
     }
 
-    // The progressive jackpots in plain words, with the numbers from the game config.
+    // The jackpot meters in plain words (D40: a gift from the faucet, outside the RTP).
     function jackpotRules() {
-      var J = game.jackpots;
-      if (!J || !J.major || !J.grand) return "";
-      function tbch(sats) { return window.TNC_Units ? TNC_Units.short(sats) : fmt(sats) + " sats"; }
-      function pct(bp) { return (bp / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%"; }
-      function odds(oneIn, bet) { return "1 in " + fmt(Math.round(oneIn / bet)); }
-      function chance(j) {
-        return "Every paid spin has a chance of bet ÷ " + fmt(j.oneInSats) + " to win it: " + odds(j.oneInSats, 100) +
-          " at a 100 tSats bet, " + odds(j.oneInSats, 1000) + " at 1,000 tSats. Bigger bets, bigger chance.";
-      }
-      return '<div class="pt-section"><div class="pt-h">Progressive jackpots</div><ul class="rules">' +
-        '<li><b>⭐ Major (this machine):</b> starts at ' + tbch(J.major.seedSats) + ' and grows by ' + pct(J.major.contributionBasisPoints) +
-          ' of every bet on ' + esc(game.name) + '. ' + chance(J.major) + '</li>' +
-        '<li><b>🏆 Grand (all machines):</b> starts at ' + tbch(J.grand.seedSats) + ' and grows by ' + pct(J.grand.contributionBasisPoints) +
-          ' of every bet on any machine. ' + chance(J.grand) + '</li>' +
-        '<li>The winner takes the whole pool, which then starts again from its starting amount. The jackpot draws are part of the provably fair spin.</li>' +
-        '<li>Jackpot winnings follow the normal withdrawal limits: up to 0.1 tBCH per withdrawal and 1 tBCH per player in 24 hours.</li>' +
+      return '<div class="pt-section"><div class="pt-h">Jackpot meters</div><ul class="rules">' +
+        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet fills this machine\'s ✨ Minor and ⭐ Major and the 🏆 Grand shared by all machines. Nothing is taken from your bet.</li>' +
+        '<li>Every tSat you bet adds 1 tSat to the Minor, 3 to the Major and 10 to the Grand.</li>' +
+        '<li>Each meter has a hidden target, fixed when it starts: Minor 500 to 50,000 tSats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000. Small targets are more likely. The spin that reaches it wins everything the meter holds, always before the meter is full. Then it starts again from zero with a new target.</li>' +
+        '<li>Provably fair: each meter publishes the SHA-256 hash of its secret seed when it starts, and the win reveals the seed. Anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
       '</ul></div>';
     }
 
@@ -1190,6 +1182,8 @@
       sfx.press();
       busy = true;
       updateControls();
+      // The meters stay as they are until the spin has played out (no spoilers), then are read again.
+      if (window.TNC_Jackpots) window.TNC_Jackpots.hold();
 
       // The reels start at once and keep turning while the server answers.
       ++presentToken;
@@ -1206,9 +1200,6 @@
       var r = await requestSpin(bet);
       if (r.status !== 200 || !r.data || !r.data.steps) { await spinFailed(r); return; }
       await stoppable((reduce ? 200 : 1000) - (Date.now() - t0));
-      // The pools grow with this bet right away (the server's view lags up to 10 s).
-      if (window.TNC_Jackpots) window.TNC_Jackpots.contribute(id, bet, game.jackpots,
-        r.data.steps.filter(function (x) { return x.type === "jackpot"; }).map(function (x) { return x.pool; }));
 
       try {
         settle = 0;
@@ -1217,6 +1208,7 @@
         if (settle > 0) await sleep(settle);
       }
       finally {
+        if (window.TNC_Jackpots) window.TNC_Jackpots.release();
         busy = false;
         feature = null;
         renderFeature();
@@ -1244,6 +1236,7 @@
     }
 
     async function spinFailed(r) {
+      if (window.TNC_Jackpots) window.TNC_Jackpots.release();
       sfx.stopSpinLoop();
       reelsTurning = false;
       stopReq = false;
@@ -1292,36 +1285,40 @@
           endFeature(st);
           wait = 0;
         } else if (st.type === "jackpot") {
-          // Always the last step(s); a spin can win both the Major and the Grand.
+          // Always the last steps, smallest first: a spin can win the Minor, Major and Grand.
           await sleep(Math.max(reduce ? 500 : 1200, wait));
           await celebrateJackpot(st);
           wait = 0;
         }
       }
-      if (steps.some(function (x) { return x.type === "jackpot"; }) && window.TNC_Jackpots) window.TNC_Jackpots.refresh();   // after the celebration
     }
 
-    // A progressive jackpot: the biggest celebration the machine has, then a word on the
-    // withdrawal limits (a jackpot is usually more than one withdrawal can carry).
+    // A jackpot meter paid out: its own celebration, bigger for the Major, biggest for the Grand,
+    // with the amount in tSats and tBCH. The meter drops to its new level when the spin ends.
+    var JP = {
+      minor: { title: "MINOR JACKPOT!", banner: "big", ms: 3200, coins: 60, burst: 30, shake: false, count: 1600 },
+      major: { title: "MAJOR JACKPOT!", banner: "mega", ms: 4400, coins: 140, burst: 60, shake: true, count: 2400 },
+      grand: { title: "GRAND JACKPOT!", banner: "jackpot", ms: 5600, coins: 240, burst: 100, shake: true, count: 3200 }
+    };
     async function celebrateJackpot(st) {
-      var grand = st.pool === "grand", title = grand ? "GRAND JACKPOT!" : "MAJOR JACKPOT!";
+      var c = JP[st.pool] || JP.major, sats = fmt(st.win) + " tSats", bchs = window.TNC_Units ? TNC_Units.format(st.win) : "";
       var token = ++presentToken;
       hideBanner();
       clearWins();
       winShown = st.win;
-      countUp(meterWin, 0, st.win, reduce ? 0 : 3000, token, true);
-      credit(st.win, token, reduce ? 0 : 3000);
-      showBanner("jackpot", title, amt(st.win));
+      countUp(meterWin, 0, st.win, reduce ? 0 : c.count, token, true);
+      credit(st.win, token, reduce ? 0 : c.count);
+      showBanner(c.banner, c.title, sats + (bchs ? " · " + bchs : ""));
       machine.classList.add("celebrate");
-      if (!reduce) machine.classList.add("shake");
-      if (marquee) marquee.classList.add("jackpot");
-      sfx.jackpot();
-      fx.coinShower(grand ? 220 : 160);
-      fx.burst(flavor.burst, grand ? 90 : 70);
-      setLcd(title + " " + amt(st.win), "win blink");
-      lcdSub.textContent = "Withdraw up to 0.1 tBCH at a time, 1 tBCH per 24 hours.";
-      addHistory(grand ? "grand jackpot" : "major jackpot", st.win, st.win, "jackpot");
-      await sleep(reduce ? 1800 : 5200);
+      if (c.shake && !reduce) machine.classList.add("shake");
+      if (st.pool === "grand" && marquee) marquee.classList.add("jackpot");
+      (st.pool === "minor" ? sfx.bigWin : st.pool === "major" ? sfx.megaWin : sfx.jackpot).call(sfx);
+      fx.coinShower(c.coins);
+      fx.burst(flavor.burst, c.burst);
+      setLcd(c.title + " " + sats + (bchs ? " (" + bchs + ")" : ""), "win blink");
+      lcdSub.textContent = "A gift from the faucet, on top of the game's win.";
+      addHistory(st.pool + " jackpot", st.win, st.win, st.pool === "minor" ? "big" : "jackpot");
+      await sleep(reduce ? 1500 : c.ms);
       if (token === presentToken) hideBanner();
       settle = SETTLE_MS;
     }
@@ -1368,7 +1365,7 @@
       var li = document.createElement("li");
       li.className = (win > 0 ? "is-win" : "") + (tier === "big" || tier === "mega" || tier === "jackpot" ? " is-big" : "");
       var line = kind === "bonus" ? syms[BONUS].emoji + " " + esc(BON.name)
-        : /jackpot/.test(kind) ? "🏆 " + (/grand/.test(kind) ? "Grand" : "Major") + " jackpot"
+        : /jackpot/.test(kind) ? (/grand/.test(kind) ? "🏆 Grand" : /minor/.test(kind) ? "✨ Minor" : "⭐ Major") + " jackpot"
         : grid.map(function (col) { return syms[col[1]].emoji; }).join("");
       li.innerHTML = '<span class="h-line">' + line + '</span><span class="h-kind">' + kind +
         '</span><span class="h-amt" data-sats="' + Math.abs(net) + '" data-sign="' + (net >= 0 ? "+" : "−") + '">' + (net >= 0 ? "+" : "−") + amt(Math.abs(net)) + '</span>';

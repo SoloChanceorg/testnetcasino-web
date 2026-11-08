@@ -6,7 +6,7 @@
  *   format(sats)  "0.00012340 tBCH"   balances, tables, totals
  *   short(sats)   "0.0001 tBCH"       running text and buttons (no trailing zeros)
  *   round2(sats)  "101.00 tBCH"       rounded to 2 decimals (faucet totals)
- *   round4(sats)  "1.0201 tBCH"       rounded to 4 decimals (jackpot pools)
+ *   round4(sats)  "1.0201 tBCH"       rounded to 4 decimals
  *   parse(text)   "0.0015" → 150000   (tBCH input to sats, exact; null if invalid)
  *
  * Inside a game machine the credit can be shown in tSats (default) or tBCH,

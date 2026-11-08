@@ -5,7 +5,10 @@
  *   Your spins   GET /spins?cursor= (50 per page). A spin can be verified once its
  *                server seed is revealed (`serverSeed` is filled in after a rotation).
  *   Verify       replays any spin in the browser with fairness-engine.js and the
- *                game config from GET /games/{id}/config. Nothing is sent anywhere.
+ *                game config from GET /games/{id}/config (version 3; older spins are
+ *                replayed with TNC_Fair.configFor). Nothing is sent anywhere.
+ *   Meters       checks a jackpot meter seed: seed hash, target and display scale
+ *                (FAIRNESS.md section 8).
  *
  * Depends on: api.js, auth.js, fairness-engine.js.
  */
@@ -141,10 +144,10 @@
     tr.appendChild(el("td", "num", U.bch(s.bet)));
     var winCell = el("td", "num", U.bch(s.totalWin));
     if (s.jackpotWin > 0) {   // jackpots are paid on top of the game's own result
-      var jp = el("span", "sp-jp", " 🏆");
-      jp.title = "Plus a jackpot of " + bch(s.jackpotWin);
+      var jp = el("span", "sp-jp", "+ 🏆 " + U.bch(s.jackpotWin));
+      jp.title = "Plus a jackpot of " + bch(s.jackpotWin) + " (" + fmt(s.jackpotWin) + " tSats), a gift from the faucet";
       winCell.appendChild(jp);
-      winCell.appendChild(el("span", "sr-only", ", plus a jackpot of " + bch(s.jackpotWin)));
+      winCell.appendChild(el("span", "sr-only", " tBCH from a jackpot"));
     }
     tr.appendChild(winCell);
     tr.appendChild(el("td", "num", fmt(s.nonce)));
@@ -166,12 +169,14 @@
   $("sp-more").addEventListener("click", function () { loadSpins(false); });
 
   function verifySpin(s) {
-    return getConfig(s.gameId).then(function (game) {
-      if (game.version !== s.gameVersion) return { ok: null, note: "Played on game version " + s.gameVersion + "; the server now serves version " + game.version + "." };
+    return getConfig(s.gameId).then(function (current) {
+      var game;
+      try { game = Fair.configFor(current, s.gameVersion); }
+      catch (e) { return { ok: null, note: e.message }; }
       return Fair.replay(game, s).then(function (got) {
         var hashOk = got.serverSeedHash === s.serverSeedHash, winOk = got.totalWin === s.totalWin;
-        // Jackpot draws (version 2+): a hit in the replay must match a jackpot paid, and no hit no jackpot.
-        // The amount is the pool at that moment, so only the hit itself can be checked.
+        // Version 2 only: the old jackpot draws. A hit in the replay must match a jackpot paid, and no
+        // hit no jackpot. From version 3 the jackpots are meters, outside the spin's random stream.
         var hit = !!(got.jackpotHits && (got.jackpotHits.major || got.jackpotHits.grand)), paid = (s.jackpotWin || 0) > 0;
         var jpOk = !got.jackpotHits || hit === paid;
         return { ok: hashOk && winOk && jpOk, got: got,
@@ -215,7 +220,7 @@
   $("vf-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var out = $("vf-result"), btn = $("vf-submit");
-    var gameId = $("vf-game").value, bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
+    var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
     out.textContent = "";
@@ -226,7 +231,8 @@
       : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 tSats." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
-    getConfig(gameId).then(function (game) {
+    getConfig(gameId).then(function (current) {
+      var game = Fair.configFor(current, version);
       return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet }).then(function (got) { showReplay(game, got, expect); });
     }).catch(function (err) {
       out.className = "vf-result is-bad";
@@ -264,11 +270,61 @@
       else if (s.type === "freeSpinsEnd") ul.appendChild(el("li", "", "Free spins: " + s.played + " played, " + bch(s.win) + " (spins " + bch(freeWin) + ", bonuses " + bch(s.win - freeWin) + ")"));
     });
     if (got.jackpotHits) {
-      var j = got.jackpotHits, yes = "hit (wins the whole pool at that moment)", no = "no hit";
-      ul.appendChild(el("li", "jp-draws", "Jackpot draws: Major " + (j.major ? yes : no) + ", Grand " + (j.grand ? yes : no)));
+      var j = got.jackpotHits, yes = "hit (won the whole pool at that moment)", no = "no hit";
+      ul.appendChild(el("li", "jp-draws", "Old jackpot draws (version 2): Major " + (j.major ? yes : no) + ", Grand " + (j.grand ? yes : no)));
     }
     out.appendChild(ul);
   }
+
+  /* ═══════════════ Jackpot meters: check a seed ═══════════════ */
+  var RANGES = { minor: [500, 50000], major: [5000, 500000], grand: [100000, 10000000] };
+  $("mt-tier").addEventListener("change", function () {
+    var r = RANGES[this.value];
+    if (r) { $("mt-min").value = r[0]; $("mt-max").value = r[1]; }
+  });
+  ["mt-min", "mt-max"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      var t = $("mt-tier"), r = RANGES[t.value];
+      if (r && (+$("mt-min").value !== r[0] || +$("mt-max").value !== r[1])) t.value = "custom";
+    });
+  });
+  $("mt-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var out = $("mt-result"), btn = $("mt-submit");
+    var seedHex = $("mt-seed").value.trim().toLowerCase(), hash = $("mt-hash").value.trim().toLowerCase();
+    var min = parseInt($("mt-min").value, 10), max = parseInt($("mt-max").value, 10);
+    var amount = $("mt-amount").value.trim() === "" ? null : parseInt($("mt-amount").value, 10);
+    out.textContent = "";
+    out.className = "vf-result";
+    var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The seed must be 64 hex characters."
+      : hash && !/^[0-9a-f]{64}$/.test(hash) ? "The seed hash must be 64 hex characters."
+      : !(min >= 0) || !(max >= min) ? "The range needs a minimum of 0 or more and a maximum at least as big." : "";
+    if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
+    busy(btn, true, "Checking...");
+    Fair.meter(seedHex, min, max).then(function (d) {
+      var checks = [];
+      if (hash) checks.push([d.seedHash === hash, "SHA-256 of the seed equals the published seed hash"]);
+      if (amount !== null) checks.push([amount >= d.target, "The amount won (" + fmt(amount) + ") is at least the target (" + fmt(d.target) + ")"]);
+      var bad = checks.some(function (c) { return !c[0]; });
+      out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
+      out.appendChild(el("p", "rv-title", checks.length ? (bad ? "✗ Something does not match." : "✓ Every check passed.") : "Derived from the seed:"));
+      var dl = el("dl", "seed-list");
+      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"], ["Display scale", fmt(d.displayScale) + " tSats"]].forEach(function (p) {
+        var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
+      });
+      out.appendChild(dl);
+      if (checks.length) {
+        var ul = el("ul", "vf-steps");
+        checks.forEach(function (c) { ul.appendChild(el("li", c[0] ? "is-ok" : "is-bad", (c[0] ? "✓ Passed: " : "✗ Failed: ") + c[1] + ".")); });
+        out.appendChild(ul);
+      }
+      out.appendChild(el("p", "auth-hint", "The meter showed its amount against the display scale, so the win came at " +
+        (Math.floor(d.target / d.displayScale * 1000) / 10).toFixed(1) + "% of the meter or later, always before it was full."));
+    }).catch(function (err) {
+      out.className = "vf-result is-bad";
+      out.textContent = err && err.message || "Could not check this seed.";
+    }).then(function () { busy(btn, false); });
+  });
 
   /* ═══════════════ Start ═══════════════ */
   var loaded = false;

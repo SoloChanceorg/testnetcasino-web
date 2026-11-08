@@ -6,13 +6,13 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Jackpots · TestnetCasino.com</title>
-  <meta name="description" content="The progressive jackpots of TestnetCasino.com: the Grand, each machine's Major and the latest winners.">
+  <meta name="description" content="The jackpot meters of TestnetCasino.com, a gift from the faucet: each machine's Minor and Major, the shared Grand, and the latest wins with a fairness check.">
   <meta name="theme-color" content="#052a19">
   <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109l">
 </head>
 <body data-page="jackpots">
   <a class="skip-link" href="#main">Skip to the jackpots</a>
@@ -55,37 +55,50 @@
 
     <main class="acct-main pay-main" id="main" tabindex="-1">
       <h1 class="page-title">Jackpots</h1>
-      <p class="lb-lead">Every machine has its own Major jackpot, and all three share one Grand jackpot. Both grow with every bet until a spin wins the whole pool, which then starts again.</p>
+      <p class="lb-lead">The jackpots are a gift from the faucet, on top of every game's RTP of 100.01%. Each machine has a Minor and a Major, and all three share the Grand. Every bet fills them with faucet money, nothing is taken from it. Each meter pays out at a hidden target, always before it is full, and then starts again from zero.</p>
 
       <section class="panel jpp-pools" aria-labelledby="jpp-pools-title">
-        <h2 class="panel-label" id="jpp-pools-title">💰 JACKPOTS NOW</h2>
+        <h2 class="panel-label" id="jpp-pools-title">💰 JACKPOT METERS</h2>
+        <div class="jpp-pool is-grand">
+          <span class="jpp-name">🏆 GRAND · all machines</span>
+          <span class="jp-meter jp-meter-hero" data-meter="grand"></span>
+        </div>
         <div class="jpp-grid">
-          <div class="jpp-pool is-grand">
-            <span class="jpp-name">🏆 Grand · all machines</span>
-            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="grand">…</button>
+          <div class="jpp-game theme-orchard">
+            <a class="jpp-game-name" href="games/fruit-orchard.html">🍒 Fruit Orchard</a>
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:fruit-orchard"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:fruit-orchard"></span></div>
           </div>
-          <div class="jpp-pool">
-            <span class="jpp-name">⭐ Major · <a href="games/fruit-orchard.html">🍒 Fruit Orchard</a></span>
-            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:fruit-orchard">…</button>
+          <div class="jpp-game theme-deepsea">
+            <a class="jpp-game-name" href="games/deep-sea.html">🐚 Deep Sea Treasure</a>
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:deep-sea"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:deep-sea"></span></div>
           </div>
-          <div class="jpp-pool">
-            <span class="jpp-name">⭐ Major · <a href="games/deep-sea.html">🐚 Deep Sea Treasure</a></span>
-            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:deep-sea">…</button>
-          </div>
-          <div class="jpp-pool">
-            <span class="jpp-name">⭐ Major · <a href="games/cosmic-voyage.html">🚀 Cosmic Voyage</a></span>
-            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:cosmic-voyage">…</button>
+          <div class="jpp-game theme-cosmic">
+            <a class="jpp-game-name" href="games/cosmic-voyage.html">🚀 Cosmic Voyage</a>
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:cosmic-voyage"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:cosmic-voyage"></span></div>
           </div>
         </div>
+        <ul class="rules jpp-rules">
+          <li>Every tSat bet adds 1 tSat to that machine's Minor, 3 to its Major and 10 to the Grand.</li>
+          <li>Hidden targets: Minor 500 to 50,000 tSats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000 (small targets are more likely). The meters show only how full they are, never an amount.</li>
+          <li>Each target comes from a secret seed whose SHA-256 hash is public from the start. A win reveals the seed, so anyone can check it below or on the <a href="fairness.html#meters">fairness page</a>.</li>
+        </ul>
+        <details class="jpp-hashes">
+          <summary>Seed hashes now</summary>
+          <p class="auth-hint">The SHA-256 hash of each running meter's secret seed. Note one down: when that meter is won, the revealed seed must match it.</p>
+          <dl class="seed-list" id="jp-hashes"></dl>
+        </details>
       </section>
 
       <section class="panel" id="jackpot-winners" aria-labelledby="jpp-wins-title">
-        <h2 class="panel-label" id="jpp-wins-title">🏆 JACKPOT WINNERS</h2>
-        <p class="panel-sub">The latest 20 jackpot wins, newest first.</p>
+        <h2 class="panel-label" id="jpp-wins-title">🏆 RECENT JACKPOT WINS</h2>
+        <p class="panel-sub">The latest 20 jackpot wins, newest first. Verify checks a win in your browser.</p>
         <div class="tbl-wrap">
-          <table class="acct-table jpp-table">
+          <table class="acct-table jpw-table">
             <caption class="sr-only">The latest jackpot wins, newest first</caption>
-            <thead><tr><th scope="col">Won</th><th scope="col">Jackpot</th><th scope="col">Player</th><th scope="col" class="num">Amount (tBCH)</th></tr></thead>
+            <thead><tr><th scope="col">Won</th><th scope="col">Jackpot</th><th scope="col">Player</th><th scope="col" class="num">Amount</th><th scope="col">Check</th></tr></thead>
             <tbody id="jp-wins-body"></tbody>
           </table>
         </div>
@@ -118,13 +131,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109k"></script>
-  <script src="assets/js/api.js?v=20261109k"></script>
-  <script src="assets/js/units.js?v=20261109k"></script>
-  <script src="assets/js/faucet.js?v=20261109k"></script>
-  <script src="assets/js/auth.js?v=20261109k"></script>
-  <script src="assets/js/jackpots.js?v=20261109k"></script>
-  <script src="assets/js/fx.js?v=20261109k"></script>
-  <script src="assets/js/music.js?v=20261109k"></script>
+  <script src="assets/js/config.js?v=20261109l"></script>
+  <script src="assets/js/api.js?v=20261109l"></script>
+  <script src="assets/js/units.js?v=20261109l"></script>
+  <script src="assets/js/faucet.js?v=20261109l"></script>
+  <script src="assets/js/auth.js?v=20261109l"></script>
+  <script src="assets/js/fairness-engine.js?v=20261109l"></script>
+  <script src="assets/js/jackpots.js?v=20261109l"></script>
+  <script src="assets/js/fx.js?v=20261109l"></script>
+  <script src="assets/js/music.js?v=20261109l"></script>
 </body>
 </html>

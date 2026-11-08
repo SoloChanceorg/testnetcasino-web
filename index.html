@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109l">
 </head>
 <body data-page="lobby">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -93,15 +93,18 @@
 
     <section class="panel" id="floor" aria-labelledby="floor-title">
       <h2 class="panel-label" id="floor-title">THE CASINO FLOOR</h2>
-      <p class="panel-sub">Pick a game. New accounts get a <strong>0.0001 tBCH</strong> sign-up bonus plus <strong>0.00001 tBCH</strong> every day, and bets run from 0.00000001 to 0.00001 tBCH (1 to 1,000 tSats) a spin. All machines pay on 10 lines with an RTP of 100.01%.</p>
+      <p class="panel-sub">Pick a game. New accounts get a <strong>0.0001 tBCH</strong> sign-up bonus plus <strong>0.00001 tBCH</strong> every day, and bets run from 0.00000001 to 0.00001 tBCH (1 to 1,000 tSats) a spin. All machines pay on 10 lines with an RTP of 100.01%, and the jackpot meters come on top as a gift from the faucet.</p>
       <div class="jp-hero" role="group" aria-labelledby="jp-hero-label">
         <span class="jp-hero-label" id="jp-hero-label">🏆 GRAND JACKPOT</span>
-        <button type="button" class="jp-hero-value" data-jackpot-units="bch8" data-jackpot="grand">…</button>
-        <span class="jp-hero-sub">Shared by all three machines. Every paid spin can win it. <a href="jackpots.html">Jackpot winners</a></span>
+        <span class="jp-meter jp-meter-hero" data-meter="grand"></span>
+        <span class="jp-hero-sub">Shared by all three machines and filled by the faucet with every bet. It pays out before it is full. <a href="jackpots.html">Jackpot winners</a></span>
       </div>
       <div class="games">
         <a class="game-card theme-orchard" href="games/fruit-orchard.html">
-          <div class="jp-row jp-row-major gc-jp"><span class="jp-row-name">MAJOR</span><span class="jp-row-val" data-jackpot-units="bch8" data-jackpot="major:fruit-orchard">…</span></div>
+          <div class="gc-jp" role="group" aria-label="Jackpot meters">
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:fruit-orchard"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:fruit-orchard"></span></div>
+          </div>
           <div class="gc-awning" aria-hidden="true"><span class="gc-bulbs"></span></div>
           <div class="gc-topper"><h3>FRUIT ★ ORCHARD</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🍒</span><span>🧺</span><span>7️⃣</span><span>🍀</span><span>🌟</span></div>
@@ -112,7 +115,10 @@
           </div>
         </a>
         <a class="game-card theme-deepsea" href="games/deep-sea.html">
-          <div class="jp-row jp-row-major gc-jp"><span class="jp-row-name">MAJOR</span><span class="jp-row-val" data-jackpot-units="bch8" data-jackpot="major:deep-sea">…</span></div>
+          <div class="gc-jp" role="group" aria-label="Jackpot meters">
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:deep-sea"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:deep-sea"></span></div>
+          </div>
           <div class="gc-topper"><h3>DEEP SEA ★ TREASURE</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🐚</span><span>🧭</span><span>🔱</span><span>🦈</span><span>💎</span></div>
           <div class="gc-body">
@@ -122,7 +128,10 @@
           </div>
         </a>
         <a class="game-card theme-cosmic" href="games/cosmic-voyage.html">
-          <div class="jp-row jp-row-major gc-jp"><span class="jp-row-name">MAJOR</span><span class="jp-row-val" data-jackpot-units="bch8" data-jackpot="major:cosmic-voyage">…</span></div>
+          <div class="gc-jp" role="group" aria-label="Jackpot meters">
+            <div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:cosmic-voyage"></span></div>
+            <div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:cosmic-voyage"></span></div>
+          </div>
           <div class="gc-topper"><h3>COSMIC ★ VOYAGE</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🌙</span><span>🛰️</span><span>🛸</span><span>🚀</span><span>🌌</span></div>
           <div class="gc-body">
@@ -233,7 +242,7 @@
       </details>
       <details>
         <summary>Why does the house pay back more than it takes?</summary>
-        <p>Because this is a faucet, not a casino. Every machine is tuned to an RTP (return to player) of 100.01%: over many spins it pays back slightly more than is bet, so your balance drifts up instead of down. Luck still swings both ways in the short run.</p>
+        <p>Because this is a faucet, not a casino. Every machine is tuned to an RTP (return to player) of 100.01%: over many spins it pays back slightly more than is bet, so your balance drifts up instead of down. Luck still swings both ways in the short run. The jackpots are extra: the faucet fills them with every bet, nothing is taken from yours.</p>
       </details>
       <details>
         <summary>Are the games fair?</summary>
@@ -268,14 +277,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109k"></script>
-  <script src="assets/js/api.js?v=20261109k"></script>
-  <script src="assets/js/units.js?v=20261109k"></script>
-  <script src="assets/js/jackpots.js?v=20261109k"></script>
-  <script src="assets/js/faucet.js?v=20261109k"></script>
-  <script src="assets/js/auth.js?v=20261109k"></script>
-  <script src="assets/js/copy.js?v=20261109k"></script>
-  <script src="assets/js/fx.js?v=20261109k"></script>
-  <script src="assets/js/music.js?v=20261109k"></script>
+  <script src="assets/js/config.js?v=20261109l"></script>
+  <script src="assets/js/api.js?v=20261109l"></script>
+  <script src="assets/js/units.js?v=20261109l"></script>
+  <script src="assets/js/jackpots.js?v=20261109l"></script>
+  <script src="assets/js/faucet.js?v=20261109l"></script>
+  <script src="assets/js/auth.js?v=20261109l"></script>
+  <script src="assets/js/copy.js?v=20261109l"></script>
+  <script src="assets/js/fx.js?v=20261109l"></script>
+  <script src="assets/js/music.js?v=20261109l"></script>
 </body>
 </html>

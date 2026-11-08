@@ -1,26 +1,30 @@
 /*
- * TestnetCasino.com: progressive jackpot displays (lobby and game pages).
+ * TestnetCasino.com: jackpot meters (lobby, games and the jackpots page).
  *
- * GET /jackpots (public): { grand, major: { gameId: sats }, recentWins: [ { pool, gameId,
- * player, amount, wonAt } ], updatedAt }. The server refreshes it every 10 seconds; this
- * re-reads it every 20 seconds while the tab is visible, and right after a jackpot win.
+ * GET /jackpots (public): { grand: { fill, cycle, seedHash },
+ *   games: { gameId: { minor: { fill, cycle, seedHash }, major: { ... } } },
+ *   recentWins: [ { pool, tier, gameId, player, amount, wonAt,
+ *                   cycle, seed, seedHash, minSats, maxSats, target, displayScale } ], updatedAt }
  *
- * Fills every element with data-jackpot="grand" or data-jackpot="major:<gameId>" with the
- * pool, counting up when it grows:
- *   - by default in tBCH with 4 decimals; the exact amount is in the tooltip, and tapping the
- *     value shows it in tSats for a few seconds, a second tap goes back (phones have no hover);
- *   - with data-jackpot-units="bch8" (lobby and jackpots page) in tBCH with 8 decimals;
- *   - with data-jackpot-units="game" (the rows at the top of every machine) in the machine's
- *     tSats / tBCH switch: exact tSats or tBCH with 8 decimals, so the pool visibly grows with
- *     every spin. No tap there: the switch picks the unit.
- * On the jackpots page, the table body with id "jp-wins-body" gets the latest winners.
+ * The jackpots are meters (D40), a gift from the faucet on top of the games' RTP: every bet
+ * fills the game's Minor and Major and the shared Grand, and each meter pays out at a hidden
+ * target, always before it is full. Only the fill level is public: `fill` is a percentage
+ * (0 to 99.9). Amounts are never shown for a running meter, and the fill is never predicted.
  *
- * Every paid spin adds bet x contributionBasisPoints / 10,000 to the game's Major and to the
- * Grand. The server's view is cached for up to 10 seconds, so contribute() adds the player's
- * own share at once; it is absorbed again by the next server reading that has grown by it
- * (the shown pool never goes backwards, except when a jackpot is won and the pool restarts).
+ * Every element with data-meter="grand", "major:<gameId>" or "minor:<gameId>" becomes a
+ * filling tube (role="meter") that moves smoothly to each new level. When a meter's `cycle`
+ * goes up between two readings, someone won it: the tube fills to the top, shows "WON!", and
+ * then drops to its new (low) level.
  *
- * Depends on: api.js, units.js. Exposed as window.TNC_Jackpots { refresh, render, contribute, data }.
+ * Reads the meters when the page opens, every 12 s while the tab is visible, and on refresh().
+ * The game page calls hold() while a spin plays, so a meter never gives away a win before the
+ * reels have stopped, and release() when it ends (which reads the meters at once).
+ *
+ * On the jackpots page, the table body with id "jp-wins-body" gets the recent wins, each with
+ * a "Verify" button (wins with a seed; checked in the browser by fairness-engine.js).
+ *
+ * Depends on: api.js, units.js; fairness-engine.js for the Verify buttons.
+ * Exposed as window.TNC_Jackpots { refresh, render, hold, release, data }.
  */
 (function () {
   "use strict";
@@ -28,165 +32,202 @@
   var api = window.TNC_API, U = window.TNC_Units;
   if (!api || !U || !api.jackpots) return;
 
-  var POLL_MS = 20000;
+  var POLL_MS = 12000;
   var GAMES = { "fruit-orchard": "Fruit Orchard", "deep-sea": "Deep Sea Treasure", "cosmic-voyage": "Cosmic Voyage" };
+  var TIERS = { grand: "Grand", major: "Major", minor: "Minor" };
+  var ICONS = { grand: "🏆", major: "⭐", minor: "✨" };
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var data = null, timer = null, loading = false, lastFetch = 0;
-  var pending = {};   // key -> sats this player added that the server view may not show yet
-  var PENDING_MS = 60000;
+  var data = null, timer = null, loading = false, held = 0;
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function serverValue(d, key) {
+
+  // "grand", "major:deep-sea", "minor:deep-sea" -> { fill, cycle, seedHash } or null
+  function meterOf(d, key) {
     if (!d) return null;
-    if (key === "grand") return typeof d.grand === "number" ? d.grand : null;
-    var m = /^major:(.+)$/.exec(key);
-    return m && d.major && typeof d.major[m[1]] === "number" ? d.major[m[1]] : null;
+    if (key === "grand") return d.grand && typeof d.grand.fill === "number" ? d.grand : null;
+    var m = /^(minor|major):(.+)$/.exec(key), g = m && d.games && d.games[m[2]];
+    return g && g[m[1]] && typeof g[m[1]].fill === "number" ? g[m[1]] : null;
   }
-  function pendingSum(key) {
-    var now = Date.now(), list = (pending[key] || []).filter(function (p) { return now - p.t < PENDING_MS; });
-    pending[key] = list;
-    return list.reduce(function (a, p) { return a + p.sats; }, 0);
+  function tierOf(key) { return key === "grand" ? "grand" : key.split(":")[0]; }
+  function label(key) { return TIERS[tierOf(key)] + " jackpot"; }
+  function pct(fill) { return (Math.floor(Math.max(0, Math.min(99.9, fill)) * 10) / 10).toFixed(1) + "%"; }
+
+  /* ═══════════════ Meters ═══════════════ */
+  function build(node) {
+    if (node._mt) return node._mt;
+    node.textContent = "";
+    node.setAttribute("role", "meter");
+    node.setAttribute("aria-valuemin", "0");
+    node.setAttribute("aria-valuemax", "100");
+    node.setAttribute("aria-label", label(node.getAttribute("data-meter")) + " meter");
+    var track = el("span", "mt-track"), fill = el("span", "mt-fill"), pctEl = el("span", "mt-pct", "…");
+    fill.appendChild(el("span", "mt-shine"));
+    track.appendChild(fill);
+    node.appendChild(track);
+    node.appendChild(pctEl);
+    node._mt = { fill: fill, pct: pctEl };
+    return node._mt;
   }
-  function value(key) {
-    var v = serverValue(data, key);
-    return v == null ? null : Math.round(v + pendingSum(key));
+  function show(node, level, text) {
+    var mt = build(node);
+    mt.fill.style.width = level + "%";
+    mt.pct.textContent = text;
   }
-  // A new server reading: the growth since the last one covers the oldest pending shares first.
-  // A smaller pool means it was won and restarted: nothing pending is left in it.
-  function absorb(old, next) {
-    Object.keys(pending).forEach(function (key) {
-      var a = serverValue(old, key), b = serverValue(next, key);
-      if (a == null || b == null) return;
-      if (b < a) { pending[key] = []; return; }
-      var growth = b - a, list = pending[key];
-      while (list.length && growth > 0) {
-        var take = Math.min(growth, list[0].sats);
-        list[0].sats -= take; growth -= take;
-        if (list[0].sats <= 1e-9) list.shift();
+  function paint(node, key, m) {
+    show(node, Math.max(0, Math.min(100, m.fill)), pct(m.fill));
+    node.setAttribute("aria-valuenow", String(m.fill));
+    node.setAttribute("aria-valuetext", pct(m.fill) + " full");
+    node.title = label(key) + ": " + pct(m.fill) + " full. It pays out before it is full.";
+  }
+  // Someone won this meter: fill to the top, flash "WON!", then drop to the new level.
+  function won(node, key, m) {
+    clearTimeout(node._mtWon);
+    node.classList.remove("mt-grow");
+    node.classList.add("mt-won");
+    show(node, 100, "WON!");
+    node.setAttribute("aria-valuetext", "won, starting again");
+    node._mtWon = setTimeout(function () {
+      node.classList.remove("mt-won");
+      paint(node, key, node._mtData || m);
+    }, reduce ? 900 : 2400);
+  }
+
+  function renderMeters() {
+    document.querySelectorAll("[data-meter]").forEach(function (node) {
+      var key = node.getAttribute("data-meter"), m = meterOf(data, key);
+      if (!m) { if (!node._mtData) build(node); return; }
+      var old = node._mtData;
+      node._mtData = m;
+      if (old && m.cycle > old.cycle) { won(node, key, m); return; }
+      if (node.classList.contains("mt-won")) return;   // the won effect ends on the new level
+      if (old && m.fill > old.fill && !reduce) {
+        node.classList.remove("mt-grow"); void node.offsetWidth; node.classList.add("mt-grow");
       }
+      paint(node, key, m);
     });
   }
-  function label(key) { return key === "grand" ? "Grand jackpot" : "Major jackpot"; }
 
-  var G = U.game;
-  function gameUnits(node) { return !!G && node.getAttribute("data-jackpot-units") === "game"; }
+  /* ═══════════════ Recent wins (jackpots page) ═══════════════ */
+  var verified = {};   // win key -> result of TNC_Fair.verifyMeterWin
+  var shownWins = null;
+  function winKey(w) { return [w.pool, w.cycle, w.wonAt, w.amount].join("|"); }
+  function winTier(w) { return w.tier || (/^grand/.test(w.pool || "") ? "grand" : /^minor/.test(w.pool || "") ? "minor" : "major"); }
 
-  // "1.0201" + a separate unit, so themes can style the number on its own.
-  function paint(node, sats, exact) {
-    node._jpShowExact = !!exact;
-    var num = node.querySelector(".jp-num"), unit = node.querySelector(".jp-unit");
-    if (!num) {
-      node.textContent = "";
-      num = el("span", "jp-num"); unit = el("span", "jp-unit");
-      node.appendChild(num); node.appendChild(unit);
-    }
-    if (gameUnits(node)) { num.textContent = G.value(sats); unit.textContent = " " + G.unit(); }
-    else if (exact) { num.textContent = Number(sats).toLocaleString("en-US"); unit.textContent = " tSats"; }
-    else if (node.getAttribute("data-jackpot-units") === "bch8") { num.textContent = U.bch(sats); unit.textContent = " tBCH"; }
-    else { num.textContent = U.round4(sats).replace(" tBCH", ""); unit.textContent = " tBCH"; }
-  }
-
-  function animate(node, from, to) {
-    node._jpTarget = to;
-    if (reduce || from === to || from == null) { paint(node, to); return; }
-    var t0 = performance.now(), ms = 900;
-    node.classList.remove("jp-grow"); void node.offsetWidth;
-    if (to > from) node.classList.add("jp-grow");
-    (function step() {
-      if (node._jpTarget !== to) return;   // a newer value took over
-      var p = Math.min(1, (performance.now() - t0) / ms), e = 1 - Math.pow(1 - p, 3);
-      paint(node, Math.round(from + (to - from) * e));
-      if (p < 1) requestAnimationFrame(step);
-    }());
-  }
-
-  function render() {
-    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
-      var key = node.getAttribute("data-jackpot"), v = value(key);
-      if (v == null) { if (!node._jpSats) paint(node, NaN); return; }
-      var old = node._jpSats;
-      node._jpSats = v;
-      node.title = label(key) + ": " + U.format(v) + " (" + v.toLocaleString("en-US") + " tSats)";
-      node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(v) : node.getAttribute("data-jackpot-units") === "bch8" ? U.format(v) : U.round4(v)));
-      if (!node._jpBound && !gameUnits(node)) {
-        node._jpBound = true;
-        // Tap shows the exact sats for a few seconds (no hover on phones).
-        // A second tap goes back to tBCH at once.
-        node.addEventListener("click", function () {
-          if (node._jpSats == null) return;
-          clearTimeout(node._jpExact);
-          if (node._jpShowExact) { paint(node, node._jpSats); return; }
-          paint(node, node._jpSats, true);
-          node._jpExact = setTimeout(function () { paint(node, node._jpSats); }, 3000);
-        });
-      }
-      animate(node, old == null ? null : old, v);
-    });
-    renderWinners();
-  }
-
-  // The jackpots page's winners table: one row per win, newest first.
   function renderWinners() {
     var body = document.getElementById("jp-wins-body");
     if (!body || !data) return;
     var wins = Array.isArray(data.recentWins) ? data.recentWins : [];
-    body.textContent = "";
     var empty = document.getElementById("jp-winners-empty");
     if (empty) empty.hidden = wins.length > 0;
-    wins.forEach(function (w) {
-      var grand = /^grand/.test(w.pool || ""), tr = el("tr", grand ? "is-grand" : "");
-      var d = new Date(w.wonAt);
-      tr.appendChild(el("td", "jpp-when", isNaN(d) ? "" : d.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })));
-      tr.appendChild(el("td", "jpp-pool-name", grand ? "🏆 Grand" : "⭐ Major · " + (GAMES[w.gameId] || w.gameId)));
-      tr.appendChild(el("td", "jpp-player", String(w.player || "")));
-      var amt = el("td", "num jpp-amount", U.bch(w.amount));
-      amt.title = Number(w.amount).toLocaleString("en-US") + " tSats";
-      tr.appendChild(amt);
-      body.appendChild(tr);
+    var sig = wins.map(winKey).join(",");
+    if (sig === shownWins) return;   // nothing new: keep any open verification as it is
+    shownWins = sig;
+    body.textContent = "";
+    wins.forEach(function (w) { body.appendChild(winRow(w)); });
+  }
+
+  function winRow(w) {
+    var tier = winTier(w), tr = el("tr", "is-" + tier);
+    var d = new Date(w.wonAt);
+    tr.appendChild(el("td", "jpw-when", isNaN(d) ? "" : d.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })));
+    tr.appendChild(el("td", "jpw-tier", ICONS[tier] + " " + TIERS[tier] + (tier === "grand" ? "" : " · " + (GAMES[w.gameId] || w.gameId))));
+    tr.appendChild(el("td", "jpw-player", String(w.player || "")));
+    var amt = el("td", "num jpw-amount");
+    amt.appendChild(el("span", "jpw-sats", Number(w.amount).toLocaleString("en-US") + " tSats"));
+    amt.appendChild(el("span", "jpw-bch", U.format(w.amount)));
+    tr.appendChild(amt);
+    var check = el("td", "jpw-check");
+    if (w.seed && window.TNC_Fair) {
+      var key = winKey(w), b = el("button", "btn-ghost jpw-verify", "Verify");
+      b.type = "button";
+      b.setAttribute("aria-label", "Verify this " + TIERS[tier] + " jackpot win");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", function () { toggleVerify(tr, b, w, key); });
+      check.appendChild(b);
+    } else {
+      var note = el("span", "jpw-old", "Old jackpot");
+      note.title = "Won from the jackpot pools that came before the meters: there is no meter seed to check.";
+      check.appendChild(note);
+    }
+    tr.appendChild(check);
+    return tr;
+  }
+
+  function toggleVerify(tr, btn, w, key) {
+    var next = tr.nextElementSibling;
+    if (next && next.classList.contains("jpw-detail")) { next.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+    var row = el("tr", "jpw-detail"), cell = el("td", "", "Checking…");
+    cell.colSpan = 5;
+    row.appendChild(cell);
+    tr.parentNode.insertBefore(row, tr.nextSibling);
+    btn.setAttribute("aria-expanded", "true");
+    var run = verified[key] ? Promise.resolve(verified[key]) : window.TNC_Fair.verifyMeterWin(w);
+    run.then(function (res) {
+      verified[key] = res;
+      cell.textContent = "";
+      cell.appendChild(el("p", "jpw-verdict " + (res.ok ? "is-ok" : "is-bad"), res.ok ? "✓ This win is fair: every check passed." : "✗ This win does NOT check out."));
+      var ul = el("ul", "jpw-checks");
+      res.checks.forEach(function (c) { ul.appendChild(el("li", c.ok ? "is-ok" : "is-bad", (c.ok ? "✓ Passed: " : "✗ Failed: ") + c.text + ".")); });
+      cell.appendChild(ul);
+      var dl = el("dl", "seed-list");
+      [["Seed (revealed by the win)", w.seed], ["Seed hash (public since the cycle started)", w.seedHash],
+       ["Range of the target", Number(w.minSats).toLocaleString("en-US") + " to " + Number(w.maxSats).toLocaleString("en-US") + " tSats"]].forEach(function (p) {
+        var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
+      });
+      cell.appendChild(dl);
+      cell.appendChild(el("p", "auth-hint", "Before the win, players could only see the seed hash. The target comes from the seed, so it was fixed when this cycle started and could not be changed afterwards."));
+    }, function (e) {
+      cell.textContent = (e && e.message) || "This win could not be checked.";
     });
   }
 
+  // The jackpots page lists each running meter's seed hash (#jp-hashes).
+  function renderHashes() {
+    var dl = document.getElementById("jp-hashes");
+    if (!dl || !data) return;
+    var rows = [["🏆 Grand · cycle " + data.grand.cycle, data.grand.seedHash]];
+    Object.keys(GAMES).forEach(function (g) {
+      var m = data.games && data.games[g];
+      if (!m) return;
+      ["major", "minor"].forEach(function (t) {
+        if (m[t]) rows.push([ICONS[t] + " " + TIERS[t] + " · " + GAMES[g] + " · cycle " + m[t].cycle, m[t].seedHash]);
+      });
+    });
+    dl.textContent = "";
+    rows.forEach(function (r) {
+      var div = el("div"); div.appendChild(el("dt", "", r[0])); div.appendChild(el("dd", "auth-mono", r[1] || "")); dl.appendChild(div);
+    });
+  }
+
+  function render() { renderMeters(); renderWinners(); renderHashes(); }
+
+  /* ═══════════════ Reading ═══════════════ */
   function refresh() {
-    if (loading) return Promise.resolve(data);
+    if (held || loading) return Promise.resolve(data);
     loading = true;
-    lastFetch = Date.now();
     return api.jackpots().then(function (r) {
       loading = false;
-      if (r.status === 200 && r.data && typeof r.data.grand === "number") { absorb(data, r.data); data = r.data; render(); }
+      if (r.status === 200 && r.data && r.data.grand && typeof r.data.grand.fill === "number") {
+        data = r.data;
+        if (!held) render();
+      }
       return data;
     });
   }
-
   function schedule() {
     clearInterval(timer);
     if (!document.hidden) timer = setInterval(refresh, POLL_MS);
   }
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); schedule(); });
 
-  // A paid spin of `bet` sats on gameId just happened (cfg = the game config's jackpots).
-  // Pools listed in `won` were just paid out: those come back from the server, not from here.
-  function contribute(gameId, bet, cfg, won) {
-    if (!cfg || !(bet > 0)) return;
-    won = won || [];
-    [["major:" + gameId, cfg.major, "major"], ["grand", cfg.grand, "grand"]].forEach(function (x) {
-      if (!x[1] || won.indexOf(x[2]) >= 0) return;
-      (pending[x[0]] = pending[x[0]] || []).push({ sats: bet * (x[1].contributionBasisPoints || 0) / 10000, t: Date.now() });
-    });
-    render();
-    if (won.length || Date.now() - lastFetch > 10000) refresh();
+  // While a spin plays nothing about the meters changes on screen; release() reads them at once.
+  function hold() { held++; }
+  function release() {
+    held = Math.max(0, held - 1);
+    return held ? Promise.resolve(data) : refresh();
   }
 
-  // The machine rows follow the tSats / tBCH switch at once.
-  if (G) G.onChange(function () {
-    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
-      if (!gameUnits(node) || node._jpSats == null) return;
-      node._jpTarget = node._jpSats;   // stops a running count-up
-      paint(node, node._jpSats);
-      node.setAttribute("aria-label", label(node.getAttribute("data-jackpot")) + " " + G.format(node._jpSats));
-    });
-  });
-
-  window.TNC_Jackpots = { refresh: refresh, render: render, contribute: contribute, get data() { return data; } };
+  window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release, get data() { return data; } };
   refresh();
   schedule();
 })();
