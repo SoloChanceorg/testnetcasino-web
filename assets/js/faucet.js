@@ -6,7 +6,7 @@
  *   house               what the faucet has left to give away
  *   wallet              the hot wallet's confirmed balance
  *   users               sum of all player balances
- *   pendingWithdrawals  withdrawals requested but not yet sent
+ *   pendingWithdrawals  withdrawals requested but not yet sent (not shown)
  *   players             { allTime, withBalance, last24h, last30d } (counts)
  * The server recomputes them at most every 5 minutes; the bar re-reads them
  * every minute while the tab is visible. Amounts are shown in tBCH, rounded to
@@ -34,7 +34,6 @@
         stat("house", "Left in the faucet", "fb-main") +
         stat("wallet", "Hot wallet") +
         stat("users", "Player balances") +
-        stat("pending", "Pending withdrawals") +
       '</dl>' +
       '<span class="fb-time" data-k="time"></span>' +
       '<dl class="fb-players" data-k="players" hidden>' +
@@ -54,11 +53,6 @@
 
   function q(k) { return bar.querySelector('[data-k="' + k + '"]'); }
 
-  function fmtTime(iso) {
-    var d = new Date(iso);
-    return isNaN(d) ? "" : "Updated " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
   function render() {
     var stale = !!(data && data.stale);
     bar.classList.toggle("is-error", failed && !data);
@@ -66,12 +60,12 @@
     q("live").textContent = stale ? "STALE" : "LIVE";
     if (!data) {
       if (failed) {
-        ["house", "wallet", "users", "pending"].forEach(function (k) { q(k).textContent = "n/a"; });
+        ["house", "wallet", "users"].forEach(function (k) { q(k).textContent = "n/a"; });
         q("time").textContent = "Faucet offline";
       }
       return;
     }
-    [["house", data.house], ["wallet", data.wallet], ["users", data.users], ["pending", data.pendingWithdrawals]].forEach(function (p) {
+    [["house", data.house], ["wallet", data.wallet], ["users", data.users]].forEach(function (p) {
       var e = q(p[0]);
       e.textContent = U.round2(p[1]);
       e.parentNode.title = U.format(p[1]);
@@ -82,9 +76,8 @@
       var v = pl[e.getAttribute("data-p")];
       e.textContent = typeof v === "number" ? v.toLocaleString("en-US") : "n/a";
     });
-    var t = fmtTime(data.updatedAt);
-    if (stale) t = (t ? t + ", " : "") + "node unreachable";
-    q("time").textContent = failed ? (t ? t + " (offline)" : "Offline") : t;
+    // No update time on the bar; only say so when the latest refresh failed.
+    q("time").textContent = failed ? "Offline, showing the last values" : "";
   }
 
   function load() {
