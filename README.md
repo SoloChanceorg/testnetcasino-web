@@ -142,8 +142,8 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 `assets/js/jackpots.js` reads `GET /jackpots` (public: `grand`, `major` per game, `recentWins`) when the page opens, every 20 s
 while the tab is visible, and right after a jackpot win. It fills every `[data-jackpot="grand"]` and
-`[data-jackpot="major:<gameId>"]` with the pool in tBCH (4 decimals, counting up when it grows; exact sats in the tooltip, and
-a tap shows them for 3 s) and `#jp-winners` with the recent winners ("No jackpot won yet. Be the first!" when empty).
+`[data-jackpot="major:<gameId>"]` with the pool in tBCH (4 decimals, counting up when it grows; exact tSats in the tooltip, and
+a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-winners` with the recent winners ("No jackpot won yet. Be the first!" when empty).
 
 - **Games**: a Major and Grand board above the reels, in the machine's unit (exact tSats, or tBCH with 8 decimals). Every
   paid spin adds the player's share (`bet × contributionBasisPoints ÷ 10,000`) at once, since the server's view lags up to
@@ -262,7 +262,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109d`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109e`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
