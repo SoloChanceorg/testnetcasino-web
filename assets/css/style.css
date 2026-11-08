@@ -142,7 +142,7 @@ h1, h2, h3 { font-weight: 400; }
   font-family: var(--sign); font-size: .78rem; letter-spacing: 1px; white-space: nowrap;
 }
 .chip-balance .tag { background: #2a1c02; color: var(--gold-light); border-radius: 999px; padding: 2px 8px; font-size: .7rem; letter-spacing: 1.5px; }
-.chip-balance strong { font-weight: 400; font-size: .95rem; }
+.chip-balance strong { font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; font-weight: 700; font-size: .9rem; letter-spacing: 0; }
 .flash-up { animation: flashUp .8s ease-out; }
 @keyframes flashUp { 0% { color: #0d6b2a; text-shadow: 0 0 12px #fff; } }
 
@@ -1970,3 +1970,6 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 /* Lobby: "Just need tBCH?" note */
 .quick-coins p { margin: 0 0 12px; }
 .quick-coins .qc-actions { margin: 0; }
+
+/* Nav: the signed-in wallet address in the account chip */
+.auth-user .auth-addr { font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; font-weight: 700; font-size: .82rem; letter-spacing: 0; text-transform: none; }

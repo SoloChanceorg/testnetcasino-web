@@ -209,7 +209,11 @@
       if (document.body.getAttribute("data-page") === "account") who.setAttribute("aria-current", "page");
       if (Auth.user.address) who.title = Auth.user.address;
       who.innerHTML = (Auth.user.method === "wallet" ? TBCH_ICON : '<span class="chip-emoji" aria-hidden="true">🔐</span>') + " ";
-      who.appendChild(document.createTextNode(userLabel(Auth.user)));
+      // A wallet address is shown as written (lowercase, monospaced); "Passkey account" keeps the sign font.
+      var name = document.createElement("span");
+      if (Auth.user.method === "wallet" && Auth.user.address) name.className = "auth-addr";
+      name.textContent = userLabel(Auth.user);
+      who.appendChild(name);
       who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account"));
       var out = document.createElement("button");
       out.type = "button";
