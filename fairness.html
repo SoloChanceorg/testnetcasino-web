@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261108z">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109a">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -64,7 +64,7 @@
           <dl class="seed-list">
             <div><dt>Server seed hash</dt><dd class="auth-mono" id="seed-hash">…</dd></div>
             <div><dt>Client seed</dt><dd class="auth-mono" id="seed-client">…</dd></div>
-            <div><dt>Next nonce</dt><dd id="seed-nonce">…</dd></div>
+            <div><dt>Next nonce</dt><dd class="auth-mono" id="seed-nonce">…</dd></div>
           </dl>
           <form id="cs-form" novalidate>
             <label class="auth-label" for="cs-input">New client seed</label>
@@ -109,15 +109,15 @@
           <div><label class="auth-label" for="vf-game">Game</label>
             <select class="auth-input" id="vf-game"><option value="fruit-orchard">Fruit Orchard</option><option value="deep-sea">Deep Sea Treasure</option><option value="cosmic-voyage">Cosmic Voyage</option></select></div>
           <div><label class="auth-label" for="vf-bet">Bet (tSats, 1 to 1,000)</label>
-            <input class="auth-input" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
+            <input class="auth-input auth-mono" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="vf-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-client">Client seed</label>
             <input class="auth-input auth-mono" id="vf-client" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div><label class="auth-label" for="vf-nonce">Nonce</label>
-            <input class="auth-input" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
+            <input class="auth-input auth-mono" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
           <div><label class="auth-label" for="vf-expect">Expected win in tSats (optional)</label>
-            <input class="auth-input" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
+            <input class="auth-input auth-mono" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
           <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="vf-submit">🔍 Replay spin</button></div>
         </form>
         <div class="vf-result" id="vf-result" role="status" aria-live="polite"></div>
@@ -146,14 +146,14 @@
     </footer>
   </div>
 
-  <script src="assets/js/config.js?v=20261108z"></script>
-  <script src="assets/js/api.js?v=20261108z"></script>
-  <script src="assets/js/units.js?v=20261108z"></script>
-  <script src="assets/js/faucet.js?v=20261108z"></script>
-  <script src="assets/js/auth.js?v=20261108z"></script>
-  <script src="assets/js/fairness-engine.js?v=20261108z"></script>
-  <script src="assets/js/fairness.js?v=20261108z"></script>
-  <script src="assets/js/fx.js?v=20261108z"></script>
-  <script src="assets/js/music.js?v=20261108z"></script>
+  <script src="assets/js/config.js?v=20261109a"></script>
+  <script src="assets/js/api.js?v=20261109a"></script>
+  <script src="assets/js/units.js?v=20261109a"></script>
+  <script src="assets/js/faucet.js?v=20261109a"></script>
+  <script src="assets/js/auth.js?v=20261109a"></script>
+  <script src="assets/js/fairness-engine.js?v=20261109a"></script>
+  <script src="assets/js/fairness.js?v=20261109a"></script>
+  <script src="assets/js/fx.js?v=20261109a"></script>
+  <script src="assets/js/music.js?v=20261109a"></script>
 </body>
 </html>
