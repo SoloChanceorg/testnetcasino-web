@@ -209,20 +209,23 @@
           '</div>' +
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
-      // Progressive jackpots: this game's Major and the shared Grand (filled by jackpots.js).
-      jackpots: game.jackpots ? '<div class="jp-board" role="group" aria-label="Progressive jackpots">' +
-          '<div class="jp-cell jp-major"><span class="jp-name">MAJOR</span><span class="jp-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
-          '<div class="jp-cell jp-grand"><span class="jp-name">GRAND</span><span class="jp-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
+      // Progressive jackpots at the top of the machine: the shared Grand (one style on every
+      // machine), then this game's Major (in the machine's theme). Always tBCH with 8 decimals;
+      // filled by jackpots.js, a tap shows the tSats.
+      jackpots: game.jackpots ? '<div class="jp-rows" role="group" aria-label="Progressive jackpots">' +
+          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><button type="button" class="jp-row-val" data-jackpot-units="bch8" data-jackpot="grand">…</button></div>' +
+          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><button type="button" class="jp-row-val" data-jackpot-units="bch8" data-jackpot="major:' + esc(id) + '">…</button></div>' +
         '</div>' : ''
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {
-      return '<div class="machine m-orchard" id="slot-machine">' +
+      return '<div class="machine m-orchard" id="slot-machine">' + P.jackpots +
+        '<div class="or-stand">' +   // the sound and full-screen buttons are placed from its top
         '<div class="or-awning" aria-hidden="true"><span class="or-bulbs"></span></div>' + P.sound +
         '<div class="or-sign"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-        '<div class="or-crate">' + P.sign + P.jackpots +
+        '<div class="or-crate">' + P.sign +
           '<div class="or-window">' + P.reels + '</div>' + P.wins +
           P.lcd() +
           '<div class="or-deck">' +
@@ -247,7 +250,7 @@
             '</div>' +
           '</div>' +
           hint("Press SPIN") +
-        '</div>' + P.stage + '</div>';
+        '</div></div>' + P.stage + '</div>';
     }
 
     function machineDeepSea() {
@@ -255,10 +258,10 @@
         var a = -135 + i * 30;
         return '<button type="button" class="ds-tick" data-bet="' + v + '" style="--a:' + a + 'deg" tabindex="-1" aria-hidden="true"><span>' + short(v) + '</span></button>';
       }).join("");
-      return '<div class="machine m-deepsea" id="slot-machine">' +
+      return '<div class="machine m-deepsea" id="slot-machine">' + P.jackpots +
         '<div class="ds-hull">' + P.sound +
           '<div class="ds-plate"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-          P.sign + P.jackpots +
+          P.sign +
           '<div class="ds-porthole"><span class="ds-bolts" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="ds-sonar" aria-hidden="true"></span>') +
           '<div class="ds-console">' +
@@ -286,10 +289,10 @@
       var scale = LADDER.slice().reverse().map(function (v) {
         return '<button type="button" class="thr-mark" data-bet="' + v + '" tabindex="-1" aria-hidden="true">' + short(v) + '</button>';
       }).join("");
-      return '<div class="machine m-cosmic" id="slot-machine">' +
+      return '<div class="machine m-cosmic" id="slot-machine">' + P.jackpots +
         '<div class="cx-hull">' + P.sound +
           '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-          P.sign + P.jackpots +
+          P.sign +
           '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
           '<div class="cx-cockpit">' +

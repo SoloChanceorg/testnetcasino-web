@@ -9,9 +9,8 @@
  * pool, counting up when it grows:
  *   - by default in tBCH with 4 decimals; the exact amount is in the tooltip, and tapping the
  *     value shows it in tSats for a few seconds, a second tap goes back (phones have no hover);
- *   - with data-jackpot-units="bch8" (the lobby's Grand) in tBCH with 8 decimals;
- *   - with data-jackpot-units="game" (the boards on the machines) in the game's unit switch:
- *     exact tSats or tBCH with 8 decimals, so the pool visibly grows with every spin.
+ *   - with data-jackpot-units="bch8" (lobby, jackpots page and the rows at the top of every
+ *     machine) in tBCH with 8 decimals, so the pool visibly grows with every spin.
  * On the jackpots page, the table body with id "jp-wins-body" gets the latest winners.
  *
  * Every paid spin adds bet x contributionBasisPoints / 10,000 to the game's Major and to the
@@ -67,9 +66,6 @@
   }
   function label(key) { return key === "grand" ? "Grand jackpot" : "Major jackpot"; }
 
-  var G = U.game;
-  function gameUnits(node) { return !!G && node.getAttribute("data-jackpot-units") === "game"; }
-
   // "1.0201" + a separate unit, so themes can style the number on its own.
   function paint(node, sats, exact) {
     node._jpShowExact = !!exact;
@@ -79,8 +75,7 @@
       num = el("span", "jp-num"); unit = el("span", "jp-unit");
       node.appendChild(num); node.appendChild(unit);
     }
-    if (gameUnits(node)) { num.textContent = G.value(sats); unit.textContent = " " + G.unit(); }
-    else if (exact) { num.textContent = Number(sats).toLocaleString("en-US"); unit.textContent = " tSats"; }
+    if (exact) { num.textContent = Number(sats).toLocaleString("en-US"); unit.textContent = " tSats"; }
     else if (node.getAttribute("data-jackpot-units") === "bch8") { num.textContent = U.bch(sats); unit.textContent = " tBCH"; }
     else { num.textContent = U.round4(sats).replace(" tBCH", ""); unit.textContent = " tBCH"; }
   }
@@ -106,8 +101,8 @@
       var old = node._jpSats;
       node._jpSats = v;
       node.title = label(key) + ": " + U.format(v) + " (" + v.toLocaleString("en-US") + " tSats)";
-      node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(v) : node.getAttribute("data-jackpot-units") === "bch8" ? U.format(v) : U.round4(v)));
-      if (!node._jpBound && !gameUnits(node)) {
+      node.setAttribute("aria-label", label(key) + " " + (node.getAttribute("data-jackpot-units") === "bch8" ? U.format(v) : U.round4(v)));
+      if (!node._jpBound) {
         node._jpBound = true;
         // Tap shows the exact sats for a few seconds (no hover on phones).
         // A second tap goes back to tBCH at once.
@@ -174,13 +169,6 @@
     render();
     if (won.length || Date.now() - lastFetch > 10000) refresh();
   }
-
-  // The game boards follow the machine's tSats / tBCH switch.
-  if (G) G.onChange(function () {
-    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
-      if (gameUnits(node) && node._jpSats != null) { node._jpTarget = node._jpSats; paint(node, node._jpSats); node.setAttribute("aria-label", label(node.getAttribute("data-jackpot")) + " " + G.format(node._jpSats)); }
-    });
-  });
 
   window.TNC_Jackpots = { refresh: refresh, render: render, contribute: contribute, get data() { return data; } };
   refresh();
