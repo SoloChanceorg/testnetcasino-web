@@ -2017,19 +2017,41 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   font: 400 .7rem var(--sign); letter-spacing: 1px; color: #ffcf4d; background: rgba(0,0,0,.55); border: 1px solid rgba(255,207,77,.5);
 }
 .gc-major b { font: 700 .82rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; letter-spacing: 0; color: #ffe08a; }
-.jp-winners { list-style: none; margin: 8px 0 0; padding: 0; }
-.jp-win {
-  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: center;
-  padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.07); font-size: .9rem;
+/* Jackpots page: the pools now, then the winners table */
+.jpp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+.jpp-pool {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px; text-align: center;
+  border: 1px solid rgba(255,207,77,.45); border-radius: 12px; background: rgba(0,0,0,.35);
 }
-.jp-win-pool { font-weight: 700; color: #ffcf4d; }
-.jp-win.is-grand .jp-win-pool { color: #ff8a96; }
-.jp-win-player { overflow-wrap: anywhere; }
-.jp-win-amount { font: 700 .86rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; color: var(--gold-light); text-align: right; }
-.jp-win-time { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.jpp-pool.is-grand { grid-column: 1 / -1; border-color: rgba(255,77,94,.6); box-shadow: 0 0 18px rgba(255,77,94,.25) inset; }
+.jpp-name { font-weight: 700; font-size: .86rem; color: #ffcf4d; }
+.jpp-pool.is-grand .jpp-name { color: #ff8a96; }
+.jpp-name a { color: inherit; }
+.jpp-value {
+  padding: 0; border: 0; background: none; cursor: pointer; color: #fff1d0; font: 700 1.15rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+  font-variant-numeric: tabular-nums; text-shadow: 0 0 10px rgba(245,197,66,.6);
+}
+.jpp-pool.is-grand .jpp-value { font-size: clamp(1.4rem, 5vw, 2rem); text-shadow: 0 0 14px rgba(255,77,94,.9), 0 0 2px #fff; }
+.jpp-value:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 3px; border-radius: 6px; }
+.jpp-table td { vertical-align: middle; }
+.jpp-when { color: var(--muted); white-space: nowrap; }
+.jpp-pool-name { font-weight: 700; color: #ffcf4d; white-space: nowrap; }
+.jpp-table tr.is-grand .jpp-pool-name { color: #ff8a96; }
+.jpp-player { overflow-wrap: anywhere; }
+.jpp-table .jpp-amount { font-weight: 700; color: var(--gold-light); }
+/* Phones: each win becomes a two-line card (jackpot + amount, then player + time). */
 @media (max-width: 600px) {
-  .jp-win { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "pool amount" "player time"; }
-  .jp-win-pool { grid-area: pool; } .jp-win-amount { grid-area: amount; } .jp-win-player { grid-area: player; } .jp-win-time { grid-area: time; text-align: right; }
+  .jpp-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .jpp-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "pool amount" "player when";
+    align-items: center; gap: 2px 10px; padding: 9px 2px; border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .jpp-table td { display: block; padding: 0; border: 0; }
+  .jpp-table td.jpp-pool-name { grid-area: pool; min-width: 0; white-space: normal; }
+  .jpp-table td.jpp-amount { grid-area: amount; }
+  .jpp-table td.jpp-amount::after { content: " tBCH"; font-weight: 600; font-size: .78em; color: var(--muted); }
+  .jpp-table td.jpp-player { grid-area: player; min-width: 0; font-size: .82rem; }
+  .jpp-table td.jpp-when { grid-area: when; font-size: .78rem; text-align: right; }
 }
 @media (prefers-reduced-motion: reduce) { .jp-grow .jp-num { animation: none; } }
 .sp-jp { font-family: var(--emoji); }

@@ -29,6 +29,7 @@ const PAGES = [
   { file: "account.html", id: "account", warning: "site", header: true },
   { file: "fairness.html", id: "fairness", warning: "site", header: true },
   { file: "leaderboards.html", id: "leaderboards", warning: "site", header: true },
+  { file: "jackpots.html", id: "jackpots", warning: "site", header: true },
   { file: "withdrawals.html", id: "withdrawals", warning: "site", header: true },
   { file: "games/fruit-orchard.html", id: "fruit-orchard", warning: "game", header: true },
   { file: "games/deep-sea.html", id: "deep-sea", warning: "game", header: true },
@@ -43,6 +44,7 @@ const NAV = [
   { id: "cosmic-voyage", to: "games/cosmic-voyage.html", emoji: "🚀", label: "Cosmic Voyage" },
   { id: "fairness", to: "fairness.html", emoji: "⚖️", label: "Fairness" },
   { id: "leaderboards", to: "leaderboards.html", emoji: "🏆", label: "Leaderboards" },
+  { id: "jackpots", to: "jackpots.html", emoji: "💰", label: "Jackpots" },
   { id: "withdrawals", to: "withdrawals.html", emoji: "📤", label: "Withdrawals" }
 ];
 
@@ -99,6 +101,7 @@ const BLOCKS = {
       `      <div class="cf-links">`,
       `        <a href="${r("fairness.html")}"><span aria-hidden="true">⚖️</span> Provably fair</a>`,
       `        <a href="${r("leaderboards.html")}"><span aria-hidden="true">🏆</span> Leaderboards</a>`,
+      `        <a href="${r("jackpots.html")}"><span aria-hidden="true">💰</span> Jackpots</a>`,
       `        <a href="${r("withdrawals.html")}"><span aria-hidden="true">📤</span> Withdrawals</a>`,
       `        <a href="${r("account.html")}"><span aria-hidden="true">👤</span> Your account</a>`,
       `        <a href="${notice}"><span aria-hidden="true">⚠️</span> House notice</a>`,

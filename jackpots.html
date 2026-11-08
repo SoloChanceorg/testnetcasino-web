@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Jackpots · TestnetCasino.com</title>
+  <meta name="description" content="The progressive jackpots of TestnetCasino.com: the Grand, each machine's Major and the latest winners.">
+  <meta name="theme-color" content="#052a19">
+  <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109g">
+</head>
+<body data-page="jackpots">
+  <a class="skip-link" href="#main">Skip to the jackpots</a>
+  <canvas id="casino-bg" aria-hidden="true"></canvas>
+  <canvas id="coin-shower" aria-hidden="true"></canvas>
+
+  <!-- site:warning -->
+  <div class="warning-strip" role="note">
+    <span aria-hidden="true">⚠️</span> Not a real casino: no real money, no mainnet crypto, no deposits. <a href="./#notice">House notice</a>
+  </div>
+  <!-- /site:warning -->
+
+  <!-- site:faucet -->
+  <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>
+  <!-- /site:faucet -->
+
+  <div class="page">
+    <!-- site:header -->
+    <header class="logo-area">
+      <a class="marquee small" id="marquee" href="./" aria-label="TestnetCasino.com lobby">
+        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
+        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
+      </a>
+    </header>
+    <!-- /site:header -->
+
+    <!-- site:nav -->
+    <nav class="nav-bar" aria-label="Site">
+      <a class="chip-link" href="./"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
+      <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
+      <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
+      <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
+      <a class="chip-link" href="leaderboards.html"><span class="chip-emoji" aria-hidden="true">🏆</span> Leaderboards</a>
+      <a class="chip-link" href="jackpots.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">💰</span> Jackpots</a>
+      <a class="chip-link" href="withdrawals.html"><span class="chip-emoji" aria-hidden="true">📤</span> Withdrawals</a>
+      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
+    </nav>
+    <!-- /site:nav -->
+
+    <main class="acct-main pay-main" id="main" tabindex="-1">
+      <h1 class="page-title">Jackpots</h1>
+      <p class="lb-lead">Every machine has its own Major jackpot, and all three share one Grand jackpot. Both grow with every bet until a spin wins the whole pool, which then starts again.</p>
+
+      <section class="panel jpp-pools" aria-labelledby="jpp-pools-title">
+        <h2 class="panel-label" id="jpp-pools-title">💰 JACKPOTS NOW</h2>
+        <div class="jpp-grid">
+          <div class="jpp-pool is-grand">
+            <span class="jpp-name">🏆 Grand · all machines</span>
+            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="grand">…</button>
+          </div>
+          <div class="jpp-pool">
+            <span class="jpp-name">⭐ Major · <a href="games/fruit-orchard.html">🍒 Fruit Orchard</a></span>
+            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:fruit-orchard">…</button>
+          </div>
+          <div class="jpp-pool">
+            <span class="jpp-name">⭐ Major · <a href="games/deep-sea.html">🐚 Deep Sea Treasure</a></span>
+            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:deep-sea">…</button>
+          </div>
+          <div class="jpp-pool">
+            <span class="jpp-name">⭐ Major · <a href="games/cosmic-voyage.html">🚀 Cosmic Voyage</a></span>
+            <button type="button" class="jpp-value" data-jackpot-units="bch8" data-jackpot="major:cosmic-voyage">…</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="jackpot-winners" aria-labelledby="jpp-wins-title">
+        <h2 class="panel-label" id="jpp-wins-title">🏆 JACKPOT WINNERS</h2>
+        <p class="panel-sub">The latest 20 jackpot wins, newest first.</p>
+        <div class="tbl-wrap">
+          <table class="acct-table jpp-table">
+            <caption class="sr-only">The latest jackpot wins, newest first</caption>
+            <thead><tr><th scope="col">Won</th><th scope="col">Jackpot</th><th scope="col">Player</th><th scope="col" class="num">Amount (tBCH)</th></tr></thead>
+            <tbody id="jp-wins-body"></tbody>
+          </table>
+        </div>
+        <p class="acct-empty" id="jp-winners-empty" hidden>No jackpot won yet. Be the first!</p>
+      </section>
+    </main>
+
+    <!-- site:footer -->
+    <footer class="casino-footer">
+      <div class="cf-links">
+        <a href="fairness.html"><span aria-hidden="true">⚖️</span> Provably fair</a>
+        <a href="leaderboards.html"><span aria-hidden="true">🏆</span> Leaderboards</a>
+        <a href="jackpots.html"><span aria-hidden="true">💰</span> Jackpots</a>
+        <a href="withdrawals.html"><span aria-hidden="true">📤</span> Withdrawals</a>
+        <a href="account.html"><span aria-hidden="true">👤</span> Your account</a>
+        <a href="index.html#notice"><span aria-hidden="true">⚠️</span> House notice</a>
+        <a href="legal/terms-of-service.pdf" type="application/pdf"><span aria-hidden="true">📄</span> Terms<span class="sr-only"> of Service (PDF)</span></a>
+        <a href="legal/privacy-policy.pdf" type="application/pdf"><span aria-hidden="true">🔒</span> Privacy<span class="sr-only"> Policy (PDF)</span></a>
+      </div>
+      <div class="cf-networks">
+        <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
+        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+      </div>
+      <div class="cf-bottom">
+        <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
+        <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
+        <div class="cf-disclaimer"><span aria-hidden="true">♠</span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money. <span aria-hidden="true">♦</span></div>
+      </div>
+    </footer>
+    <!-- /site:footer -->
+  </div>
+
+  <script src="assets/js/config.js?v=20261109g"></script>
+  <script src="assets/js/api.js?v=20261109g"></script>
+  <script src="assets/js/units.js?v=20261109g"></script>
+  <script src="assets/js/faucet.js?v=20261109g"></script>
+  <script src="assets/js/auth.js?v=20261109g"></script>
+  <script src="assets/js/jackpots.js?v=20261109g"></script>
+  <script src="assets/js/fx.js?v=20261109g"></script>
+  <script src="assets/js/music.js?v=20261109g"></script>
+</body>
+</html>

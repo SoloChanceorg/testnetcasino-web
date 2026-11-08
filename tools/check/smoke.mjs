@@ -13,7 +13,7 @@
  * loads without errors or sideways scroll (signed in on desktop, signed out on a phone), a spin
  * in each game, the full-screen fit after a spin, reels stopping one by one (and STOP), the withdrawals total, the leaderboards
  * "jump to my position", the account withdraw lock, the fairness verifier and the progressive
- * jackpots (boards, a jackpot win, the lobby and the winners list).
+ * jackpots (boards, a jackpot win, the lobby and the jackpots page).
  * Exit code 0 = all passed.
  */
 import fs from "node:fs";
@@ -27,7 +27,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 const FIX = path.join(HERE, "fixtures");
 const GAMES = ["fruit-orchard", "deep-sea", "cosmic-voyage"];
-const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "withdrawals.html",
+const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "jackpots.html", "withdrawals.html",
   ...GAMES.map((g) => `games/${g}.html`)];
 const CONFIGS = Object.fromEntries(GAMES.map((g) => [g, fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")]));
 const SPINS = JSON.parse(fs.readFileSync(path.join(FIX, "spins.json"), "utf8"));
@@ -339,11 +339,17 @@ try {
     await open("index.html", 1280);
     const lobby = await until(`(() => { const g = document.querySelector('.jp-hero [data-jackpot="grand"]'); const majors = document.querySelectorAll('.game-card [data-jackpot^="major:"]');
       return g && /^1\\.0201\\d{4} tBCH$/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /0\\.1\\d{3}/.test(m.textContent))
-        && document.querySelectorAll("#jp-winners li").length === 2 && document.getElementById("jp-winners-empty").hidden; })()`);
+        && !document.getElementById("jp-winners-empty") && !!document.querySelector('.jp-hero a[href="jackpots.html"]'); })()`);
+    check("lobby: Grand and three Majors, winners on their own page", lobby);
+    await open("jackpots.html", 1280);
+    const page = await until(`(() => { const pools = document.querySelectorAll(".jpp-pool [data-jackpot]"), rows = document.querySelectorAll("#jp-wins-body tr");
+      return pools.length === 4 && [...pools].every(p => /^\\d\\.\\d{8} tBCH$/.test(p.textContent)) && rows.length === 2
+        && /Grand/.test(rows[0].textContent) && /1\\.02012345/.test(rows[0].textContent) && /Cosmic Voyage/.test(rows[1].textContent)
+        && document.getElementById("jp-winners-empty").hidden; })()`);
     resetApi();
-    await open("index.html", 375);
-    const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-winners li").length === 0`);
-    check("lobby: Grand, three Majors and the recent winners (and the empty state)", lobby && empty);
+    await open("jackpots.html", 375);
+    const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-wins-body tr").length === 0`);
+    check("jackpots page: four pools and the winners table (and the empty state)", page && empty);
   }
 
   /* ═══ 5. Withdrawals page: whole list and total ═══ */

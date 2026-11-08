@@ -12,7 +12,7 @@
  *   - with data-jackpot-units="bch8" (the lobby's Grand) in tBCH with 8 decimals;
  *   - with data-jackpot-units="game" (the boards on the machines) in the game's unit switch:
  *     exact tSats or tBCH with 8 decimals, so the pool visibly grows with every spin.
- * An element with id "jp-winners" gets the recent winners list.
+ * On the jackpots page, the table body with id "jp-wins-body" gets the latest winners.
  *
  * Every paid spin adds bet x contributionBasisPoints / 10,000 to the game's Major and to the
  * Grand. The server's view is cached for up to 10 seconds, so contribute() adds the player's
@@ -124,23 +124,24 @@
     renderWinners();
   }
 
+  // The jackpots page's winners table: one row per win, newest first.
   function renderWinners() {
-    var list = document.getElementById("jp-winners");
-    if (!list || !data) return;
+    var body = document.getElementById("jp-wins-body");
+    if (!body || !data) return;
     var wins = Array.isArray(data.recentWins) ? data.recentWins : [];
-    list.textContent = "";
+    body.textContent = "";
     var empty = document.getElementById("jp-winners-empty");
     if (empty) empty.hidden = wins.length > 0;
     wins.forEach(function (w) {
-      var grand = /^grand/.test(w.pool || ""), li = el("li", "jp-win" + (grand ? " is-grand" : ""));
-      li.appendChild(el("span", "jp-win-pool", grand ? "🏆 Grand" : "⭐ Major · " + (GAMES[w.gameId] || w.gameId)));
-      li.appendChild(el("span", "jp-win-player", String(w.player || "")));
-      var amt = el("span", "jp-win-amount", U.format(w.amount));
-      amt.title = Number(w.amount).toLocaleString("en-US") + " tSats";
-      li.appendChild(amt);
+      var grand = /^grand/.test(w.pool || ""), tr = el("tr", grand ? "is-grand" : "");
       var d = new Date(w.wonAt);
-      li.appendChild(el("span", "jp-win-time", isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })));
-      list.appendChild(li);
+      tr.appendChild(el("td", "jpp-when", isNaN(d) ? "" : d.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })));
+      tr.appendChild(el("td", "jpp-pool-name", grand ? "🏆 Grand" : "⭐ Major · " + (GAMES[w.gameId] || w.gameId)));
+      tr.appendChild(el("td", "jpp-player", String(w.player || "")));
+      var amt = el("td", "num jpp-amount", U.bch(w.amount));
+      amt.title = Number(w.amount).toLocaleString("en-US") + " tSats";
+      tr.appendChild(amt);
+      body.appendChild(tr);
     });
   }
 

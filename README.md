@@ -146,7 +146,7 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 `assets/js/jackpots.js` reads `GET /jackpots` (public: `grand`, `major` per game, `recentWins`) when the page opens, every 20 s
 while the tab is visible, and right after a jackpot win. It fills every `[data-jackpot="grand"]` and
 `[data-jackpot="major:<gameId>"]` with the pool in tBCH (4 decimals, counting up when it grows; exact tSats in the tooltip, and
-a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-winners` with the recent winners ("No jackpot won yet. Be the first!" when empty).
+a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-wins-body` (the jackpots page) with the latest winners ("No jackpot won yet. Be the first!" when empty).
 
 - **Games**: a Major and Grand board above the reels, in the machine's unit (exact tSats, or tBCH with 8 decimals). Every
   paid spin adds the player's share (`bet × contributionBasisPoints ÷ 10,000`) at once, since the server's view lags up to
@@ -155,7 +155,10 @@ a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-winners` with
   24 hours) on the screen, then the pools are read again. The rules section explains both pools from the game config
   (`jackpots.major` / `jackpots.grand`: start amount, contribution, chance `bet ÷ oneInSats`). The line prize for 5 top
   symbols is called "TOP PRIZE" so it is not confused with the progressive jackpots.
-- **Lobby**: the Grand under the hero (tBCH with 8 decimals; the Majors on the cards keep 4), each game card's Major, and the recent winners panel (`#jackpots`).
+- **Lobby**: the Grand under the hero (tBCH with 8 decimals; the Majors on the cards keep 4, and a link to the jackpots page) and each game card's Major.
+- **Jackpots page** (`jackpots.html`): the Grand and the three Majors now (tBCH with 8 decimals), then a table of the latest 20 wins
+  from `recentWins` (time, jackpot, player, amount in tBCH with the tSats on hover), refreshed with the pools every 20 s. The API
+  has no full history of jackpot wins, so the page shows the latest 20 (a paginated endpoint would let it list them all).
 - **Fairness**: from config version 2 the verifier draws the Major and then the Grand after every other draw of the spin
   (hit if `randInt(oneInSats) < bet`) and checks that a jackpot was paid exactly when the replay hits one.
 
@@ -235,6 +238,7 @@ login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
 account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
 fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
 leaderboards.html     Seven leaderboards (CSP-protected)
+jackpots.html         The jackpot pools now and the latest 20 jackpot winners (CSP-protected)
 withdrawals.html      Every withdrawal the faucet has sent, with the total (CSP-protected)
 legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
@@ -245,7 +249,7 @@ assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin 
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
 assets/js/units.js    Amount formatting: tBCH everywhere, tSats / tBCH switch inside the games
-assets/js/jackpots.js Progressive jackpot pools and recent winners (GET /jackpots, lobby and games)
+assets/js/jackpots.js Progressive jackpot pools and the latest winners (GET /jackpots, lobby, games and jackpots page)
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase
@@ -265,7 +269,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109f`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109g`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
@@ -278,7 +282,7 @@ Node 22+ only, no dependencies; the site itself still has no build step.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
   real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
-  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpot boards, a jackpot win and the lobby winners list, the
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpot boards, a jackpot win, the lobby and the jackpots page, the
   withdrawals total, the leaderboards jump, the account withdraw lock and the fairness verifier. Exit code 0 = all passed.
   Refresh the fixtures when the game config version changes.
 - `node tools/verify-vectors.mjs` checks the fairness verifier against all backend test vectors.
