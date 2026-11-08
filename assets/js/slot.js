@@ -193,7 +193,8 @@
       input: function (cls) {
         return '<input id="bet-input" class="' + cls + '" type="number" inputmode="numeric" min="' + MIN_BET + '" max="' + MAX_BET + '" step="1" aria-label="Bet in tSats">';
       },
-      tail: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>',
+      // Wins on the last spin: right under the reels, above the info screen.
+      wins: '<ul class="breakdown" id="breakdown" aria-label="Wins on the last spin"></ul>',
       // Credit unit and account links: a section of its own under the machine (not in full screen).
       extras: '<section class="panel m-extras" aria-label="Credit unit and account">' +
           '<div class="m-util">' +
@@ -213,7 +214,7 @@
         '<div class="or-awning" aria-hidden="true"><span class="or-bulbs"></span></div>' + P.sound +
         '<div class="or-sign"><h1 class="m-title">' + titleHtml + '</h1></div>' +
         '<div class="or-crate">' + P.sign +
-          '<div class="or-window">' + P.reels + '</div>' +
+          '<div class="or-window">' + P.reels + '</div>' + P.wins +
           P.lcd() +
           '<div class="or-deck">' +
             '<div class="or-left">' +
@@ -236,7 +237,7 @@
               '</button>' +
             '</div>' +
           '</div>' +
-          hint("Press SPIN") + P.tail +
+          hint("Press SPIN") +
         '</div>' + P.stage + '</div>';
     }
 
@@ -249,7 +250,7 @@
         '<div class="ds-hull">' + P.sound +
           '<div class="ds-plate"><h1 class="m-title">' + titleHtml + '</h1></div>' +
           P.sign +
-          '<div class="ds-porthole"><span class="ds-bolts" aria-hidden="true"></span>' + P.reels + '</div>' +
+          '<div class="ds-porthole"><span class="ds-bolts" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="ds-sonar" aria-hidden="true"></span>') +
           '<div class="ds-console">' +
             '<div class="ds-dialbox">' +
@@ -268,7 +269,7 @@
             '</div>' +
             '<div class="ds-gauges">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
           '</div>' +
-          hint("Press DIVE") + P.tail +
+          hint("Press DIVE") +
         '</div>' + P.stage + '</div>';
     }
 
@@ -280,7 +281,7 @@
         '<div class="cx-hull">' + P.sound +
           '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1></div>' +
           P.sign +
-          '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' +
+          '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
           '<div class="cx-cockpit">' +
             '<div class="cx-readouts">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
@@ -300,7 +301,7 @@
                 '<button type="button" id="bet-up" aria-label="Raise bet">▲</button></div>' +
             '</div>' +
           '</div>' +
-          hint("Press LAUNCH") + P.tail +
+          hint("Press LAUNCH") +
         '</div>' + P.stage + '</div>';
     }
 
