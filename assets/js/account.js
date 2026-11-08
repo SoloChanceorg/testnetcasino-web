@@ -50,7 +50,19 @@
     if (!user) { started = false; return; }
     $("acct-balance").textContent = U.format(Auth.balance);
     renderDestination();
-    if (!started) { started = true; loadWithdrawals(); loadLedger(true); }
+    if (!started) { started = true; loadWithdrawals(); loadLedger(true); jumpToHash(); }
+  }
+
+  // The sections appear only after GET /me answers, so the browser's own jump to
+  // #withdraw (from the games and the withdrawals page) finds nothing: do it now.
+  function jumpToHash() {
+    var id = (location.hash || "").slice(1), target = id && document.getElementById(id);
+    if (!target || target.hidden) return;
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(function () {
+      target.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+      if (id === "withdraw") { var a = $("wd-amount"); if (a) a.focus({ preventScroll: true }); }
+    });
   }
 
   /* ═══════════════ Withdraw ═══════════════ */
