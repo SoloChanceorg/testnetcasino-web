@@ -6,13 +6,13 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sign in · TestnetCasino.com</title>
-  <meta name="description" content="Sign in to TestnetCasino.com with your Testnet4 wallet or a passkey. New accounts get a 0.0001 tBCH sign-up bonus.">
+  <meta name="description" content="Sign in to TestnetCasino.com with your Bitcoin Cash Testnet4 wallet or a passkey. New accounts get a 0.0001 tBCH sign-up bonus.">
   <meta name="theme-color" content="#052a19">
   <link rel="icon" type="image/svg+xml" href="assets/img/bch-testnet4.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261108o">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261108s">
 </head>
 <body data-page="login">
   <a class="skip-link" href="#main">Skip to sign-in</a>
@@ -48,7 +48,7 @@
       <section class="panel auth-card" aria-labelledby="auth-title">
         <p class="panel-label">♠ PLAYER SIGN-IN ♠</p>
         <h1 class="auth-title" id="auth-title">Sign in</h1>
-        <p class="auth-lead">Sign in to play. New accounts get a 0.0001 tBCH sign-up bonus, plus 0.00001 tBCH every day. Your balance is kept on the server and you can withdraw it to your Testnet4 wallet.</p>
+        <p class="auth-lead">Sign in to play. New accounts get a 0.0001 tBCH sign-up bonus, plus 0.00001 tBCH every day. Your balance is kept on the server and you can withdraw it to your Bitcoin Cash Testnet4 wallet.</p>
 
         <!-- Already signed in -->
         <div class="auth-signed-in" id="auth-signed-in" hidden>
@@ -63,12 +63,12 @@
         <div id="auth-forms">
           <div class="auth-tabs" role="tablist" aria-label="Sign-in method">
             <button type="button" class="auth-tab" role="tab" id="tab-wallet" aria-selected="true" aria-controls="panel-wallet" tabindex="0">
-              <img class="tbch" src="assets/img/bch-testnet4.svg" alt=""> Testnet4 wallet</button>
+              <img class="tbch" src="assets/img/bch-testnet4.svg" alt=""> Bitcoin Cash Testnet4 wallet</button>
             <button type="button" class="auth-tab" role="tab" id="tab-passkey" aria-selected="false" aria-controls="panel-passkey" tabindex="-1">
               <span class="chip-emoji" aria-hidden="true">🔐</span> Passkey</button>
           </div>
 
-          <!-- ═══ Testnet4 wallet ═══ -->
+          <!-- ═══ Bitcoin Cash Testnet4 wallet ═══ -->
           <div class="auth-panel" role="tabpanel" id="panel-wallet" aria-labelledby="tab-wallet">
             <ol class="auth-steps" aria-label="Wallet sign-in steps">
               <li id="w-dot1" aria-current="step"><span>1</span> Address</li>
@@ -78,7 +78,7 @@
 
             <!-- Step 1 -->
             <form class="auth-step" id="w-step1" novalidate>
-              <label class="auth-label" for="w-address">Your Testnet4 address</label>
+              <label class="auth-label" for="w-address">Your Bitcoin Cash Testnet4 address</label>
               <input class="auth-input auth-mono" id="w-address" name="address" type="text" inputmode="text"
                      autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="bchtest:q..."
                      aria-describedby="w-address-hint w-address-error" required>
@@ -107,7 +107,7 @@
                 <textarea class="auth-input auth-mono" id="w-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none"
                           placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="w-signature-note w-signature-error"></textarea>
                 <p class="auth-error" id="w-signature-error" hidden></p>
-                <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals go to it unless you enter another Testnet4 address.</p>
+                <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals go to it unless you enter another Bitcoin Cash Testnet4 address.</p>
                 <div class="auth-row">
                   <button type="submit" class="btn-red auth-wide" id="w-submit">Sign in</button>
                   <button type="button" class="btn-gold auth-wide" id="w-renew" hidden>Get a new message</button>
@@ -127,14 +127,14 @@
 
           <!-- ═══ Passkey ═══ -->
           <div class="auth-panel" role="tabpanel" id="panel-passkey" aria-labelledby="tab-passkey" hidden>
-            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Testnet4 wallet option.</p>
+            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Bitcoin Cash Testnet4 wallet option.</p>
             <div id="pk-actions">
               <p class="auth-hint">Use Face ID, Touch ID, Windows Hello or a security key. No password needed.</p>
               <div class="auth-col">
                 <button type="button" class="btn-red auth-wide" id="pk-login">🔐 Sign in with passkey</button>
                 <button type="button" class="btn-gold auth-wide" id="pk-create">✨ Create a passkey account</button>
               </div>
-              <p class="auth-hint">Passkey accounts enter a Testnet4 address when they withdraw.</p>
+              <p class="auth-hint">Passkey accounts enter a Bitcoin Cash Testnet4 address when they withdraw.</p>
             </div>
             <p class="auth-status" id="pk-status" role="status" aria-live="polite"></p>
           </div>
@@ -148,7 +148,7 @@
           <span class="notice-icon" aria-hidden="true">⚠️</span>
           <div>
             <h2 id="auth-notice-title">Not a real casino</h2>
-            <p>Testnet4 coins have no monetary value and there are no deposits.
+            <p>Bitcoin Cash Testnet4 coins have no monetary value and there are no deposits.
               <strong>We never ask for a password, a private key or a seed phrase.</strong>
               Signing a message proves you own an address. It cannot move your coins.</p>
           </div>
@@ -167,24 +167,24 @@
         <a href="legal/privacy-policy.pdf" type="application/pdf"><span aria-hidden="true">🔒</span> Privacy<span class="sr-only"> Policy (PDF)</span></a>
       </div>
       <div class="cf-networks">
-        <div>Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
+        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span aria-hidden="true">♠</span> Not a real casino. Testnet4 Bitcoin Cash coins only. No deposits, no real money. <span aria-hidden="true">♦</span></div>
+        <div class="cf-disclaimer"><span aria-hidden="true">♠</span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money. <span aria-hidden="true">♦</span></div>
       </div>
     </footer>
   </div>
 
-  <script src="assets/js/config.js?v=20261108o"></script>
-  <script src="assets/js/api.js?v=20261108o"></script>
-  <script src="assets/js/units.js?v=20261108o"></script>
-  <script src="assets/js/faucet.js?v=20261108o"></script>
-  <script src="assets/js/cashaddr.js?v=20261108o"></script>
-  <script src="assets/js/auth.js?v=20261108o"></script>
-  <script src="assets/js/fx.js?v=20261108o"></script>
-  <script src="assets/js/music.js?v=20261108o"></script>
+  <script src="assets/js/config.js?v=20261108s"></script>
+  <script src="assets/js/api.js?v=20261108s"></script>
+  <script src="assets/js/units.js?v=20261108s"></script>
+  <script src="assets/js/faucet.js?v=20261108s"></script>
+  <script src="assets/js/cashaddr.js?v=20261108s"></script>
+  <script src="assets/js/auth.js?v=20261108s"></script>
+  <script src="assets/js/fx.js?v=20261108s"></script>
+  <script src="assets/js/music.js?v=20261108s"></script>
 </body>
 </html>

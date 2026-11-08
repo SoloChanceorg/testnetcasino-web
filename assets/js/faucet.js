@@ -9,8 +9,9 @@
  *   pendingWithdrawals  withdrawals requested but not yet sent (not shown)
  *   players             { allTime, withBalance, last24h, last30d } (counts)
  * The server recomputes them at most every 5 minutes; the bar re-reads them
- * every minute while the tab is visible. Amounts are shown in tBCH, rounded to
- * 2 decimals (the exact value is in the tooltip).
+ * every minute while the tab is visible. Amounts are shown in tBCH: the faucet
+ * and wallet rounded to 2 decimals (exact value in the tooltip), player
+ * balances with all 8 decimals.
  *
  * Depends on: api.js, units.js.
  */
@@ -65,9 +66,10 @@
       }
       return;
     }
-    [["house", data.house], ["wallet", data.wallet], ["users", data.users]].forEach(function (p) {
+    // Faucet totals are rounded to 2 decimals; player balances are small, so they show all 8.
+    [["house", data.house, true], ["wallet", data.wallet, true], ["users", data.users, false]].forEach(function (p) {
       var e = q(p[0]);
-      e.textContent = U.round2(p[1]);
+      e.textContent = p[2] ? U.round2(p[1]) : U.format(p[1]);
       e.parentNode.title = U.format(p[1]);
     });
     var pl = data.players, plEl = q("players");

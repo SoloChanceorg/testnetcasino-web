@@ -116,7 +116,7 @@
     ledger: function (cursor) { return get(withCursor(PATHS.ledger, cursor)); },
 
     /* Withdrawals */
-    // address: any Testnet4 address; omitted = the account's default (wallet: sign-in address).
+    // address: any Bitcoin Cash Testnet4 address; omitted = the account's default (wallet: sign-in address).
     withdraw: function (amount, address) {
       var body = { amount: amount };
       if (address) body.address = address;

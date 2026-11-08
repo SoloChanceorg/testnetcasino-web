@@ -104,7 +104,7 @@ TERMS = [
     ]),
     ("What the Service is, and what it is not", [
         "The Service is a faucet for Bitcoin Cash Testnet4 coins (\"tBCH\", also counted in \"tSats\"; 1 tBCH = 100,000,000 tSats). "
-        "Testnet4 is a public test network that exists so developers can test Bitcoin Cash software. Its coins are free and "
+        "Bitcoin Cash Testnet4 is a public test network that exists so developers can test Bitcoin Cash software. Its coins are free and "
         "worthless by design. The Service hands them out through slot machine style games, for entertainment and education only.",
         [
             "The Service is <b>not a casino, not a gambling service, not a lottery and not a game of chance for value</b>. "
@@ -136,11 +136,11 @@ TERMS = [
     ]),
     ("Balances and test coins", [
         "Your balance is an entry in our records, counted in tSats. It is not a deposit, not a claim against us and not your "
-        "property. It only reflects test coins that we may, at our discretion, send to a Testnet4 address you choose.",
+        "property. It only reflects test coins that we may, at our discretion, send to a Bitcoin Cash Testnet4 address you choose.",
         "We may, at any time and without notice or liability, correct, adjust, reverse, freeze, cap, reset or remove any "
         "balance, bonus, win or ledger entry, in particular after an error, bug, outage, misuse, suspected abuse, a change or "
-        "reset of the Testnet4 network, or to keep the faucet available to others. Outcomes produced by a malfunction are void.",
-        "The Testnet4 network can be reset, forked, abandoned or replaced by its developers at any time. If that happens, "
+        "reset of the Bitcoin Cash Testnet4 network, or to keep the faucet available to others. Outcomes produced by a malfunction are void.",
+        "The Bitcoin Cash Testnet4 network can be reset, forked, abandoned or replaced by its developers at any time. If that happens, "
         "balances and coins may be lost or become unusable. We are not responsible for it.",
     ]),
     ("Bonuses", [
@@ -156,9 +156,9 @@ TERMS = [
         "change, remove or add games, paytables, features, limits and odds at any time.",
     ]),
     ("Withdrawals", [
-        "Withdrawals send tBCH on the Testnet4 network to the address you provide. They are a courtesy, not an obligation.",
+        "Withdrawals send tBCH on the Bitcoin Cash Testnet4 network to the address you provide. They are a courtesy, not an obligation.",
         [
-            "Limits apply (currently 1,000 to 10,000,000 tSats per withdrawal, 1,000,000 tSats per player in 24 hours and "
+            "Limits apply (currently 1,000 to 10,000,000 tSats per withdrawal, 100,000,000 tSats (1 tBCH) per player in 24 hours and "
             "10 tBCH a day for the whole faucet) and may change at any time.",
             "We may disable, pause, delay, limit, refuse or cancel withdrawals at any time, for any reason or none.",
             "<b>You are solely responsible for the address you enter.</b> Blockchain transactions cannot be reversed. Coins sent "
@@ -195,7 +195,7 @@ TERMS = [
     ]),
     ("No advice", [
         "Nothing on the Service is financial, investment, legal, tax or other professional advice. Information about "
-        "Testnet4, mining, wallets, fairness or anything else is general and educational, may be incomplete or out of date, "
+        "Bitcoin Cash Testnet4, mining, wallets, fairness or anything else is general and educational, may be incomplete or out of date, "
         "and you should not rely on it.",
     ]),
     ("Third parties", [
@@ -262,7 +262,7 @@ TERMS = [
 
 PRIVACY_BOX = (
     "We collect as little as possible. There are no names, emails, passwords, payment details or advertising trackers. "
-    "To run accounts, games and withdrawals we store your Testnet4 wallet address or passkey public key, your activity in "
+    "To run accounts, games and withdrawals we store your Bitcoin Cash Testnet4 wallet address or passkey public key, your activity in "
     "the Service, and the IP addresses used to create accounts and sign in (to prevent abuse). Withdrawals are public on "
     "the blockchain forever. We do not sell your data."
 )
@@ -275,13 +275,13 @@ PRIVACY = [
         "it and what your rights are under the EU General Data Protection Regulation (GDPR) and Estonian law.",
     ]),
     ("Data we process", [
-        "<b>Account data.</b> For wallet accounts: your Testnet4 address and the signed sign-in messages we check. For passkey "
+        "<b>Account data.</b> For wallet accounts: your Bitcoin Cash Testnet4 address and the signed sign-in messages we check. For passkey "
         "accounts: the passkey's public key and credential identifier, a random user handle and the data your browser returns "
         "when you use the passkey (we never see your fingerprint, face or device PIN). For both: an internal account id, the "
         "date the account was created and whether it is enabled.",
         "<b>Game and balance data.</b> Every spin (game, bet, result, time), your fairness seeds and nonces, and an append-only "
         "ledger of every change to your balance (sign-up and daily bonuses, spins, withdrawals, corrections).",
-        "<b>Withdrawal data.</b> The amount, the Testnet4 address you enter, the status and the blockchain transaction id. "
+        "<b>Withdrawal data.</b> The amount, the Bitcoin Cash Testnet4 address you enter, the status and the blockchain transaction id. "
         "Passkey accounts may also save a default withdrawal address.",
         "<b>Network and security data.</b> The IP address an account was created from and the IP address of sign-in "
         "challenges, used together with your network range (IPv4 /24, IPv6 /64) for rate limits and to stop mass account "
@@ -315,7 +315,7 @@ PRIVACY = [
         "<b>Leaderboards</b> show a public label for each listed player together with amounts (balance, net winnings or "
         "withdrawals). The label is a shortened wallet address (for example bchtest:qz8f...4k2m) or \"Passkey\" with six "
         "characters derived from the account. It is not your name.",
-        "<b>The blockchain is public and permanent.</b> Every withdrawal is a Testnet4 transaction that anyone can see, "
+        "<b>The blockchain is public and permanent.</b> Every withdrawal is a Bitcoin Cash Testnet4 transaction that anyone can see, "
         "including the address and amount, and it cannot be changed or deleted by anyone, including us. Your wallet address "
         "is also visible on the blockchain whenever you use it. Avoid reusing an address you want to keep private.",
         "<b>Fairness data.</b> Revealed server seeds and spin details are shown to you so you can verify results.",

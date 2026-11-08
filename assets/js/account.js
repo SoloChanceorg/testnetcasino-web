@@ -1,7 +1,7 @@
 /*
  * TestnetCasino.com: account page (account.html).
  *
- *   Withdraw            POST /withdrawals { amount, address }: any Testnet4 address,
+ *   Withdraw            POST /withdrawals { amount, address }: any Bitcoin Cash Testnet4 address,
  *                       no signature. Wallet accounts may leave it empty (sign-in
  *                       address); passkey accounts must give one.
  *   Withdrawals         GET /withdrawals (status, txid linked to an explorer).
@@ -67,7 +67,7 @@
   }
 
   /* ═══════════════ Withdraw ═══════════════ */
-  // POST /withdrawals { amount, address }: any Testnet4 address, no ownership proof.
+  // POST /withdrawals { amount, address }: any Bitcoin Cash Testnet4 address, no ownership proof.
   // Wallet accounts: prefilled with the sign-in address (empty = the server uses it).
   // Passkey accounts: required, prefilled with a saved default if GET /me has one.
   var amountEl = $("wd-amount"), wdErr = $("wd-error"), wdStatus = $("wd-status");
@@ -95,14 +95,14 @@
     // Prefill once per account, and never over what the player typed.
     if (!addrTouched && prefilledFor !== u.id) { addrEl.value = defaultAddress(); prefilledFor = u.id; }
     $("wd-address-hint").textContent = u.method === "wallet"
-      ? "Your sign-in address, or any other Testnet4 address. Left empty, the coins go to your sign-in address."
-      : "Any Testnet4 address you control. The bchtest: prefix is optional.";
+      ? "Your sign-in address, or any other Bitcoin Cash Testnet4 address. Left empty, the coins go to your sign-in address."
+      : "Any Bitcoin Cash Testnet4 address you control. The bchtest: prefix is optional.";
   }
   addrEl.addEventListener("input", function () { addrTouched = true; if (!addrErr.hidden) fieldError(addrEl, addrErr, ""); });
 
   // Early check with cashaddr.js; the server's answer is still the one that counts.
   var ADDR_MESSAGES = {
-    empty: "Enter the Testnet4 address to send the coins to.",
+    empty: "Enter the Bitcoin Cash Testnet4 address to send the coins to.",
     script: "Withdrawals go to a regular bchtest:q... address, not a script address."
   };
   function checkAddress() {
@@ -178,7 +178,7 @@
           a.target = "_blank"; a.rel = "noopener";
           a.className = "auth-mono";
           a.textContent = w.txid.slice(0, 8) + "..." + w.txid.slice(-8);
-          a.setAttribute("aria-label", "Transaction " + w.txid + " on the Testnet4 explorer (opens in a new tab)");
+          a.setAttribute("aria-label", "Transaction " + w.txid + " on the Bitcoin Cash Testnet4 explorer (opens in a new tab)");
           tx.appendChild(a);
         } else tx.textContent = w.status === "FAILED" ? "None" : "Not sent yet";
         tr.appendChild(tx);

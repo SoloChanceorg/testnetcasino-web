@@ -80,7 +80,7 @@
       a.appendChild(el("span", "pay-txid", w.txid.slice(0, 6) + "..." + w.txid.slice(-6)));
       a.appendChild(el("span", "pay-view", "View"));
       a.appendChild(el("span", "", " ↗"));
-      a.setAttribute("aria-label", "Transaction " + w.txid + " on the Testnet4 explorer (opens in a new tab)");
+      a.setAttribute("aria-label", "Transaction " + w.txid + " on the Bitcoin Cash Testnet4 explorer (opens in a new tab)");
       tx.appendChild(a);
     }
     tr.appendChild(tx);
@@ -121,7 +121,7 @@
     totalEl.appendChild(el("span", "pay-total-unit", U ? " tBCH" : " sats"));
     totalEl.title = sum.toLocaleString("en-US") + " sats";
     totalSub.textContent = items.length
-      ? "in " + items.length.toLocaleString("en-US") + " withdrawal" + (items.length === 1 ? "" : "s") + " sent to Testnet4 wallets"
+      ? "in " + items.length.toLocaleString("en-US") + " withdrawal" + (items.length === 1 ? "" : "s") + " sent to Bitcoin Cash Testnet4 wallets"
       : "No withdrawals yet.";
   }
 

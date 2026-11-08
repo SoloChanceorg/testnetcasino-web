@@ -66,7 +66,7 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`), the hot wallet,
 and the sum of player balances, plus player counts (all time, last 24 hours, last 30 days, with a
 balance). The server recomputes them at most every 5 minutes; the bar re-reads them every
-minute while the tab is visible and says so when the server marks them `stale`. They are rounded to 2 decimals (hover for the exact value).
+minute while the tab is visible and says so when the server marks them `stale`. The faucet and hot wallet are rounded to 2 decimals (hover for the exact value); player balances show all 8 decimals.
 
 ## Units
 
@@ -142,7 +142,7 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 `account.html` (`assets/js/account.js`), reached from the account pill in the nav:
 
-- **Withdraw**: `POST /withdrawals { amount, address }`, 1,000 to 10,000,000 sats per withdrawal, at most 1,000,000 sats per
+- **Withdraw**: `POST /withdrawals { amount, address }`, 1,000 to 10,000,000 sats per withdrawal, at most 100,000,000 sats (1 tBCH) per
   player in 24 hours and 10 tBCH a day for the whole faucet. `address` is any Testnet4 address the player types or pastes
   (no signature, no waiting period). Wallet accounts get their sign-in address prefilled and may leave it empty; passkey
   accounts must enter one (prefilled with a saved default if `GET /me` has `user.withdrawalAddress`). `cashaddr.js` rejects
@@ -241,7 +241,7 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261108o`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261108s`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages

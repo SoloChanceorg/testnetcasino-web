@@ -205,7 +205,7 @@
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>'
     };
-    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Testnet coins only: no real money.</p>'; }
+    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {
@@ -378,7 +378,7 @@
         '</dl><p class="pt-note">This is a faucet, so the machine pays back slightly more than it takes in: every win, including free spins and bonus prizes, gets a ' + BOOST +
           ' faucet boost on top of the paytable, for an RTP of ' + RTP + '. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
           'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'Every spin is played on the server and is provably fair. Testnet coins have no monetary value.</p></div>' +
+          'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
         '</details>';
     }
 

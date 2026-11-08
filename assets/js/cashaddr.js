@@ -8,7 +8,7 @@
  *   version & 7  = hash size (0 = 160 bits)
  *
  * TNC_CashAddr.checkTestnetLogin(input) is what the sign-in form uses: it
- * normalizes the input and only accepts Testnet4 P2PKH ("bchtest:q...")
+ * normalizes the input and only accepts Bitcoin Cash Testnet4 P2PKH ("bchtest:q...")
  * addresses, because only those can sign messages.
  */
 (function (root) {
@@ -84,14 +84,14 @@
   function isValid(addr) { try { decode(addr); return true; } catch (e) { return false; } }
 
   var MESSAGES = {
-    mainnet: "That is a mainnet address. Use a Testnet4 address (bchtest:q...).",
+    mainnet: "That is a mainnet address. Use a Bitcoin Cash Testnet4 address (bchtest:q...).",
     script: "Script addresses cannot sign messages. Use a bchtest:q... address.",
     token: "Use the regular bchtest:q... address of the same wallet.",
     checksum: "This address has a typo. Copy it again from your wallet.",
     legacy: "That is a legacy address. Use the CashAddr format of your wallet (bchtest:q...).",
-    other_network: "That address is not for Testnet4. Use a bchtest:q... address.",
-    empty: "Enter your Testnet4 address.",
-    invalid: "That is not a valid Testnet4 address. It starts with bchtest:q..."
+    other_network: "That address is not for Bitcoin Cash Testnet4. Use a bchtest:q... address.",
+    empty: "Enter your Bitcoin Cash Testnet4 address.",
+    invalid: "That is not a valid Bitcoin Cash Testnet4 address. It starts with bchtest:q..."
   };
 
   /**

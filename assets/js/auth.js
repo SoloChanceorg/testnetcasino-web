@@ -10,7 +10,7 @@
  *   Exposed as window.TNC_Auth.
  *
  * Sign-in page (<body data-page="login">)
- *   Two tabs: Testnet4 wallet (address, signed challenge) and Passkey
+ *   Two tabs: Bitcoin Cash Testnet4 wallet (address, signed challenge) and Passkey
  *   (WebAuthn).
  *
  * Depends on: config.js, api.js, units.js; cashaddr.js on the sign-in page.

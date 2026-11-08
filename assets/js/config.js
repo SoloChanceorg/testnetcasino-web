@@ -3,7 +3,7 @@
  *
  * apiBase     testnetcasino-service. Every game, balance and account action
  *             runs there; the frontend only shows the results.
- * explorerTx  Testnet4 transaction page (always bchexplorer.cash) + txid.
+ * explorerTx  Bitcoin Cash Testnet4 transaction page (always bchexplorer.cash) + txid.
  */
 (function () {
   "use strict";

@@ -1963,3 +1963,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .wd-locked { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; font-size: .9rem; font-weight: 600; color: #ffe2a6; background: rgba(245,197,66,.12); border: 1px solid rgba(245,197,66,.45); }
 #wd-form.is-locked .wd-fields { opacity: .5; }
 #wd-form.is-locked .wd-fields * { cursor: not-allowed; }
+
+/* Lobby: "Just need tBCH?" note */
+.quick-coins p { margin: 0 0 12px; }
+.quick-coins .qc-actions { margin: 0; }
