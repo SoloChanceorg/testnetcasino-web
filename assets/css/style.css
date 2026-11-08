@@ -230,10 +230,7 @@ h1, h2, h3 { font-weight: 400; }
 .gc-reels span { background: var(--reel-bg); border-radius: 6px; font-family: var(--emoji); font-size: 1.7rem; text-align: center; padding: 8px 0; line-height: 1.2; }
 .gc-body { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .gc-body p { margin: 0; color: var(--muted); font-size: .92rem; }
-.gc-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
-.badge { font-family: var(--sign); font-size: .7rem; letter-spacing: 1px; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.45); border: 1px solid rgba(245,197,66,.4); color: var(--gold-light); }
-.badge.hot { background: var(--red); border-color: var(--gold); color: #fff; }
-.gc-play { align-self: flex-start; margin-top: 8px; }
+.gc-play { align-self: flex-start; margin-top: auto; }
 
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; }
 .steps li { background: rgba(0,0,0,.3); border: 1px dashed rgba(245,197,66,.35); border-radius: 12px; padding: 18px; }
@@ -2002,21 +1999,22 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .jp-grand { border-color: #c3101f; box-shadow: inset 0 3px 10px rgba(0,0,0,.8), 0 0 14px rgba(255,59,78,.35); }
 @media (max-width: 420px) { .jp-board .jp-val { font-size: .9rem; } .jp-cell { padding: 5px 4px; } }
 
-/* Lobby: the Grand in the hero, the Majors on the game cards, the recent winners. */
+/* Lobby: the Grand on the casino floor, each machine's Major at the top of its card. */
 .jp-hero {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; width: fit-content; max-width: 100%; margin: 22px auto 0; padding: 12px 26px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; width: fit-content; max-width: 100%; margin: 4px auto 22px; padding: 12px 26px;
   border-radius: 16px; background: radial-gradient(ellipse at 50% 0%, rgba(255,77,94,.25), transparent 70%), rgba(10,4,8,.82);
   border: 2px solid #ff4d5e; box-shadow: 0 0 0 4px rgba(122,13,23,.6), 0 0 30px rgba(255,59,78,.45);
 }
 .jp-hero-label { font: 400 .85rem var(--sign); letter-spacing: 3px; color: #ffb3bb; }
 .jp-hero-value { font-size: clamp(1.6rem, 6vw, 2.4rem); color: #fff1d0; text-shadow: 0 0 14px rgba(255,77,94,.9), 0 0 2px #fff; }
 .jp-hero-sub { font-size: .8rem; color: var(--muted); text-align: center; }
-.gc-meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
-.gc-major {
-  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
-  font: 400 .7rem var(--sign); letter-spacing: 1px; color: #ffcf4d; background: rgba(0,0,0,.55); border: 1px solid rgba(255,207,77,.5);
+.gc-jp {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 8px; padding: 9px 10px 8px; text-align: center;
+  background: rgba(10,4,8,.82); border-bottom: 2px solid var(--gold-dark);
 }
-.gc-major b { font: 700 .82rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; letter-spacing: 0; color: #ffe08a; }
+.gc-jp-label { font: 400 .8rem var(--sign); letter-spacing: 2px; color: #ffcf4d; }
+.gc-jp-value { font: 400 1.05rem var(--sign); letter-spacing: 1px; color: var(--gold-light); text-shadow: 0 2px 0 var(--gold-dark), 0 0 14px rgba(245,197,66,.6); font-variant-numeric: tabular-nums; }
+.gc-jp-value .jp-unit { font: 700 .72rem var(--body); letter-spacing: 0; color: var(--gold); text-shadow: none; opacity: 1; }
 /* Jackpots page: the pools now, then the winners table */
 .jpp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
 .jpp-pool {

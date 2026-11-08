@@ -337,10 +337,11 @@ try {
     api.jackpots.recentWins = [{ pool: "grand", gameId: "deep-sea", player: "Passkey 3f9a2c", amount: 102012345, wonAt: new Date().toISOString() },
       { pool: "major:cosmic-voyage", gameId: "cosmic-voyage", player: "bchtest:qphp...hdxy", amount: 10430000, wonAt: new Date().toISOString() }];
     await open("index.html", 1280);
-    const lobby = await until(`(() => { const g = document.querySelector('.jp-hero [data-jackpot="grand"]'); const majors = document.querySelectorAll('.game-card [data-jackpot^="major:"]');
-      return g && /^1\\.0201\\d{4} tBCH$/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /0\\.1\\d{3}/.test(m.textContent))
-        && !document.getElementById("jp-winners-empty") && !!document.querySelector('.jp-hero a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand and three Majors, winners on their own page", lobby);
+    const lobby = await until(`(() => { const g = document.querySelector('.jp-hero [data-jackpot="grand"]'); const majors = document.querySelectorAll('.game-card .gc-jp [data-jackpot^="major:"]');
+      return g && /^1\\.0201\\d{4} tBCH$/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /^0\\.1\\d{7} tBCH$/.test(m.textContent))
+        && !document.getElementById("jp-winners-empty") && !!document.querySelector('#floor .jp-hero a[href="jackpots.html"]')
+        && !document.querySelector(".game-card .badge"); })()`);
+    check("lobby: Grand on the casino floor, three Majors on the cards (8 decimals), winners on their own page", lobby);
     await open("jackpots.html", 1280);
     const page = await until(`(() => { const pools = document.querySelectorAll(".jpp-pool [data-jackpot]"), rows = document.querySelectorAll("#jp-wins-body tr");
       return pools.length === 4 && [...pools].every(p => /^\\d\\.\\d{8} tBCH$/.test(p.textContent)) && rows.length === 2

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109g">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109h">
 </head>
 <body data-page="lobby">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -39,11 +39,6 @@
       <div class="hero-cta">
         <a class="btn-red" href="#floor">🎰 Take a seat</a>
         <a class="btn-gold" href="#rules">How it works</a>
-      </div>
-      <div class="jp-hero" role="group" aria-labelledby="jp-hero-label">
-        <span class="jp-hero-label" id="jp-hero-label">🏆 GRAND JACKPOT</span>
-        <button type="button" class="jp-hero-value" data-jackpot-units="bch8" data-jackpot="grand">…</button>
-        <span class="jp-hero-sub">Shared by all three machines. Every paid spin can win it. <a href="jackpots.html">Jackpot winners</a></span>
       </div>
     </header>
 
@@ -99,34 +94,39 @@
     <section class="panel" id="floor" aria-labelledby="floor-title">
       <h2 class="panel-label" id="floor-title">THE CASINO FLOOR</h2>
       <p class="panel-sub">Pick a game. New accounts get a <strong>0.0001 tBCH</strong> sign-up bonus plus <strong>0.00001 tBCH</strong> every day, and bets run from 0.00000001 to 0.00001 tBCH (1 to 1,000 tSats) a spin. All machines pay on 10 lines with an RTP of 100.01%.</p>
+      <div class="jp-hero" role="group" aria-labelledby="jp-hero-label">
+        <span class="jp-hero-label" id="jp-hero-label">🏆 GRAND JACKPOT</span>
+        <button type="button" class="jp-hero-value" data-jackpot-units="bch8" data-jackpot="grand">…</button>
+        <span class="jp-hero-sub">Shared by all three machines. Every paid spin can win it. <a href="jackpots.html">Jackpot winners</a></span>
+      </div>
       <div class="games">
         <a class="game-card theme-orchard" href="games/fruit-orchard.html">
+          <div class="gc-jp"><span class="gc-jp-label">⭐ MAJOR</span> <span class="gc-jp-value" data-jackpot-units="bch8" data-jackpot="major:fruit-orchard">…</span></div>
           <div class="gc-topper"><h3>FRUIT ★ ORCHARD</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🍒</span><span>🧺</span><span>7️⃣</span><span>🍀</span><span>🌟</span></div>
           <div class="gc-body">
             <p>Sunny classic fruits with frequent small wins.</p>
             <ul class="gc-feats"><li>🌟 <b>Lucky Respin</b>: wilds stick, the rest respin</li><li>🍀 <b>Sticky Wild</b> free spins</li><li>🧺 <b>Harvest Pick</b> bonus game</li></ul>
-            <div class="gc-meta"><span class="badge hot">LOW VOLATILITY</span><span class="gc-major">⭐ MAJOR <b data-jackpot="major:fruit-orchard">…</b></span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
         <a class="game-card theme-deepsea" href="games/deep-sea.html">
+          <div class="gc-jp"><span class="gc-jp-label">⭐ MAJOR</span> <span class="gc-jp-value" data-jackpot-units="bch8" data-jackpot="major:deep-sea">…</span></div>
           <div class="gc-topper"><h3>DEEP SEA ★ TREASURE</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🐚</span><span>🧭</span><span>🔱</span><span>🦈</span><span>💎</span></div>
           <div class="gc-body">
             <p>Dive for pearls, sharks and sunken diamonds.</p>
             <ul class="gc-feats"><li>🔱 <b>Expanding Trident</b> fills its reel</li><li>💎 <b>Rising Tide</b> free spins up to ×10</li><li>🧭 <b>Ship's Wheel</b> bonus game</li></ul>
-            <div class="gc-meta"><span class="badge hot">MEDIUM VOLATILITY</span><span class="gc-major">⭐ MAJOR <b data-jackpot="major:deep-sea">…</b></span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
         <a class="game-card theme-cosmic" href="games/cosmic-voyage.html">
+          <div class="gc-jp"><span class="gc-jp-label">⭐ MAJOR</span> <span class="gc-jp-value" data-jackpot-units="bch8" data-jackpot="major:cosmic-voyage">…</span></div>
           <div class="gc-topper"><h3>COSMIC ★ VOYAGE</h3></div>
           <div class="gc-reels" aria-hidden="true"><span>🌙</span><span>🛰️</span><span>🛸</span><span>🚀</span><span>🌌</span></div>
           <div class="gc-body">
             <p>Rare hits and astronomical jackpots.</p>
             <ul class="gc-feats"><li>🛸 <b>Multiplier Wilds</b> up to ×25</li><li>🌌 <b>Hyperspace</b> free spins, wins ×3</li><li>🛰️ <b>Warp Ladder</b> bonus to 1,000×</li></ul>
-            <div class="gc-meta"><span class="badge hot">HIGH VOLATILITY</span><span class="gc-major">⭐ MAJOR <b data-jackpot="major:cosmic-voyage">…</b></span></div>
             <span class="btn-gold gc-play">Play ▸</span>
           </div>
         </a>
@@ -267,14 +267,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109g"></script>
-  <script src="assets/js/api.js?v=20261109g"></script>
-  <script src="assets/js/units.js?v=20261109g"></script>
-  <script src="assets/js/jackpots.js?v=20261109g"></script>
-  <script src="assets/js/faucet.js?v=20261109g"></script>
-  <script src="assets/js/auth.js?v=20261109g"></script>
-  <script src="assets/js/copy.js?v=20261109g"></script>
-  <script src="assets/js/fx.js?v=20261109g"></script>
-  <script src="assets/js/music.js?v=20261109g"></script>
+  <script src="assets/js/config.js?v=20261109h"></script>
+  <script src="assets/js/api.js?v=20261109h"></script>
+  <script src="assets/js/units.js?v=20261109h"></script>
+  <script src="assets/js/jackpots.js?v=20261109h"></script>
+  <script src="assets/js/faucet.js?v=20261109h"></script>
+  <script src="assets/js/auth.js?v=20261109h"></script>
+  <script src="assets/js/copy.js?v=20261109h"></script>
+  <script src="assets/js/fx.js?v=20261109h"></script>
+  <script src="assets/js/music.js?v=20261109h"></script>
 </body>
 </html>
