@@ -1880,6 +1880,9 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .lb-method { margin-right: 6px; font-family: var(--emoji); }
 .lb-name { overflow-wrap: anywhere; }
 .lb-table .lb-amount { font-weight: 700; color: var(--gold-light); }
+/* Amounts in a monospaced font: every digit has the same width, so the decimal points
+   and each place line up down the column and values compare at a glance. */
+.lb-table td.lb-amount { font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; font-size: .86rem; letter-spacing: 0; }
 .lb-row.is-top .lb-rank-n { color: var(--gold-light); }
 /* The signed-in player's row: a distinct band, a gold edge and a "You" badge. */
 .lb-row.is-me td { background: rgba(125,255,138,.16); }
