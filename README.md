@@ -152,7 +152,7 @@ a tap shows them for 3 s) and `#jp-winners` with the recent winners ("No jackpot
   24 hours) on the screen, then the pools are read again. The rules section explains both pools from the game config
   (`jackpots.major` / `jackpots.grand`: start amount, contribution, chance `bet ÷ oneInSats`). The line prize for 5 top
   symbols is called "TOP PRIZE" so it is not confused with the progressive jackpots.
-- **Lobby**: the Grand under the hero, each game card's Major, and the recent winners panel (`#jackpots`).
+- **Lobby**: the Grand under the hero (tBCH with 8 decimals; the Majors on the cards keep 4), each game card's Major, and the recent winners panel (`#jackpots`).
 - **Fairness**: from config version 2 the verifier draws the Major and then the Grand after every other draw of the spin
   (hit if `randInt(oneInSats) < bet`) and checks that a jackpot was paid exactly when the replay hits one.
 
@@ -262,7 +262,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109c`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109d`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

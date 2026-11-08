@@ -9,6 +9,7 @@
  * pool, counting up when it grows:
  *   - by default in tBCH with 4 decimals; the exact amount is in the tooltip, and tapping the
  *     value shows it for a few seconds (phones have no hover);
+ *   - with data-jackpot-units="bch8" (the lobby's Grand) in tBCH with 8 decimals;
  *   - with data-jackpot-units="game" (the boards on the machines) in the game's unit switch:
  *     exact tSats or tBCH with 8 decimals, so the pool visibly grows with every spin.
  * An element with id "jp-winners" gets the recent winners list.
@@ -79,6 +80,7 @@
     }
     if (gameUnits(node)) { num.textContent = G.value(sats); unit.textContent = " " + G.unit(); }
     else if (exact) { num.textContent = Number(sats).toLocaleString("en-US"); unit.textContent = " sats"; }
+    else if (node.getAttribute("data-jackpot-units") === "bch8") { num.textContent = U.bch(sats); unit.textContent = " tBCH"; }
     else { num.textContent = U.round4(sats).replace(" tBCH", ""); unit.textContent = " tBCH"; }
   }
 
@@ -103,7 +105,7 @@
       var old = node._jpSats;
       node._jpSats = v;
       node.title = label(key) + ": " + U.format(v) + " (" + v.toLocaleString("en-US") + " sats)";
-      node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(v) : U.round4(v)));
+      node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(v) : node.getAttribute("data-jackpot-units") === "bch8" ? U.format(v) : U.round4(v)));
       if (!node._jpBound && !gameUnits(node)) {
         node._jpBound = true;
         // Tap shows the exact sats for a few seconds (no hover on phones).

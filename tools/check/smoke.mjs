@@ -300,7 +300,7 @@ try {
       { pool: "major:cosmic-voyage", gameId: "cosmic-voyage", player: "bchtest:qphp...hdxy", amount: 10430000, wonAt: new Date().toISOString() }];
     await open("index.html", 1280);
     const lobby = await until(`(() => { const g = document.querySelector('.jp-hero [data-jackpot="grand"]'); const majors = document.querySelectorAll('.game-card [data-jackpot^="major:"]');
-      return g && /1\\.0201/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /0\\.1\\d{3}/.test(m.textContent))
+      return g && /^1\\.0201\\d{4} tBCH$/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /0\\.1\\d{3}/.test(m.textContent))
         && document.querySelectorAll("#jp-winners li").length === 2 && document.getElementById("jp-winners-empty").hidden; })()`);
     resetApi();
     await open("index.html", 375);
