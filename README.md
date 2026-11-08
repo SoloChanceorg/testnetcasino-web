@@ -184,7 +184,7 @@ shows while that row is out of view (IntersectionObserver). Amounts are tBCH, wi
 It must reproduce every backend test vector:
 
 ```sh
-node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-test-vectors.json; prints 35/35
+node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-test-vectors.json; prints 41/41
 ```
 
 ## Sign-in, account and daily bonus
@@ -236,13 +236,30 @@ assets/js/leaderboards.js  Leaderboards page
 assets/js/withdrawals.js  Withdrawals page (every withdrawal the faucet has sent)
 assets/js/fairness-engine.js  Provably fair verifier (browser + Node, no DOM)
 tools/verify-vectors.mjs      Checks the verifier against the backend test vectors
+tools/site.mjs                Shared header, nav and footer for every page; ?v= version tag
+tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against a fake API
 .nojekyll             Serve files as-is on GitHub Pages
 ```
 
 ## Hosting: GitHub Pages
 
 Every local script and stylesheet link carries a version tag (`?v=20261109a`). GitHub Pages lets browsers cache files for about
-10 minutes, so bump the tag in all HTML files on each release; otherwise a new page can run with an old cached script.
+10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
+
+## Development tools
+
+Node 22+ only, no dependencies; the site itself still has no build step.
+
+- `node tools/site.mjs build` writes the shared blocks into every page from one template: the warning strip, the faucet bar,
+  the small header, the nav and the footer. In the pages they sit between markers such as `<!-- site:nav -->` and
+  `<!-- /site:nav -->`; edit the templates in `tools/site.mjs`, never the copies. `check` reports pages that are out of date.
+- `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
+- `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
+  real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, the
+  withdrawals total, the leaderboards jump, the account withdraw lock and the fairness verifier. Exit code 0 = all passed.
+  Refresh the fixtures when the game config version changes.
+- `node tools/verify-vectors.mjs` checks the fairness verifier against all backend test vectors.
 
 This is a plain static site with no build step and relative URLs only, so it works from the repository root on GitHub Pages
 (Settings → Pages → Deploy from branch → `main` / root). For the `TestnetCasino.com` custom domain, add a `CNAME` file
