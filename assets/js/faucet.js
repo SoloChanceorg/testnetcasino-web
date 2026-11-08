@@ -39,7 +39,7 @@
       '<span class="fb-time" data-k="time"></span>' +
       '<dl class="fb-players" data-k="players" hidden>' +
         '<dt><span aria-hidden="true">👥</span> Players</dt>' +
-        player("allTime", "all time") + player("last24h", "in 24 h") + player("last30d", "in 30 days") + player("withBalance", "with a balance") +
+        player("allTime", "all time") + player("last30d", "in 30 days") + player("last24h", "in 24 h") + player("withBalance", "with a balance") +
       '</dl>' +
     '</div>';
 
