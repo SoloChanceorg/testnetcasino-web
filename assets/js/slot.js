@@ -207,8 +207,8 @@
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
       // Progressive jackpots: this game's Major and the shared Grand (filled by jackpots.js).
       jackpots: game.jackpots ? '<div class="jp-board" role="group" aria-label="Progressive jackpots">' +
-          '<div class="jp-cell jp-major"><span class="jp-name">MAJOR</span><button type="button" class="jp-val" data-jackpot="major:' + esc(id) + '">…</button></div>' +
-          '<div class="jp-cell jp-grand"><span class="jp-name">GRAND</span><button type="button" class="jp-val" data-jackpot="grand">…</button></div>' +
+          '<div class="jp-cell jp-major"><span class="jp-name">MAJOR</span><span class="jp-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
+          '<div class="jp-cell jp-grand"><span class="jp-name">GRAND</span><span class="jp-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
         '</div>' : ''
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
@@ -1158,6 +1158,9 @@
       var r = await requestSpin(bet);
       if (r.status !== 200 || !r.data || !r.data.steps) { await spinFailed(r); return; }
       await sleep(Math.max(0, (reduce ? 200 : 650) - (Date.now() - t0)));
+      // The pools grow with this bet right away (the server's view lags up to 10 s).
+      if (window.TNC_Jackpots) window.TNC_Jackpots.contribute(id, bet, game.jackpots,
+        r.data.steps.filter(function (x) { return x.type === "jackpot"; }).map(function (x) { return x.pool; }));
 
       try { await playSteps(r.data.steps); }
       finally {
@@ -1240,7 +1243,7 @@
           wait = 0;
         }
       }
-      if (steps.some(function (x) { return x.type === "jackpot"; }) && window.TNC_Jackpots) window.TNC_Jackpots.refresh();
+      if (steps.some(function (x) { return x.type === "jackpot"; }) && window.TNC_Jackpots) window.TNC_Jackpots.refresh();   // after the celebration
     }
 
     // A progressive jackpot: the biggest celebration the machine has, then a word on the

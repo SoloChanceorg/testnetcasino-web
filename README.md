@@ -145,7 +145,9 @@ while the tab is visible, and right after a jackpot win. It fills every `[data-j
 `[data-jackpot="major:<gameId>"]` with the pool in tBCH (4 decimals, counting up when it grows; exact sats in the tooltip, and
 a tap shows them for 3 s) and `#jp-winners` with the recent winners ("No jackpot won yet. Be the first!" when empty).
 
-- **Games**: a Major and Grand board above the reels. When a spin ends with `{ type: "jackpot", pool, win }` steps, each one
+- **Games**: a Major and Grand board above the reels, in the machine's unit (exact tSats, or tBCH with 8 decimals). Every
+  paid spin adds the player's share (`bet × contributionBasisPoints ÷ 10,000`) at once, since the server's view lags up to
+  10 s; the next reading that has grown by it absorbs it again, so the pools never step back. When a spin ends with `{ type: "jackpot", pool, win }` steps, each one
   plays a "MAJOR JACKPOT!" / "GRAND JACKPOT!" celebration with the withdrawal limits (0.1 tBCH per withdrawal, 1 tBCH per
   24 hours) on the screen, then the pools are read again. The rules section explains both pools from the game config
   (`jackpots.major` / `jackpots.grand`: start amount, contribution, chance `bet ÷ oneInSats`). The line prize for 5 top
@@ -260,7 +262,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109b`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109c`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
