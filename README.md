@@ -132,11 +132,27 @@ and builds the machine and the paytable from it. A spin sends `POST /spins { gam
 `crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
 The reels start turning at once and land on the server's result. The response's `steps[]` are then animated in order:
 `spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
-`retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed) and `freeSpinsEnd`. Every win is shown in sats
+`retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed), `freeSpinsEnd` and `jackpot` (see below). Every win is shown in sats
 exactly as the server sent it, and the balance is set to the response's `balance` at the end.
 
 Signed-out visitors see the machine with a "Sign in to play" button. Errors show the server's message
 (`insufficient_funds`, `invalid_bet`, `rate_limited`, ...); a 401 means the session ended and shows the sign-in button.
+
+## Progressive jackpots
+
+`assets/js/jackpots.js` reads `GET /jackpots` (public: `grand`, `major` per game, `recentWins`) when the page opens, every 20 s
+while the tab is visible, and right after a jackpot win. It fills every `[data-jackpot="grand"]` and
+`[data-jackpot="major:<gameId>"]` with the pool in tBCH (4 decimals, counting up when it grows; exact sats in the tooltip, and
+a tap shows them for 3 s) and `#jp-winners` with the recent winners ("No jackpot won yet. Be the first!" when empty).
+
+- **Games**: a Major and Grand board above the reels. When a spin ends with `{ type: "jackpot", pool, win }` steps, each one
+  plays a "MAJOR JACKPOT!" / "GRAND JACKPOT!" celebration with the withdrawal limits (0.1 tBCH per withdrawal, 1 tBCH per
+  24 hours) on the screen, then the pools are read again. The rules section explains both pools from the game config
+  (`jackpots.major` / `jackpots.grand`: start amount, contribution, chance `bet ÷ oneInSats`). The line prize for 5 top
+  symbols is called "TOP PRIZE" so it is not confused with the progressive jackpots.
+- **Lobby**: the Grand under the hero, each game card's Major, and the recent winners panel (`#jackpots`).
+- **Fairness**: from config version 2 the verifier draws the Major and then the Grand after every other draw of the spin
+  (hit if `randInt(oneInSats) < bet`) and checks that a jackpot was paid exactly when the replay hits one.
 
 ## Account and withdrawals
 
@@ -224,6 +240,7 @@ assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin 
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
 assets/js/units.js    Amount formatting: tBCH everywhere, tSats / tBCH switch inside the games
+assets/js/jackpots.js Progressive jackpot pools and recent winners (GET /jackpots, lobby and games)
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase
@@ -243,7 +260,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109a`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109b`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
@@ -256,7 +273,7 @@ Node 22+ only, no dependencies; the site itself still has no build step.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
   real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
-  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, the
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, the jackpot boards, a jackpot win and the lobby winners list, the
   withdrawals total, the leaderboards jump, the account withdraw lock and the fairness verifier. Exit code 0 = all passed.
   Refresh the fixtures when the game config version changes.
 - `node tools/verify-vectors.mjs` checks the fairness verifier against all backend test vectors.

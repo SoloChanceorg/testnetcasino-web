@@ -8,7 +8,11 @@
  *   - randInt(n): rejection sampling (no modulo bias);
  *   - slot rules: the same as the backend's frozen reference engine;
  *   - wins: exact BigInt arithmetic, 1 unit = 10^-7 of the bet, each item
- *     rounded to whole sats with one draw when there is a remainder.
+ *     rounded to whole sats with one draw when there is a remainder;
+ *   - jackpots (config version 2+): after every other draw, one draw for the
+ *     game's Major, then one for the shared Grand; a hit when
+ *     randInt(oneInSats) < bet. The amount won is the pool at that moment, so
+ *     it is not part of the random outcome and is not checked here.
  *
  * No DOM. Works in browsers (window.TNC_Fair) and in Node 20+ (module.exports).
  */
@@ -221,6 +225,7 @@
 
   /* ═══════════════ One paid spin, in the documented draw order ═══════════════ */
   function play(game, bet, randInt) {
+    var spinBet = bet;
     var R = rules(game), X = exact(game), pickers = R.makePickers(randInt);
     var steps = [], total = 0;
 
@@ -266,7 +271,15 @@
       }
       steps.push({ type: "freeSpinsEnd", played: feat.played, win: featureWin });
     }
-    return { totalWin: total, steps: steps };
+    // Jackpot draws (FAIRNESS.md section 4): after everything else, Major first, then Grand.
+    var jackpotHits = null;
+    if (game.jackpots) {
+      jackpotHits = {
+        major: randInt(game.jackpots.major.oneInSats) < spinBet,
+        grand: randInt(game.jackpots.grand.oneInSats) < spinBet
+      };
+    }
+    return { totalWin: total, steps: steps, jackpotHits: jackpotHits };
   }
 
   /**

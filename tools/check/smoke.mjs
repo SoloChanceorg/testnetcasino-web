@@ -12,7 +12,8 @@
  * Checks: shared blocks in sync (tools/site.mjs check), every local link resolves, every page
  * loads without errors or sideways scroll (signed in on desktop, signed out on a phone), a spin
  * in each game, the full-screen fit after a spin, the withdrawals total, the leaderboards
- * "jump to my position", the account withdraw lock and the fairness verifier.
+ * "jump to my position", the account withdraw lock, the fairness verifier and the progressive
+ * jackpots (boards, a jackpot win, the lobby and the winners list).
  * Exit code 0 = all passed.
  */
 import fs from "node:fs";
@@ -60,7 +61,8 @@ const api = {};
 function resetApi() {
   Object.assign(api, {
     user: null, balance: 50000, bonus: { available: false, amount: 1000, nextClaimAt: new Date(Date.now() + 3600e3).toISOString() },
-    spinQueue: [], payouts: [], leaderboards: null
+    spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0,
+    jackpots: { grand: 102012345, major: { "fruit-orchard": 10430000, "deep-sea": 10002000, "cosmic-voyage": 10001500 }, recentWins: [], updatedAt: new Date().toISOString() }
   });
 }
 resetApi();
@@ -77,15 +79,26 @@ function handle(method, url, body) {
       if (method === "POST") {
         const v = api.spinQueue.shift();
         if (!v) return [500, { error: "internal_error", message: "No spin queued in the test." }];
-        api.balance += v.totalWin - v.bet;
+        // A jackpot hit (from the vector's jackpotHits) is paid like the live server does it:
+        // extra "jackpot" steps at the end, jackpotWin, and the balance includes it.
+        const steps = v.steps.slice(); let jackpotWin = 0;
+        for (const pool of ["major", "grand"]) {
+          if (!v.jackpotHits || !v.jackpotHits[pool]) continue;
+          const win = pool === "grand" ? api.jackpots.grand : api.jackpots.major[v.gameId];
+          steps.push({ type: "jackpot", pool, win }); jackpotWin += win;
+          if (pool === "grand") api.jackpots.grand = 100000000; else api.jackpots.major[v.gameId] = 10000000;
+          api.jackpots.recentWins.unshift({ pool: pool === "grand" ? "grand" : "major:" + v.gameId, gameId: v.gameId, player: "bchtest:qphp...hdxy", amount: win, wonAt: new Date().toISOString() });
+        }
+        api.balance += v.totalWin - v.bet + jackpotWin;
         return [200, { spinId: 1, gameId: v.gameId, gameVersion: v.gameVersion, bet: v.bet, nonce: v.nonce, serverSeedHash: v.serverSeedHash,
-          clientSeed: v.clientSeed, steps: v.steps, totalWin: v.totalWin, balance: api.balance }];
+          clientSeed: v.clientSeed, steps, totalWin: v.totalWin, jackpotWin, balance: api.balance }];
       }
       return [200, { items: [], nextCursor: null }];
     case "/fairness/seed": return [200, { serverSeedHash: "ab".repeat(32), clientSeed: "smoke-test", nonce: 0 }];
     case "/withdrawals": return [200, { items: [] }];
     case "/ledger": return [200, { items: [], nextCursor: null }];
     case "/faucet/withdrawals": return [200, { items: api.payouts, nextCursor: null }];
+    case "/jackpots": api.jackpotCalls++; return [200, api.jackpots];
     case "/leaderboards": return [200, api.leaderboards || { balances: [], wins24h: [], wins30d: [], winsAllTime: [], withdrawals24h: [], withdrawals30d: [], withdrawalsAllTime: [], updatedAt: new Date().toISOString() }];
     default: return [404, { error: "not_found", message: "Not found." }];
   }
@@ -226,6 +239,50 @@ try {
     await ev(`document.body.classList.remove("is-fullscreen", "fs-no-jukebox"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
   }
 
+  /* ═══ 4b. Progressive jackpots on the machines, and a jackpot win ═══ */
+  for (const g of GAMES) {
+    resetApi(); signIn();
+    await open(`games/${g}.html`, 1280);
+    const board = await until(`(() => { const m = document.querySelector('.jp-board [data-jackpot="major:${g}"]'), gr = document.querySelector('.jp-board [data-jackpot="grand"]');
+      return m && gr && /0\\.1\\d{3}/.test(m.textContent) && /1\\.0201/.test(gr.textContent); })()`);
+    check(`${g}: Major and Grand shown on the machine`, board);
+  }
+  {
+    resetApi(); signIn(500000);
+    const v = SPINS.jackpot, major = api.jackpots.major[v.gameId];
+    api.spinQueue.push(v);
+    await open(`games/${v.gameId}.html`, 1280);
+    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled`);
+    const callsBefore = api.jackpotCalls;
+    await ev(`(() => { const b = document.getElementById("bet-input"); b.value = ${v.bet}; b.dispatchEvent(new Event("change")); document.getElementById("spin-btn").click(); })()`);
+    const celebrated = await until(`/MAJOR JACKPOT/.test(document.getElementById("lcd-main").textContent)`, 60000);
+    const done = await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, 60000);
+    const st = await ev(`({ header: TNC_Auth.balance, history: document.querySelector("#history li").textContent,
+      major: document.querySelector('.jp-board [data-jackpot="major:${v.gameId}"]').textContent })`);
+    const problems = [];
+    if (!celebrated) problems.push("no MAJOR JACKPOT celebration");
+    if (!done) problems.push("spin did not finish");
+    if (st.header !== api.balance) problems.push(`balance ${st.header} != server ${api.balance}`);
+    if (!/Major jackpot/.test(st.history)) problems.push("jackpot not in the recent spins");
+    if (api.jackpotCalls <= callsBefore) problems.push("pools not refreshed after the win");
+    if (!/0\.1000/.test(st.major)) problems.push(`Major shows ${st.major} after the win`);
+    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    check(`jackpot win: celebration, balance, history and pool refresh (${(major / 1e8).toFixed(4)} tBCH)`, !problems.length, problems.join("; "));
+  }
+  {
+    resetApi();
+    api.jackpots.recentWins = [{ pool: "grand", gameId: "deep-sea", player: "Passkey 3f9a2c", amount: 102012345, wonAt: new Date().toISOString() },
+      { pool: "major:cosmic-voyage", gameId: "cosmic-voyage", player: "bchtest:qphp...hdxy", amount: 10430000, wonAt: new Date().toISOString() }];
+    await open("index.html", 1280);
+    const lobby = await until(`(() => { const g = document.querySelector('.jp-hero [data-jackpot="grand"]'); const majors = document.querySelectorAll('.game-card [data-jackpot^="major:"]');
+      return g && /1\\.0201/.test(g.textContent) && majors.length === 3 && [...majors].every(m => /0\\.1\\d{3}/.test(m.textContent))
+        && document.querySelectorAll("#jp-winners li").length === 2 && document.getElementById("jp-winners-empty").hidden; })()`);
+    resetApi();
+    await open("index.html", 375);
+    const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-winners li").length === 0`);
+    check("lobby: Grand, three Majors and the recent winners (and the empty state)", lobby && empty);
+  }
+
   /* ═══ 5. Withdrawals page: whole list and total ═══ */
   resetApi();
   api.payouts = [1000, 2500, 107, 99999].map((a, i) => ({ sentAt: new Date(Date.now() - i * 3600e3).toISOString(), address: ADDR, amount: a, txid: String(i).repeat(64) }));
@@ -262,6 +319,12 @@ try {
     document.getElementById("vf-submit").click(); })()`);
   const verified = await until(`/✓ matches/.test(document.getElementById("vf-result").textContent)`, 10000);
   check("fairness: the in-browser verifier reproduces a real spin", verified);
+  const jv = SPINS.jackpot;
+  await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("vf-game", "${jv.gameId}"); f("vf-bet", ${jv.bet});
+    f("vf-seed", "${jv.serverSeed}"); f("vf-client", "${jv.clientSeed}"); f("vf-nonce", ${jv.nonce}); f("vf-expect", ${jv.totalWin});
+    document.getElementById("vf-submit").click(); })()`);
+  const jpDraw = await until(`/Major hit/.test(document.getElementById("vf-result").textContent) && /Grand no hit/.test(document.getElementById("vf-result").textContent)`, 10000);
+  check("fairness: the verifier reproduces a Major jackpot draw", jpDraw);
 } catch (e) {
   check("test run", false, e.message);
 } finally {

@@ -139,7 +139,14 @@
     tr.appendChild(el("td", "", when(s.createdAt)));
     tr.appendChild(el("td", "", GAMES[s.gameId] || s.gameId));
     tr.appendChild(el("td", "num", U.bch(s.bet)));
-    tr.appendChild(el("td", "num", U.bch(s.totalWin)));
+    var winCell = el("td", "num", U.bch(s.totalWin));
+    if (s.jackpotWin > 0) {   // jackpots are paid on top of the game's own result
+      var jp = el("span", "sp-jp", " 🏆");
+      jp.title = "Plus a jackpot of " + bch(s.jackpotWin);
+      winCell.appendChild(jp);
+      winCell.appendChild(el("span", "sr-only", ", plus a jackpot of " + bch(s.jackpotWin)));
+    }
+    tr.appendChild(winCell);
     tr.appendChild(el("td", "num", fmt(s.nonce)));
     var cell = el("td", "sp-check");
     var row = { spin: s, cell: cell, done: false };
@@ -163,7 +170,13 @@
       if (game.version !== s.gameVersion) return { ok: null, note: "Played on game version " + s.gameVersion + "; the server now serves version " + game.version + "." };
       return Fair.replay(game, s).then(function (got) {
         var hashOk = got.serverSeedHash === s.serverSeedHash, winOk = got.totalWin === s.totalWin;
-        return { ok: hashOk && winOk, got: got, note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + bch(got.totalWin) + ", the server paid " + bch(s.totalWin) + "." : "" };
+        // Jackpot draws (version 2+): a hit in the replay must match a jackpot paid, and no hit no jackpot.
+        // The amount is the pool at that moment, so only the hit itself can be checked.
+        var hit = !!(got.jackpotHits && (got.jackpotHits.major || got.jackpotHits.grand)), paid = (s.jackpotWin || 0) > 0;
+        var jpOk = !got.jackpotHits || hit === paid;
+        return { ok: hashOk && winOk && jpOk, got: got,
+          note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + bch(got.totalWin) + ", the server paid " + bch(s.totalWin) + "."
+            : !jpOk ? (hit ? "The replay hits a jackpot, but none was paid." : "A jackpot was paid, but the replay does not hit one.") : "" };
       });
     }).catch(function (e) { return { ok: null, note: e && e.message || "Could not verify." }; });
   }
@@ -250,6 +263,10 @@
       else if (s.type === "retrigger") ul.appendChild(el("li", "", "Retrigger: +" + s.added + " free spins"));
       else if (s.type === "freeSpinsEnd") ul.appendChild(el("li", "", "Free spins: " + s.played + " played, " + bch(s.win) + " (spins " + bch(freeWin) + ", bonuses " + bch(s.win - freeWin) + ")"));
     });
+    if (got.jackpotHits) {
+      var j = got.jackpotHits, yes = "hit (wins the whole pool at that moment)", no = "no hit";
+      ul.appendChild(el("li", "jp-draws", "Jackpot draws: Major " + (j.major ? yes : no) + ", Grand " + (j.grand ? yes : no)));
+    }
     out.appendChild(ul);
   }
 

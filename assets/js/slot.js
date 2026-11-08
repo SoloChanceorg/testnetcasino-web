@@ -204,7 +204,12 @@
             '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a>' +
           '</div>' +
         '</section>',
-      stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>'
+      stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
+      // Progressive jackpots: this game's Major and the shared Grand (filled by jackpots.js).
+      jackpots: game.jackpots ? '<div class="jp-board" role="group" aria-label="Progressive jackpots">' +
+          '<div class="jp-cell jp-major"><span class="jp-name">MAJOR</span><button type="button" class="jp-val" data-jackpot="major:' + esc(id) + '">…</button></div>' +
+          '<div class="jp-cell jp-grand"><span class="jp-name">GRAND</span><button type="button" class="jp-val" data-jackpot="grand">…</button></div>' +
+        '</div>' : ''
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
@@ -213,7 +218,7 @@
       return '<div class="machine m-orchard" id="slot-machine">' +
         '<div class="or-awning" aria-hidden="true"><span class="or-bulbs"></span></div>' + P.sound +
         '<div class="or-sign"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-        '<div class="or-crate">' + P.sign +
+        '<div class="or-crate">' + P.sign + P.jackpots +
           '<div class="or-window">' + P.reels + '</div>' + P.wins +
           P.lcd() +
           '<div class="or-deck">' +
@@ -249,7 +254,7 @@
       return '<div class="machine m-deepsea" id="slot-machine">' +
         '<div class="ds-hull">' + P.sound +
           '<div class="ds-plate"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-          P.sign +
+          P.sign + P.jackpots +
           '<div class="ds-porthole"><span class="ds-bolts" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="ds-sonar" aria-hidden="true"></span>') +
           '<div class="ds-console">' +
@@ -280,7 +285,7 @@
       return '<div class="machine m-cosmic" id="slot-machine">' +
         '<div class="cx-hull">' + P.sound +
           '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-          P.sign +
+          P.sign + P.jackpots +
           '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
           P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
           '<div class="cx-cockpit">' +
@@ -319,6 +324,7 @@
 
     var machine = $("#slot-machine"), reelsWin = $("#reels-window"), svg = $("#paylines");
     machine.parentNode.classList.add("ms-" + game.theme);   // per-theme 3D stage (perspective)
+    if (window.TNC_Jackpots) window.TNC_Jackpots.render();   // the board was just built
     var strips = Array.prototype.slice.call(reelsWin.querySelectorAll(".reel-strip"));
     var reelEls = strips.map(function (s) { return s.parentNode; });
     var betInput = $("#bet-input"), spinBtn = $("#spin-btn"), spinWrap = $("#spin-wrap");
@@ -340,7 +346,7 @@
         var s = syms[i], body;
         if (i === SCAT) body = pays(s.pays) + '<br>anywhere · <span class="jp">' + FS.awards.join(" / ") + ' free spins</span>';
         else if (i === BONUS) body = 'on reels 1, 3 &amp; 5 together<br><span class="jp">starts ' + esc(BON.name) + '</span>';
-        else body = pays(s.pays) + (i === WILD || i === TOP ? '<br><span class="jp">5 on a line = JACKPOT</span>' : "");
+        else body = pays(s.pays) + (i === WILD || i === TOP ? '<br><span class="jp">5 on a line = TOP PRIZE</span>' : "");
         return '<div class="pt-item' + (s.kind ? " special" : "") + '"><div class="pt-sym">' + cellHtml(i) + '</div>' +
           '<div class="pt-pays"><span class="nm">' + esc(s.name) + (s.kind ? " · " + s.kind.toUpperCase() : "") + '</span>' + body + '</div></div>';
       }).join("");
@@ -361,12 +367,12 @@
           '<li><b>' + syms[WILD].emoji + ' ' + esc(game.featureName) + ':</b> ' + esc(game.featureText) + '</li>' +
           '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + MAX_FREE_SPINS + ').</li>' +
           '<li><b>' + syms[BONUS].emoji + ' ' + esc(BON.name) + ' Bonus:</b> land ' + syms[BONUS].emoji + ' on reels 1, 3 and 5 at once. ' + esc(BON.text) + ' ' + esc(bonusDetail) + '</li>' +
-        '</ul></div>' +
+        '</ul></div>' + jackpotRules() +
         '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet, plus the ' + BOOST + ' faucet boost</div><div class="pt-grid">' + items + '</div></div>' +
         '<div class="pt-section"><div class="pt-h">How to win</div><ul class="rules">' +
           '<li><b>Line wins:</b> 3, 4 or 5 matching symbols on a payline, starting from the leftmost reel. Every winning line pays and they add up.</li>' +
           '<li><b>' + syms[WILD].emoji + ' Wild:</b> stands in for every symbol except ' + syms[SCAT].emoji + ' and ' + syms[BONUS].emoji + '.</li>' +
-          '<li><b>JACKPOT:</b> five ' + syms[WILD].emoji + ' or five ' + syms[TOP].emoji + ' on one line. MEGA WIN ≥ 50× bet, BIG WIN ≥ 10× bet.</li>' +
+          '<li><b>TOP PRIZE:</b> five ' + syms[WILD].emoji + ' or five ' + syms[TOP].emoji + ' on one line. MEGA WIN ≥ 50× bet, BIG WIN ≥ 10× bet.</li>' +
         '</ul></div>' +
         '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
         '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
@@ -381,6 +387,27 @@
           'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
           'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
         '</details>';
+    }
+
+    // The progressive jackpots in plain words, with the numbers from the game config.
+    function jackpotRules() {
+      var J = game.jackpots;
+      if (!J || !J.major || !J.grand) return "";
+      function tbch(sats) { return window.TNC_Units ? TNC_Units.short(sats) : fmt(sats) + " sats"; }
+      function pct(bp) { return (bp / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%"; }
+      function odds(oneIn, bet) { return "1 in " + fmt(Math.round(oneIn / bet)); }
+      function chance(j) {
+        return "Every paid spin has a chance of bet ÷ " + fmt(j.oneInSats) + " to win it: " + odds(j.oneInSats, 100) +
+          " at a 100 tSats bet, " + odds(j.oneInSats, 1000) + " at 1,000 tSats. Bigger bets, bigger chance.";
+      }
+      return '<div class="pt-section"><div class="pt-h">Progressive jackpots</div><ul class="rules">' +
+        '<li><b>⭐ Major (this machine):</b> starts at ' + tbch(J.major.seedSats) + ' and grows by ' + pct(J.major.contributionBasisPoints) +
+          ' of every bet on ' + esc(game.name) + '. ' + chance(J.major) + '</li>' +
+        '<li><b>🏆 Grand (all machines):</b> starts at ' + tbch(J.grand.seedSats) + ' and grows by ' + pct(J.grand.contributionBasisPoints) +
+          ' of every bet on any machine. ' + chance(J.grand) + '</li>' +
+        '<li>The winner takes the whole pool, which then starts again from its starting amount. The jackpot draws are part of the provably fair spin.</li>' +
+        '<li>Jackpot winnings follow the normal withdrawal limits: up to 0.1 tBCH per withdrawal and 1 tBCH per player in 24 hours.</li>' +
+      '</ul></div>';
     }
 
     function cellHtml(i) {
@@ -640,7 +667,7 @@
 
     function describe(ph, p, t) {
       var res = { lines: ph.lines || [], scatter: ph.scatter && ph.scatter.win > 0 ? ph.scatter : null };
-      if (t.tier === "jackpot") return "JACKPOT! 5× " + syms[t.jp.symbol].emoji + " on line " + (t.jp.line + 1) + " · " + amt(p.total);
+      if (t.tier === "jackpot") return "TOP PRIZE! 5× " + syms[t.jp.symbol].emoji + " on line " + (t.jp.line + 1) + " · " + amt(p.total);
       var parts = [];
       if (res.lines.length === 1) {
         var w = res.lines[0];
@@ -748,7 +775,7 @@
       countUp(meterWin, 0, total, ms, token, true);
       credit(total, token, ms);
       if (tier === "win" || tier === "none") { if (total > 0) sfx.win(); return; }
-      showBanner(tier, title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "JACKPOT!!!" }[tier], amt(total));
+      showBanner(tier, title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "TOP PRIZE!!!" }[tier], amt(total));
       machine.classList.add("celebrate");
       if (tier !== "big" && !reduce) machine.classList.add("shake");
       if (tier === "jackpot" && marquee) marquee.classList.add("jackpot");
@@ -1206,8 +1233,38 @@
           await sleep(Math.max(reduce ? 400 : 900, wait));
           endFeature(st);
           wait = 0;
+        } else if (st.type === "jackpot") {
+          // Always the last step(s); a spin can win both the Major and the Grand.
+          await sleep(Math.max(reduce ? 500 : 1200, wait));
+          await celebrateJackpot(st);
+          wait = 0;
         }
       }
+      if (steps.some(function (x) { return x.type === "jackpot"; }) && window.TNC_Jackpots) window.TNC_Jackpots.refresh();
+    }
+
+    // A progressive jackpot: the biggest celebration the machine has, then a word on the
+    // withdrawal limits (a jackpot is usually more than one withdrawal can carry).
+    async function celebrateJackpot(st) {
+      var grand = st.pool === "grand", title = grand ? "GRAND JACKPOT!" : "MAJOR JACKPOT!";
+      var token = ++presentToken;
+      hideBanner();
+      clearWins();
+      winShown = st.win;
+      countUp(meterWin, 0, st.win, reduce ? 0 : 3000, token, true);
+      credit(st.win, token, reduce ? 0 : 3000);
+      showBanner("jackpot", title, amt(st.win));
+      machine.classList.add("celebrate");
+      if (!reduce) machine.classList.add("shake");
+      if (marquee) marquee.classList.add("jackpot");
+      sfx.jackpot();
+      fx.coinShower(grand ? 220 : 160);
+      fx.burst(flavor.burst, grand ? 90 : 70);
+      setLcd(title + " " + amt(st.win), "win blink");
+      lcdSub.textContent = "Withdraw up to 0.1 tBCH at a time, 1 tBCH per 24 hours.";
+      addHistory(grand ? "grand jackpot" : "major jackpot", st.win, st.win, "jackpot");
+      await sleep(reduce ? 1800 : 5200);
+      if (token === presentToken) hideBanner();
     }
 
     async function startFeature(spins) {
@@ -1251,6 +1308,7 @@
       var li = document.createElement("li");
       li.className = (win > 0 ? "is-win" : "") + (tier === "big" || tier === "mega" || tier === "jackpot" ? " is-big" : "");
       var line = kind === "bonus" ? syms[BONUS].emoji + " " + esc(BON.name)
+        : /jackpot/.test(kind) ? "🏆 " + (/grand/.test(kind) ? "Grand" : "Major") + " jackpot"
         : grid.map(function (col) { return syms[col[1]].emoji; }).join("");
       li.innerHTML = '<span class="h-line">' + line + '</span><span class="h-kind">' + kind +
         '</span><span class="h-amt" data-sats="' + Math.abs(net) + '" data-sign="' + (net >= 0 ? "+" : "−") + '">' + (net >= 0 ? "+" : "−") + amt(Math.abs(net)) + '</span>';

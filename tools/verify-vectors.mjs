@@ -64,8 +64,10 @@ for (const v of doc.spins) {
     if (s.type === "bonus") return same([s.order, s.picks, s.index, s.level, s.boosts], [m.order, m.picks, m.index, m.level, m.boosts]);
     return true;
   });
-  const ok = got.totalWin === v.totalWin && got.serverSeedHash === v.serverSeedHash && same(mine, want) && extra;
-  if (!ok) { failed++; console.log("SPIN MISMATCH", v.gameId, "nonce", v.nonce, "expected", v.totalWin, "got", got.totalWin); }
+  // Jackpot draws (version 2+): Major then Grand, after every other draw.
+  const jackpotsOk = same(got.jackpotHits, v.jackpotHits || null);
+  const ok = got.totalWin === v.totalWin && got.serverSeedHash === v.serverSeedHash && same(mine, want) && extra && jackpotsOk;
+  if (!ok) { failed++; console.log("SPIN MISMATCH", v.gameId, "nonce", v.nonce, "expected", v.totalWin, "got", got.totalWin, jackpotsOk ? "" : "jackpots " + JSON.stringify(got.jackpotHits) + " vs " + JSON.stringify(v.jackpotHits)); }
 }
 console.log(`${checked - failed}/${checked} vectors verified` + (failed ? `, ${failed} FAILED` : ""));
 process.exit(failed ? 1 : 0);

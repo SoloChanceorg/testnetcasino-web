@@ -6,6 +6,7 @@
  *   format(sats)  "0.00012340 tBCH"   balances, tables, totals
  *   short(sats)   "0.0001 tBCH"       running text and buttons (no trailing zeros)
  *   round2(sats)  "101.00 tBCH"       rounded to 2 decimals (faucet totals)
+ *   round4(sats)  "1.0201 tBCH"       rounded to 4 decimals (jackpot pools)
  *   parse(text)   "0.0015" → 150000   (tBCH input to sats, exact; null if invalid)
  *
  * Inside a game machine the credit can be shown in tSats (default) or tBCH,
@@ -42,6 +43,12 @@
     bch: function (sats) { return ok(sats) ? bch(sats) : "n/a"; },
     format: function (sats) { return ok(sats) ? bch(sats) + " tBCH" : "n/a"; },
     short: function (sats) { return ok(sats) ? trimmed(sats) + " tBCH" : "n/a"; },
+    round4: function (sats) {
+      if (!ok(sats)) return "n/a";
+      var u = Math.round(sats / 10000), neg = u < 0, s = String(Math.abs(u));   // 1 unit = 0.0001 tBCH
+      while (s.length < 5) s = "0" + s;
+      return (neg ? "-" : "") + int(s.slice(0, -4)) + "." + s.slice(-4) + " tBCH";
+    },
     round2: function (sats) {
       if (!ok(sats)) return "n/a";
       var cents = Math.round(sats / 1000000), neg = cents < 0, s = String(Math.abs(cents));   // 1 cent = 0.01 tBCH
