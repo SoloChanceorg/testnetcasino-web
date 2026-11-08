@@ -50,6 +50,7 @@
     if (!user) { started = false; return; }
     $("acct-balance").textContent = U.format(Auth.balance);
     renderDestination();
+    renderLock();
     if (!started) { started = true; loadWithdrawals(); loadLedger(true); jumpToHash(); }
   }
 
@@ -77,6 +78,18 @@
     var u = Auth.user || {};
     return u.method === "wallet" ? u.address || "" : u.withdrawalAddress || "";
   }
+  // Below the minimum withdrawal the whole form is disabled, with the minimum and the
+  // balance shown; it unlocks by itself once the balance reaches the minimum.
+  function renderLock() {
+    var low = (Auth.balance || 0) < MIN_WD, note = $("wd-locked");
+    $("wd-fields").disabled = low;
+    $("wd-form").classList.toggle("is-locked", low);
+    note.hidden = !low;
+    note.textContent = low
+      ? "The minimum withdrawal is " + bchText(MIN_WD) + ". Your balance is " + sats(Auth.balance || 0) + ", so withdrawing is not possible yet. Play or claim your daily bonus to reach the minimum."
+      : "";
+  }
+
   function renderDestination() {
     var u = Auth.user;
     // Prefill once per account, and never over what the player typed.

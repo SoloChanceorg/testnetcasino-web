@@ -1957,3 +1957,9 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .pay-cta { display: inline-flex; align-items: center; min-height: 48px; }
 .pay-total-unit { font: 700 .5em var(--body); letter-spacing: 0; color: var(--gold); text-shadow: none; }
 .pay-main { max-width: none; }   /* the withdrawals table needs the full page width */
+
+/* Account: withdraw form locked below the minimum withdrawal */
+.wd-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
+.wd-locked { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; font-size: .9rem; font-weight: 600; color: #ffe2a6; background: rgba(245,197,66,.12); border: 1px solid rgba(245,197,66,.45); }
+#wd-form.is-locked .wd-fields { opacity: .5; }
+#wd-form.is-locked .wd-fields * { cursor: not-allowed; }
