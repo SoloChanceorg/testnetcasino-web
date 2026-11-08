@@ -45,7 +45,9 @@ HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every gam
 ## Look & feel
 
 "Vegas Casino" site chrome shared with the SoloChance.org casino edition: green felt, Bungee and Poppins (Google Fonts), gold and red, a marquee sign with chasing bulbs.
-Each game page drops you into its own world and has **its own machine**:
+Each game page drops you into its own world and has **its own machine**, and its card in the lobby is a small version of it
+(Fruit Orchard: wooden crate, striped awning with string lights, tilted sign, price-tag Play; Deep Sea: riveted hull, brass
+nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, holographic title, neon Play):
 
 | | Cabinet | Display | Spin | Bet |
 |---|---|---|---|---|
@@ -150,7 +152,8 @@ a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-wins-body` (t
 
 - **Games**: two rows at the very top of the machine, label left and amount right: **GRAND** (the same red neon on every
   machine) and then the game's **MAJOR** (in the machine's theme: wooden plank, brass plate with a sonar readout, holographic
-  HUD). Always tBCH with 8 decimals, whatever the machine's unit switch; they stay on screen in full screen. Every
+  HUD). In the machine's unit, following the tSats / tBCH switch under it (exact tSats, or tBCH with 8 decimals); they
+  stay on screen in full screen. Every
   paid spin adds the player's share (`bet × contributionBasisPoints ÷ 10,000`) at once, since the server's view lags up to
   10 s; the next reading that has grown by it absorbs it again, so the pools never step back. When a spin ends with `{ type: "jackpot", pool, win }` steps, each one
   plays a "MAJOR JACKPOT!" / "GRAND JACKPOT!" celebration with the withdrawal limits (0.1 tBCH per withdrawal, 1 tBCH per
@@ -158,7 +161,8 @@ a tap shows them for 3 s, a second tap goes back to tBCH) and `#jp-wins-body` (t
   (`jackpots.major` / `jackpots.grand`: start amount, contribution, chance `bet ÷ oneInSats`). The line prize for 5 top
   symbols is called "TOP PRIZE" so it is not confused with the progressive jackpots.
 - **Lobby**: the Grand at the top of the casino floor (with a link to the jackpots page) and each machine's Major in a band at
-  the top of its card, in the card title's sign font; all in tBCH with 8 decimals.
+  the top of its card, styled exactly like that machine's MAJOR row (the styles are keyed on `.theme-*`, which sits on `<body>`
+  in the games and on each lobby card); all in tBCH with 8 decimals.
 - **Jackpots page** (`jackpots.html`): the Grand and the three Majors now (tBCH with 8 decimals), then a table of the latest 20 wins
   from `recentWins` (time, jackpot, player, amount in tBCH with the tSats on hover), refreshed with the pools every 20 s. The API
   has no full history of jackpot wins, so the page shows the latest 20 (a paginated endpoint would let it list them all).
@@ -272,7 +276,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109i`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109k`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

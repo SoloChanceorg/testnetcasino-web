@@ -210,11 +210,11 @@
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
       // Progressive jackpots at the top of the machine: the shared Grand (one style on every
-      // machine), then this game's Major (in the machine's theme). Always tBCH with 8 decimals;
-      // filled by jackpots.js, a tap shows the tSats.
+      // machine), then this game's Major (in the machine's theme). In the machine's unit (the
+      // tSats / tBCH switch under it: exact tSats or tBCH with 8 decimals); filled by jackpots.js.
       jackpots: game.jackpots ? '<div class="jp-rows" role="group" aria-label="Progressive jackpots">' +
-          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><button type="button" class="jp-row-val" data-jackpot-units="bch8" data-jackpot="grand">…</button></div>' +
-          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><button type="button" class="jp-row-val" data-jackpot-units="bch8" data-jackpot="major:' + esc(id) + '">…</button></div>' +
+          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
+          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
         '</div>' : ''
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }

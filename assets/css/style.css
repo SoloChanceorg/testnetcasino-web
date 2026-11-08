@@ -232,6 +232,105 @@ h1, h2, h3 { font-weight: 400; }
 .gc-body p { margin: 0; color: var(--muted); font-size: .92rem; }
 .gc-play { align-self: flex-start; margin-top: auto; }
 
+/* Each card is a small version of its machine. */
+/* 🍒 Fruit Orchard: wooden crate, striped awning, tilted wooden sign, price-tag Play */
+.game-card.theme-orchard {
+  border: 6px solid #5b3412; border-radius: 18px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 46px, rgba(0,0,0,.3) 46px 48px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #b07138, #8a5527 60%, #6e421c);
+  box-shadow: 0 10px 0 #3f230b, 0 18px 30px rgba(0,0,0,.55);
+}
+.game-card.theme-orchard:hover { box-shadow: 0 10px 0 #3f230b, 0 22px 40px rgba(0,0,0,.6), 0 0 40px rgba(255,214,102,.4); }
+.gc-awning {
+  position: relative; height: 26px; margin: 12px 0 14px;
+  background: repeating-linear-gradient(90deg, #d7263d 0 22px, #fff6dc 22px 44px); box-shadow: inset 0 -6px 10px rgba(0,0,0,.2);
+}
+.gc-awning::after { /* scalloped edge */
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 11px;
+  background:
+    radial-gradient(circle at 11px 0, #d7263d 10px, transparent 11px) 0 0 / 44px 11px repeat-x,
+    radial-gradient(circle at 33px 0, #fff6dc 10px, transparent 11px) 0 0 / 44px 11px repeat-x;
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.3));
+}
+.gc-bulbs { position: absolute; left: 4px; right: 4px; top: -5px; height: 9px; }
+.gc-bulbs::before, .gc-bulbs::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle, #ffe79a 0 3px, transparent 4px) 0 50% / 22px 9px repeat-x;
+  filter: drop-shadow(0 0 4px rgba(255,231,154,.95)); animation: chase .9s steps(1) infinite;
+}
+.gc-bulbs::after { background-position: 11px 50%; animation-delay: .45s; }
+.theme-orchard .gc-topper {
+  width: fit-content; max-width: calc(100% - 28px); margin: 0 auto; padding: 9px 18px 8px; border: 3px solid #5b3412; border-radius: 10px;
+  background: repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 3px, transparent 3px 9px), linear-gradient(180deg, #c3843f, #8a5527);
+  box-shadow: 0 6px 14px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.25); transform: rotate(-1.2deg);
+}
+.theme-orchard .gc-topper h3 { color: #fff6dc; text-shadow: 0 2px 0 #5b3412, 0 0 14px rgba(255,214,102,.6); }
+.theme-orchard .gc-reels { background: #2a1608; border-color: #5b3412; }
+.theme-orchard .gc-body p, .theme-orchard .gc-feats { color: #f6e6c8; }
+.theme-orchard .gc-feats b { color: #ffd166; }
+.theme-orchard .gc-play {
+  padding: 9px 22px 9px 30px; border-radius: 0; color: #3b2109; background: linear-gradient(180deg, #f6e3b8, #e2c38a);
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 50%); box-shadow: none; transform: rotate(-3deg);
+  filter: drop-shadow(0 3px 0 #9c7a44) drop-shadow(0 5px 5px rgba(0,0,0,.35));
+}
+
+/* 🐚 Deep Sea: riveted brass-trimmed hull, brass nameplate, porthole reels, brass Play */
+.game-card.theme-deepsea {
+  position: relative; border: 6px solid #8c6b3e; border-radius: 30px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(140,220,255,.18), transparent 60%), linear-gradient(180deg, #2f5566 0%, #173040 55%, #0b1c27 100%);
+  box-shadow: 0 0 0 3px #3b2a12, 0 14px 30px rgba(0,0,0,.6), inset 0 0 24px rgba(0,0,0,.6);
+}
+.game-card.theme-deepsea:hover { box-shadow: 0 0 0 3px #3b2a12, 0 18px 40px rgba(0,0,0,.65), inset 0 0 24px rgba(0,0,0,.6), 0 0 44px rgba(46,197,255,.45); }
+.game-card.theme-deepsea::before { /* rivets along the top and bottom */
+  content: ""; position: absolute; inset: 4px; border-radius: 24px; pointer-events: none;
+  background:
+    radial-gradient(circle, #f0d38a 0 2.5px, #6b4e22 3px, transparent 3.5px) 0 0 / 24px 10px repeat-x,
+    radial-gradient(circle, #f0d38a 0 2.5px, #6b4e22 3px, transparent 3.5px) 0 100% / 24px 10px repeat-x;
+  opacity: .85;
+}
+.theme-deepsea .gc-jp { margin-top: 16px; }
+.theme-deepsea .gc-topper {
+  width: fit-content; max-width: calc(100% - 20px); margin: 12px auto 0; padding: 8px 16px; border: 0; border-radius: 10px;
+  background: linear-gradient(180deg, #f6dd9b, #c99a3e 50%, #a87a12); box-shadow: 0 4px 0 #5c4410, 0 8px 14px rgba(0,0,0,.4), inset 0 1px 0 #fff6dc;
+}
+.theme-deepsea .gc-topper h3 { font-size: .98rem; letter-spacing: 1px; white-space: nowrap; color: #3b2a12; text-shadow: 0 1px 0 rgba(255,246,220,.6); }
+.theme-deepsea .gc-reels { border: 3px solid #b08d57; border-radius: 22px; padding: 7px; background: #04121c; box-shadow: 0 0 0 2px #3b2a12, inset 0 0 12px rgba(0,0,0,.8); }
+.theme-deepsea .gc-reels span { border-radius: 10px; }
+.theme-deepsea .gc-body p, .theme-deepsea .gc-feats { color: #d8f3ff; }
+.theme-deepsea .gc-feats b { color: #f0d38a; }
+.theme-deepsea .gc-play { color: #3b2a12; background: linear-gradient(180deg, #f6dd9b, #c99a3e 50%, #a87a12); box-shadow: 0 3px 0 #5c4410, 0 6px 14px rgba(0,0,0,.35), inset 0 1px 0 #fff6dc; }
+
+/* 🚀 Cosmic Voyage: cut-corner starship panel, neon edge, holographic title, neon Play */
+.game-card.theme-cosmic {
+  --cut: 18px; border: 2px solid transparent; border-radius: 0; box-shadow: inset 0 0 24px rgba(138,70,240,.3);
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+  background:
+    linear-gradient(rgba(46,197,255,.07) 1px, transparent 1px) 0 0 / 100% 22px padding-box,
+    linear-gradient(90deg, rgba(46,197,255,.07) 1px, transparent 1px) 0 0 / 22px 100% padding-box,
+    radial-gradient(ellipse at 50% 0%, rgba(138,70,240,.35), transparent 60%) padding-box,
+    linear-gradient(180deg, #120a2e, #07041a) padding-box,
+    linear-gradient(135deg, #b388ff, #2ec5ff 50%, #ff5ac8) border-box;
+}
+/* clip-path would cut an outer glow away, so the glow is inside the panel */
+.game-card.theme-cosmic:hover { box-shadow: inset 0 0 36px rgba(179,136,255,.5), inset 0 0 0 1px rgba(159,240,255,.5); }
+.theme-cosmic .gc-jp { margin: 14px 16px 0; }
+.theme-cosmic .gc-topper { background: none; border-bottom: 1px solid rgba(46,197,255,.35); }
+.theme-cosmic .gc-topper h3 {
+  background: linear-gradient(90deg, #9ff0ff, #e0c3ff, #ff9ae6, #9ff0ff); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(179,136,255,.8)); animation: holo 6s linear infinite;
+}
+.theme-cosmic .gc-reels { background: #07041a; border: 2px solid #8a46f0; box-shadow: 0 0 14px rgba(179,136,255,.45); }
+.theme-cosmic .gc-body p, .theme-cosmic .gc-feats { color: #e0eaff; }
+.theme-cosmic .gc-feats b { color: #9ff0ff; }
+.theme-cosmic .gc-play { color: #fff; background: linear-gradient(180deg, #ff5ac8, #8a46f0); box-shadow: 0 3px 0 #3b1478, 0 0 16px rgba(255,90,200,.55); text-shadow: 0 1px 0 rgba(0,0,0,.3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-bulbs::before, .gc-bulbs::after, .theme-cosmic .gc-topper h3 { animation: none; }
+}
+
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; }
 .steps li { background: rgba(0,0,0,.3); border: 1px dashed rgba(245,197,66,.35); border-radius: 12px; padding: 18px; }
 .step-emoji { font-family: var(--emoji); font-size: 1.8rem; }
@@ -1992,11 +2091,10 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 .jp-row-name { font: 400 .95rem var(--sign); letter-spacing: 3px; white-space: nowrap; }
 .jp-row-val {
-  padding: 0; border: 0; background: none; cursor: pointer; text-align: right; white-space: nowrap;
+  text-align: right; white-space: nowrap;
   font: 700 1.25rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; letter-spacing: 0; font-variant-numeric: tabular-nums;
 }
 .jp-row-val .jp-unit { font: 700 .62em var(--body); opacity: .85; }
-.jp-row-val:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 3px; border-radius: 6px; }
 
 /* GRAND: one global style */
 .jp-row-grand {
@@ -2006,28 +2104,28 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .jp-row-grand .jp-row-name { color: #ffb3bb; }
 .jp-row-grand .jp-row-val { color: #fff1d0; text-shadow: 0 0 12px rgba(255,77,94,.9), 0 0 2px #fff; }
 
-/* MAJOR: per machine */
-.m-orchard .jp-row-major {   /* wooden fruit-stand plank, chalk numbers */
+/* MAJOR: per machine. .theme-* is on <body> in the games and on each lobby card, so both share these. */
+.theme-orchard .jp-row-major {   /* wooden fruit-stand plank, chalk numbers */
   background: repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 3px, transparent 3px 9px), linear-gradient(180deg, #c3843f, #8a5527);
   border: 3px solid #5b3412; box-shadow: 0 4px 0 #3f230b, 0 8px 14px rgba(0,0,0,.4), inset 0 2px 0 rgba(255,255,255,.25);
 }
-.m-orchard .jp-row-major .jp-row-name { color: #fff6dc; text-shadow: 0 2px 0 #5b3412; }
-.m-orchard .jp-row-major .jp-row-val { color: #fff6dc; text-shadow: 0 2px 0 #5b3412, 0 0 12px rgba(255,214,102,.6); }
-.m-deepsea .jp-row-major {   /* brass plate, sonar-green readout */
+.theme-orchard .jp-row-major .jp-row-name { color: #fff6dc; text-shadow: 0 2px 0 #5b3412; }
+.theme-orchard .jp-row-major .jp-row-val { color: #fff6dc; text-shadow: 0 2px 0 #5b3412, 0 0 12px rgba(255,214,102,.6); }
+.theme-deepsea .jp-row-major {   /* brass plate, sonar-green readout */
   background: linear-gradient(180deg, #f6dd9b, #c99a3e 50%, #a87a12);
   border: 2px solid #7a5a20; box-shadow: 0 4px 0 #5c4410, 0 8px 14px rgba(0,0,0,.4), inset 0 1px 0 #fff6dc;
 }
-.m-deepsea .jp-row-major .jp-row-name { color: #3b2a12; text-shadow: 0 1px 0 rgba(255,246,220,.6); }
-.m-deepsea .jp-row-major .jp-row-val {
+.theme-deepsea .jp-row-major .jp-row-name { color: #3b2a12; text-shadow: 0 1px 0 rgba(255,246,220,.6); }
+.theme-deepsea .jp-row-major .jp-row-val {
   padding: 2px 10px; border-radius: 8px; background: #031a14; color: #6dffb0;
   box-shadow: inset 0 2px 6px rgba(0,0,0,.8); text-shadow: 0 0 8px rgba(80,255,160,.8);
 }
-.m-cosmic .jp-row-major {    /* holographic HUD */
+.theme-cosmic .jp-row-major {    /* holographic HUD */
   background: linear-gradient(90deg, rgba(20,10,48,.92), rgba(40,14,70,.92));
   border: 2px solid #9a6bff; box-shadow: 0 0 0 1px rgba(159,240,255,.35) inset, 0 0 18px rgba(138,70,240,.55);
 }
-.m-cosmic .jp-row-major .jp-row-name { color: #9ff0ff; text-shadow: 0 0 8px rgba(159,240,255,.8); }
-.m-cosmic .jp-row-major .jp-row-val { color: #e0c3ff; text-shadow: 0 0 10px rgba(179,136,255,.9); }
+.theme-cosmic .jp-row-major .jp-row-name { color: #9ff0ff; text-shadow: 0 0 8px rgba(159,240,255,.8); }
+.theme-cosmic .jp-row-major .jp-row-val { color: #e0c3ff; text-shadow: 0 0 10px rgba(179,136,255,.9); }
 
 @media (max-width: 480px) {
   .jp-row { padding: 6px 10px; }
@@ -2044,13 +2142,10 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .jp-hero-label { font: 400 .85rem var(--sign); letter-spacing: 3px; color: #ffb3bb; }
 .jp-hero-value { font-size: clamp(1.6rem, 6vw, 2.4rem); color: #fff1d0; text-shadow: 0 0 14px rgba(255,77,94,.9), 0 0 2px #fff; }
 .jp-hero-sub { font-size: .8rem; color: var(--muted); text-align: center; }
-.gc-jp {
-  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 8px; padding: 9px 10px 8px; text-align: center;
-  background: rgba(10,4,8,.82); border-bottom: 2px solid var(--gold-dark);
-}
-.gc-jp-label { font: 400 .8rem var(--sign); letter-spacing: 2px; color: #ffcf4d; }
-.gc-jp-value { font: 400 1.05rem var(--sign); letter-spacing: 1px; color: var(--gold-light); text-shadow: 0 2px 0 var(--gold-dark), 0 0 14px rgba(245,197,66,.6); font-variant-numeric: tabular-nums; }
-.gc-jp-value .jp-unit { font: 700 .72rem var(--body); letter-spacing: 0; color: var(--gold); text-shadow: none; opacity: 1; }
+/* The MAJOR band at the top of each lobby card: the machine's MAJOR row (see .jp-row), a bit smaller. */
+.gc-jp { margin: 10px 10px 0; padding: 6px 12px; }
+.gc-jp .jp-row-name { font-size: .78rem; letter-spacing: 2px; }
+.gc-jp .jp-row-val { font-size: 1rem; }
 /* Jackpots page: the pools now, then the winners table */
 .jpp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
 .jpp-pool {

@@ -281,26 +281,33 @@ try {
   for (const g of GAMES) {
     resetApi(); signIn();
     await open(`games/${g}.html`, 1280);
-    // Two rows at the very top of the machine: GRAND, then this game's MAJOR, in tBCH with 8 decimals.
+    // Two rows at the very top of the machine: GRAND, then this game's MAJOR, in the machine's unit
+    // (tSats by default); the tSats / tBCH switch changes them at once.
     const board = await until(`(() => { const top = document.getElementById("slot-machine").firstElementChild, rows = top ? top.querySelectorAll(".jp-row") : [];
       return top.classList.contains("jp-rows") && rows.length === 2
-        && rows[0].matches(".jp-row-grand") && /^GRAND$/.test(rows[0].querySelector(".jp-row-name").textContent) && /^1\\.0201\\d{4} tBCH$/.test(rows[0].querySelector('[data-jackpot="grand"]').textContent)
-        && rows[1].matches(".jp-row-major") && /^MAJOR$/.test(rows[1].querySelector(".jp-row-name").textContent) && /^0\\.1\\d{7} tBCH$/.test(rows[1].querySelector('[data-jackpot="major:${g}"]').textContent); })()`);
-    check(`${g}: GRAND and MAJOR rows at the top of the machine (8 decimals)`, board);
+        && rows[0].matches(".jp-row-grand") && /^GRAND$/.test(rows[0].querySelector(".jp-row-name").textContent) && /^102,0\\d\\d,\\d{3} tSats$/.test(rows[0].querySelector('[data-jackpot="grand"]').textContent)
+        && rows[1].matches(".jp-row-major") && /^MAJOR$/.test(rows[1].querySelector(".jp-row-name").textContent) && /^10,\\d{3},\\d{3} tSats$/.test(rows[1].querySelector('[data-jackpot="major:${g}"]').textContent); })()`);
+    await ev(`document.getElementById("unit-switch").click()`);
+    const bch = await ev(`[...document.querySelectorAll(".jp-row-val")].every(e => /^\\d\\.\\d{8} tBCH$/.test(e.textContent))`);
+    await ev(`document.getElementById("unit-switch").click()`);
+    const back = await ev(`[...document.querySelectorAll(".jp-row-val")].every(e => /^[\\d,]+ tSats$/.test(e.textContent))`);
+    check(`${g}: GRAND and MAJOR rows at the top of the machine, following the tSats / tBCH switch`, board && bch && back);
   }
   {
-    // The pools grow with the player's own bet at once.
+    // In tBCH (8 decimals) the pools grow with the player's own bet at once.
     resetApi(); signIn(500000);
     const v = SPINS["fruit-orchard"], g = v.gameId;
     api.spinQueue.push(v);
     await open(`games/${g}.html`, 1280);
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && /tBCH/.test(document.querySelector(".jp-row-major .jp-row-val").textContent)`);
+    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && /tSats/.test(document.querySelector(".jp-row-major .jp-row-val").textContent)`);
+    await ev(`document.getElementById("unit-switch").click()`);
     const read = `[document.querySelector(".jp-row-major .jp-row-val").textContent, document.querySelector(".jp-row-grand .jp-row-val").textContent]`;
     const before = await ev(read), bet = 1000;   // big enough to move both pools by whole sats
     await ev(`(() => { const b = document.getElementById("bet-input"); b.value = ${bet}; b.dispatchEvent(new Event("change")); document.getElementById("spin-btn").click(); })()`);
     await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, 60000);
     await until(`false`, 1200);   // let the count-up finish
     const after = await ev(read);
+    await ev(`document.getElementById("unit-switch").click()`);   // back to tSats for the next checks
     const sats = (t) => Math.round(parseFloat(t.replace(/[^\d.]/g, "")) * 1e8);
     const cfg = JSON.parse(fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")).jackpots;
     const wantMajor = sats(before[0]) + Math.round(bet * cfg.major.contributionBasisPoints / 10000);
@@ -329,7 +336,7 @@ try {
     if (st.header !== api.balance) problems.push(`balance ${st.header} != server ${api.balance}`);
     if (!/Major jackpot/.test(st.history)) problems.push("jackpot not in the recent spins");
     if (api.jackpotCalls <= callsBefore) problems.push("pools not refreshed after the win");
-    if (st.major !== "0.10000000 tBCH") problems.push(`Major shows ${st.major} after the win`);
+    if (st.major !== "10,000,000 tSats") problems.push(`Major shows ${st.major} after the win`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
     check(`jackpot win: celebration, balance, history and pool refresh (${(major / 1e8).toFixed(4)} tBCH)`, !problems.length, problems.join("; "));
   }
