@@ -856,6 +856,7 @@ body.theme-cosmic {
 .btn3d.pressed .b3-cap, .btn3d:active:not(:disabled) .b3-cap { transform: translateY(calc(var(--depth) - 2px)); animation: none; transition-duration: .06s; }
 .btn3d:disabled { cursor: not-allowed; }
 .spin-wrap.busy .btn3d:disabled { cursor: progress; }
+.spin-wrap.can-stop .btn3d { cursor: pointer; }
 .spin-wrap.off .b3-cap { filter: grayscale(.8) brightness(.7); }
 .spin-wrap.off .b3-shine::before { animation: none; opacity: 0; }
 .btn3d:focus-visible { outline: none; }

@@ -54,6 +54,9 @@ Each game page drops you into its own world and has **its own machine**:
 | 🌙 Cosmic Voyage | Angled starship cockpit, neon trim, HUD corners | Holographic HUD | Hexagonal **LAUNCH** button | **Throttle** slider (vertical on desktop, horizontal on phones), ▲ ▼, amount field |
 
 − / + and the dial and throttle move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Any whole amount from 1 to 1,000 can be typed. Space spins on every machine.
+The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
+lands the remaining reels at once. That is display only: the result is already fixed by the server. After a win the machine
+waits for the win animations to finish, plus half a second, before the next spin can start.
 Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
 Each machine has a full-screen button next to its sound button: the site header, nav and paytable are hidden and the machine is scaled
 to fit the screen (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
@@ -130,7 +133,7 @@ The contract is `docs/API.md` in testnetcasino-service. `assets/js/api.js` is th
 `assets/js/slot.js` holds no game math. On load it reads `GET /games/{id}/config` (symbols, paytable, features, paylines, stats)
 and builds the machine and the paytable from it. A spin sends `POST /spins { gameId, bet, requestId }` with a new
 `crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
-The reels start turning at once and land on the server's result. The response's `steps[]` are then animated in order:
+The reels start turning at once and land one by one on the server's result (a stop request only shortens the wait). The response's `steps[]` are then animated in order:
 `spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
 `retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed), `freeSpinsEnd` and `jackpot` (see below). Every win is shown in sats
 exactly as the server sent it, and the balance is set to the response's `balance` at the end.
@@ -262,7 +265,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109e`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
@@ -275,7 +278,7 @@ Node 22+ only, no dependencies; the site itself still has no build step.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
   real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
-  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, the jackpot boards, a jackpot win and the lobby winners list, the
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpot boards, a jackpot win and the lobby winners list, the
   withdrawals total, the leaderboards jump, the account withdraw lock and the fairness verifier. Exit code 0 = all passed.
   Refresh the fixtures when the game config version changes.
 - `node tools/verify-vectors.mjs` checks the fairness verifier against all backend test vectors.

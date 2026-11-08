@@ -154,6 +154,10 @@
     var busy = false;          // a spin, feature or bonus is in progress
     var feature = null;        // { left, played, total, mult, sticky } while free spins run
     var presentToken = 0;      // cancels running celebrations when a new step starts
+    // Stop: while the reels turn, the spin button or Space lands them at once. Display only:
+    // the result is the server's either way, this just skips the wait.
+    var reelsTurning = false, stopReq = false, stopWake = null;
+    var settle = 0;            // ms the last win's animations still need before the next spin
     var bet = clampBet(parseInt(sessionGet("tnc.bet." + id), 10) || 10);
     var balShown = currentBalance();
     var grid = [];
@@ -211,7 +215,7 @@
           '<div class="jp-cell jp-grand"><span class="jp-name">GRAND</span><span class="jp-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
         '</div>' : ''
     };
-    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b>. Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
+    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {
@@ -453,7 +457,28 @@
       s.style.animationDelay = "";
       s.innerHTML = [pickers[c]()].concat(col, [pickers[c]()]).map(cellHtml).join("");
     }
+    // A wait that a stop request cuts short.
+    function stoppable(ms) {
+      if (stopReq || ms <= 0) return Promise.resolve();
+      return new Promise(function (resolve) {
+        var t = setTimeout(done, ms);
+        function done() { clearTimeout(t); stopWake = null; resolve(); }
+        stopWake = done;
+      });
+    }
+    function requestStop() {
+      if (!reelsTurning || stopReq) return;
+      stopReq = true;
+      spinBtn.classList.add("pressed");
+      setTimeout(function () { spinBtn.classList.remove("pressed"); }, 160);
+      sfx.press();
+      if (stopWake) stopWake();
+      updateControls();
+    }
     function startReels() {
+      reelsTurning = true;
+      stopReq = false;
+      updateControls();
       strips.forEach(function (s, i) {
         var loop = picksFor(i, 12);
         s.classList.remove("landing", "bounce");
@@ -487,20 +512,22 @@
         }, dur);
       });
     }
-    // Stop reels left to right; once 2 scatters show, the remaining reels build suspense.
+    // Stop reels one by one, left to right; once 2 scatters show, the remaining reels build
+    // suspense. A stop request lands the reels still turning almost at once.
     async function stopAll(target) {
       var seen = 0, landings = [];
-      var gap = reduce ? 80 : 210, landMs = reduce ? 160 : 480, susMs = reduce ? 400 : 1100;
+      var gap = reduce ? 80 : 420, landMs = reduce ? 160 : 560, susMs = reduce ? 400 : 1300;
+      var quickGap = reduce ? 30 : 70, quickMs = reduce ? 100 : 200;
       for (var i = 0; i < REELS; i++) {
-        if (seen >= 2 && i >= 2) {
+        if (seen >= 2 && i >= 2 && !stopReq) {
           reelEls[i].classList.add("anticipate");
           sfx.anticipation(susMs / 1000);
-          await sleep(susMs);
+          await stoppable(susMs);
         } else if (i > 0) {
-          await sleep(gap);
+          await (stopReq ? sleep(quickGap) : stoppable(gap));
         }
         var n = target[i].filter(function (k) { return k === SCAT; }).length;
-        landings.push(land(i, target[i], landMs).then((function (idx, countAfter, has) {
+        landings.push(land(i, target[i], stopReq ? quickMs : landMs).then((function (idx, countAfter, has) {
           return function () {
             reelEls[idx].classList.remove("anticipate");
             sfx.reelStop(idx);
@@ -509,7 +536,11 @@
         }(i, seen + n, n > 0))));
         seen += n;
       }
+      reelsTurning = false;
+      stopReq = false;
+      updateControls();
       await Promise.all(landings);
+      reelEls.forEach(function (r) { r.classList.remove("anticipate"); });
       sfx.stopSpinLoop();
       await sleep(reduce ? 60 : 220);
     }
@@ -785,6 +816,14 @@
       setTimeout(function () { if (token === presentToken) hideBanner(); }, { big: 2200, mega: 2800, jackpot: 4200 }[tier]);
     }
     var WAIT = { none: 700, win: 1100, big: 2300, mega: 2900, jackpot: 4300 };
+    var SETTLE_MS = 500;   // pause after the last win's animations, before the next spin
+    // How long a phase's win animations run: the count-up, the banner (see celebrate) and
+    // the paylines drawing one after another (see highlight).
+    function winAnimMs(p, tier) {
+      var lines = p.items.filter(function (it) { return it.type === "line"; }).length;
+      return Math.max({ none: 0, win: 700, big: 2200, mega: 2800, jackpot: 4200 }[tier],
+                      lines && !reduce ? (lines - 1) * 220 + 450 : 0);
+    }
 
     /* --- Controls --- */
     function clampBet(v) {
@@ -826,12 +865,16 @@
     function updateControls() {
       var out = authKnown && !signedIn();
       var off = !busy && (cantAfford() || out);
-      spinBtn.disabled = busy || off;
+      var canStop = busy && reelsTurning && !stopReq;
+      spinBtn.disabled = (busy && !canStop) || off;
       spinBtn.classList.toggle("busy", busy);
       spinBtn.setAttribute("aria-busy", busy ? "true" : "false");
+      if (!spinBtn._label) spinBtn._label = spinBtn.getAttribute("aria-label");
+      spinBtn.setAttribute("aria-label", canStop ? "Stop the reels" : spinBtn._label);
       spinWrap.classList.toggle("busy", busy);
       spinWrap.classList.toggle("off", off);
-      spinSub.textContent = busy ? (stage.hidden ? (feature ? "FREE SPINS" : "GOOD LUCK") : "BONUS") : out ? "SIGN IN" : "BET " + fmt(bet);
+      spinWrap.classList.toggle("can-stop", canStop);
+      spinSub.textContent = canStop ? "STOP" : busy ? (stage.hidden ? (feature ? "FREE SPINS" : "GOOD LUCK") : "BONUS") : out ? "SIGN IN" : "BET " + fmt(bet);
       [down, up, betInput].forEach(function (x) { x.disabled = busy; });
       quickBtns.forEach(function (b) { b.disabled = busy; });
       if (betRange) betRange.disabled = busy;
@@ -889,7 +932,7 @@
         if (!(prespun && pi === 0)) {
           sfx.spinStart();
           startReels();
-          await sleep(reduce ? 200 : (pi ? 450 : 650));
+          await stoppable(reduce ? 200 : (pi ? 600 : 1000));
         }
         await stopAll(ph.grid);
         renderSticky([]);
@@ -914,6 +957,7 @@
           setLcd(describe(ph, p, t), "win" + (t.tier === "jackpot" ? " blink" : ""));
           celebrate(p.total, t.tier, token);
         }
+        settle = p.total > 0 ? winAnimMs(p, t.tier) + SETTLE_MS : 0;
         if (pi < phases.length - 1) await sleep(Math.max(reduce ? 400 : 1100, WAIT[t.tier]));
       }
 
@@ -966,6 +1010,7 @@
       updateControls();
       await sleep(reduce ? 800 : 2400);
       if (token === presentToken) hideBanner();
+      settle = won > 0 ? SETTLE_MS : 0;
     }
 
     function stageHead(title, sub) {
@@ -1157,12 +1202,17 @@
 
       var r = await requestSpin(bet);
       if (r.status !== 200 || !r.data || !r.data.steps) { await spinFailed(r); return; }
-      await sleep(Math.max(0, (reduce ? 200 : 650) - (Date.now() - t0)));
+      await stoppable((reduce ? 200 : 1000) - (Date.now() - t0));
       // The pools grow with this bet right away (the server's view lags up to 10 s).
       if (window.TNC_Jackpots) window.TNC_Jackpots.contribute(id, bet, game.jackpots,
         r.data.steps.filter(function (x) { return x.type === "jackpot"; }).map(function (x) { return x.pool; }));
 
-      try { await playSteps(r.data.steps); }
+      try {
+        settle = 0;
+        await playSteps(r.data.steps);
+        // Let the last win's animations finish (plus half a second) before the next spin.
+        if (settle > 0) await sleep(settle);
+      }
       finally {
         busy = false;
         feature = null;
@@ -1192,6 +1242,8 @@
 
     async function spinFailed(r) {
       sfx.stopSpinLoop();
+      reelsTurning = false;
+      stopReq = false;
       for (var c = 0; c < REELS; c++) setStatic(c, grid[c]);   // back to the last result
       busy = false;
       var code = api.errorCode(r);
@@ -1268,6 +1320,7 @@
       addHistory(grand ? "grand jackpot" : "major jackpot", st.win, st.win, "jackpot");
       await sleep(reduce ? 1800 : 5200);
       if (token === presentToken) hideBanner();
+      settle = SETTLE_MS;
     }
 
     async function startFeature(spins) {
@@ -1303,6 +1356,7 @@
       if (total >= bet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
       else if (total > 0) sfx.win(); else sfx.noWin();
       setTimeout(function () { if (t2 === presentToken) hideBanner(); }, 2600);
+      settle = total > 0 ? 2600 + SETTLE_MS : 0;
     }
 
     function addHistory(kind, net, win, tier) {
@@ -1484,7 +1538,7 @@
         betDial.addEventListener(t, function () { if (dragging) { dragging = false; betDial.classList.remove("turning"); betChanged(); } });
       });
     }
-    spinBtn.addEventListener("click", spin);
+    spinBtn.addEventListener("click", function () { if (busy) requestStop(); else spin(); });
     lockBtn.addEventListener("click", function (e) {
       if (Auth) { e.preventDefault(); location.assign(Auth.loginHref()); }
     });
@@ -1496,7 +1550,7 @@
       // Let focused buttons, links and summaries handle their own activation.
       if (tag === "BUTTON" || tag === "A" || tag === "SUMMARY" || (t && t.closest && t.closest(".bd-item"))) return;
       e.preventDefault();
-      if (busy) return;
+      if (busy) { requestStop(); return; }
       spin();
     });
     // Balance or session changed (sign-out, daily bonus, another tab): follow it between spins.

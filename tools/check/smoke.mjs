@@ -11,7 +11,7 @@
  *
  * Checks: shared blocks in sync (tools/site.mjs check), every local link resolves, every page
  * loads without errors or sideways scroll (signed in on desktop, signed out on a phone), a spin
- * in each game, the full-screen fit after a spin, the withdrawals total, the leaderboards
+ * in each game, the full-screen fit after a spin, reels stopping one by one (and STOP), the withdrawals total, the leaderboards
  * "jump to my position", the account withdraw lock, the fairness verifier and the progressive
  * jackpots (boards, a jackpot win, the lobby and the winners list).
  * Exit code 0 = all passed.
@@ -237,6 +237,44 @@ try {
     const tight = Math.min(fit.top, fit.left, fit.right, fit.bottom);
     check(`${g}: full screen fits after a spin`, tight >= 6 && tight <= 14 && fit.overflow === "hidden", `tightest gap ${Math.round(tight)}px`);
     await ev(`document.body.classList.remove("is-fullscreen", "fs-no-jukebox"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
+  }
+
+  /* ═══ 4a. Reels stop one by one; STOP (button or Space) lands them early; a win holds the next spin ═══ */
+  {
+    resetApi(); signIn(500000);
+    const v = SPINS["deep-sea"];   // one phase, a line win
+    api.spinQueue.push(v, v);
+    // Full motion for this page: the suite otherwise forces reduced motion, which shortens every timing.
+    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
+    await open("games/deep-sea.html", 1280);
+    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled`);
+    // Record when each reel lands (its bounce) and when the machine is ready again.
+    await ev(`(() => { window.__t = { land: [], ready: 0 };
+      document.querySelectorAll(".reel-strip").forEach((s, i) => new MutationObserver(() => {
+        if (s.classList.contains("bounce") && window.__t.land[i] == null) window.__t.land[i] = performance.now(); }).observe(s, { attributes: true, attributeFilter: ["class"] }));
+      const b = document.getElementById("spin-btn");
+      new MutationObserver(() => { if (b.getAttribute("aria-busy") === "false") window.__t.ready = performance.now(); }).observe(b, { attributes: true, attributeFilter: ["aria-busy"] });
+      const i = document.getElementById("bet-input"); i.value = ${v.bet}; i.dispatchEvent(new Event("change"));
+      window.__t.start = performance.now(); b.click(); })()`);
+    await until(`window.__t.ready > 0`, 20000);
+    const a = await ev(`window.__t`);
+    const gaps = a.land.slice(1).map((t, i) => Math.round(t - a.land[i]));
+    const hold = Math.round(a.ready - Math.max(...a.land));
+    check("deep-sea: reels stop one by one", a.land.length === 5 && gaps.every((x) => x >= 300),
+      `stops ${Math.round(a.land[0] - a.start)} ms after the press, then ${gaps.join(" / ")} ms apart`);
+    check("deep-sea: a win holds the next spin until its animations end", hold >= 1100, `ready ${hold} ms after the last reel`);
+
+    // Second spin: STOP after 300 ms with Space.
+    await ev(`(() => { window.__t = { land: [], ready: 0, start: performance.now() }; document.getElementById("spin-btn").click(); })()`);
+    await sleep(300);
+    const label = await ev(`document.getElementById("spin-sub").textContent + " / " + document.getElementById("spin-btn").disabled`);
+    await ev(`(() => { window.__t.stop = performance.now(); document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true })); })()`);
+    await until(`window.__t.ready > 0`, 20000);
+    const b = await ev(`window.__t`);
+    const after = Math.round(Math.max(...b.land) - b.stop);
+    const bal = await ev(`TNC_Auth.balance`);
+    check("deep-sea: STOP lands the reels at once (display only)", label === "STOP / false" && b.land.length === 5 && after < 800 && bal === api.balance,
+      `button "${label}", last reel ${after} ms after Space, balance ${bal}`);    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   }
 
   /* ═══ 4b. Progressive jackpots on the machines, and a jackpot win ═══ */
