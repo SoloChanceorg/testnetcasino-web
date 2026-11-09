@@ -111,6 +111,23 @@
   function sessionSet(k, v) { try { sessionStorage.setItem(k, String(v)); } catch (e) {} }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
+  /* ---------- PixiJS machine (preview: ?pixi=1) ---------- */
+  // The whole machine drawn in a canvas (pixi-machine.js). Loaded only when asked for, and only for
+  // the themes it supports; anything that fails falls back to the HTML machine below.
+  var HERE = (document.currentScript && document.currentScript.src) || "";
+  var WANT_PIXI = /[?&]pixi=1(&|$)/.test(location.search);
+  function loadScript(src) {
+    return new Promise(function (ok, fail) {
+      var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function () { fail(new Error("Could not load " + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  function loadPixi() {
+    var base = HERE.replace(/slot\.js(\?.*)?$/, ""), v = (HERE.match(/\?v=[^&]+/) || [""])[0];
+    return (window.PIXI ? Promise.resolve() : loadScript(base + "../vendor/pixi-8.22.0.min.js"))
+      .then(function () { return window.TNC_PixiMachine ? null : loadScript(base + "pixi-machine.js" + v); });
+  }
+
   /* ---------- UI ---------- */
 
   function init() {
@@ -121,7 +138,17 @@
     var msg = document.getElementById("m-loading");
     (function load(attempt) {
       api.gameConfig(id).then(function (r) {
-        if (r.status === 200 && r.data && r.data.symbols && r.data.engine) { build(root, id, r.data); return; }
+        if (r.status === 200 && r.data && r.data.symbols && r.data.engine) {
+          if (!WANT_PIXI) { build(root, id, r.data); return; }
+          loadPixi().then(function () {
+            if (!window.TNC_PixiMachine || !TNC_PixiMachine.supports(r.data)) throw new Error("not supported");
+            return TNC_PixiMachine.build(root, id, r.data);
+          }).catch(function (e) {
+            if (window.console) console.warn("PixiJS machine unavailable, using the classic one:", e && e.message);
+            root.innerHTML = ""; build(root, id, r.data);
+          });
+          return;
+        }
         if (attempt < 2 && (r.status === 0 || r.status >= 500)) { setTimeout(function () { load(attempt + 1); }, 1500 * (attempt + 1)); return; }
         msg.innerHTML = esc(api.errorText(r, "This machine could not be loaded.")) + ' <button type="button" class="btn-gold" id="m-retry">Try again</button>';
         document.getElementById("m-retry").addEventListener("click", function () { msg.textContent = "Loading the machine…"; load(0); });

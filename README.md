@@ -219,6 +219,25 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
   (back to 3 whenever a pearl lands) and the total. Then the meter starts again empty. `totalWin` includes the reward.
 - **Jackpots page**: each game's collector as a bar with "filled / size".
 
+## PixiJS machine (preview)
+
+`games/cosmic-voyage.html?pixi=1` plays Cosmic Voyage on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`,
+MIT, kept in the repo so the site does not depend on a CDN; about 240 KB gzipped, loaded only with `?pixi=1`). `slot.js` loads
+it and `assets/js/pixi-machine.js`; if either fails, or the theme is not supported yet, the HTML machine is used.
+
+- One canvas holds the whole machine: GRAND / MAJOR / MINOR, the cabinet and title, the reels (motion blur, landing with a
+  bounce), the Fuel Tank (waving fuel), the display, WIN and BALANCE, the LAUNCH button, the thrust (bet ladder), win lines,
+  banners, coin and emoji particles, the Warp Ladder and the Star Map Wheel. Static art is painted with Canvas 2D into
+  textures (gradients, glows) and moved by PixiJS.
+- The same steps as the HTML machine, from the same server responses (free spins, the bonus, a jackpot won in the game, fuel
+  cells into the tank, the Hyperdrive reward). Space spins and stops the reels; there is no typed bet.
+- The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
+  bit on MEGA and TOP PRIZE wins, and when the tank fills; the canvas also shakes. Shorter with reduced motion.
+- Outside the canvas, in HTML: the unit switch, sound, a link back to the classic machine, and Recent spins. Screen readers
+  get the display text through a live region.
+- `window.TNC_PixiState()` reports what the machine shows (for the smoke test). `TNC_Jackpots.onRender(fn)` gives non-HTML
+  displays every jackpot reading.
+
 ## Account and withdrawals
 
 `account.html` (`assets/js/account.js`), reached from the account pill in the nav:
@@ -336,7 +355,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109u`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109v`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

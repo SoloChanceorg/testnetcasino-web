@@ -35,7 +35,7 @@
  * seed (checked in the browser by fairness-engine.js), and the seed hashes now (#jp-hashes).
  *
  * Depends on: api.js, units.js; fairness-engine.js for the Verify buttons.
- * Exposed as window.TNC_Jackpots { refresh, render, hold, release, collect, collectorDone, data }.
+ * Exposed as window.TNC_Jackpots { refresh, render, hold, release, collect, collectorDone, onRender, data }.
  */
 (function () {
   "use strict";
@@ -313,7 +313,13 @@
     });
   }
 
-  function render() { renderAmounts(); renderCollectors(); renderWinners(); renderHashes(); }
+  // Displays that are not HTML (the PixiJS machine) get every reading too: onRender(fn) -> fn(data).
+  var listeners = [];
+  function onRender(fn) { listeners.push(fn); if (data && !held) fn(data); }
+  function render() {
+    renderAmounts(); renderCollectors(); renderWinners(); renderHashes();
+    listeners.forEach(function (fn) { try { fn(data); } catch (e) { setTimeout(function () { throw e; }); } });
+  }
 
   /* ═══════════════ Reading ═══════════════ */
   function refresh() {
@@ -351,7 +357,7 @@
   });
 
   window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release,
-                          collect: collect, collectorDone: collectorDone, get data() { return data; } };
+                          collect: collect, collectorDone: collectorDone, onRender: onRender, get data() { return data; } };
   refresh();
   schedule();
 })();

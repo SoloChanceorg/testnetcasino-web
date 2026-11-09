@@ -2441,3 +2441,21 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 /* Fairness page */
 .sp-jp { display: block; font-size: .78rem; color: #ffcf4d; white-space: nowrap; }
 .mt-range { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── The PixiJS machine (preview, ?pixi=1): one canvas in a 3D stage, so the whole machine can tilt ── */
+.px-stage { perspective: 1400px; perspective-origin: 50% 30%; margin: 0 auto 18px; max-width: 760px; }
+.px-machine { transform-style: preserve-3d; transform-origin: 50% 60%; }
+.px-canvas { width: 100%; }
+.px-canvas canvas { display: block; margin: 0 auto; max-width: 100%; touch-action: manipulation; }
+.px-note { margin: 10px 0 0; font-size: .82rem; opacity: .8; }
+@keyframes px-tilt-big { 0%, 100% { transform: none; } 20% { transform: rotateX(6deg) scale(1.01); } 45% { transform: rotateX(-3deg); } 70% { transform: rotateX(1.5deg); } }
+@keyframes px-tilt-minor { 0%, 100% { transform: none; } 15% { transform: rotateX(10deg) rotateY(-6deg) scale(1.02); } 35% { transform: rotateX(-5deg) rotateY(5deg); } 55% { transform: rotateX(3deg) rotateY(-2deg); } 75% { transform: rotateX(-1deg) rotateY(1deg); } }
+@keyframes px-tilt-major { 0%, 100% { transform: none; } 10% { transform: rotateX(14deg) rotateY(-10deg) scale(1.04); } 25% { transform: rotateX(-8deg) rotateY(9deg) scale(1.03); } 40% { transform: rotateX(6deg) rotateY(-6deg); } 58% { transform: rotateX(-3deg) rotateY(3deg); } 78% { transform: rotateX(1deg) rotateY(-1deg); } }
+@keyframes px-tilt-grand { 0%, 100% { transform: none; } 8% { transform: rotateX(18deg) rotateY(-14deg) rotateZ(-2deg) scale(1.06); } 20% { transform: rotateX(-12deg) rotateY(13deg) rotateZ(2deg) scale(1.05); } 33% { transform: rotateX(10deg) rotateY(-10deg) rotateZ(-1deg) scale(1.04); } 47% { transform: rotateX(-7deg) rotateY(7deg); } 62% { transform: rotateX(4deg) rotateY(-4deg); } 80% { transform: rotateX(-1.5deg) rotateY(1.5deg); } }
+.px-tilt-big { animation: px-tilt-big 1.4s cubic-bezier(.3, .7, .4, 1); }
+.px-tilt-minor { animation: px-tilt-minor 2s cubic-bezier(.3, .7, .4, 1); }
+.px-tilt-major { animation: px-tilt-major 2.6s cubic-bezier(.3, .7, .4, 1); }
+.px-tilt-grand { animation: px-tilt-grand 3.3s cubic-bezier(.3, .7, .4, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .px-tilt-big, .px-tilt-minor, .px-tilt-major, .px-tilt-grand { animation-duration: .6s; }
+}

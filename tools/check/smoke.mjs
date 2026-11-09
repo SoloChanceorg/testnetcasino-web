@@ -427,6 +427,34 @@ try {
     check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tSats, then the meter starts again`, !problems.length, problems.join("; "));
   }
   {
+    // The PixiJS machine (preview, ?pixi=1): it builds, plays a jackpot spin and a reward spin from the same
+    // steps (Space to spin), settles the balance, and fits a phone.
+    const problems = [];
+    const P = "games/cosmic-voyage.html?pixi=1";
+    for (const [name, v] of [["jackpot", { ...SPINS["jackpot-cosmic-voyage"], jackpotWin: 3290 }], ["reward", SPINS["reward-cosmic-voyage"]]]) {
+      resetApi(); signIn(500000); api.spinQueue.push(v);
+      await open(P, 1280);
+      if (!(await until(`typeof TNC_PixiState === "function" && !!document.querySelector("#px-canvas canvas")`, 15000))) { problems.push(name + ": not built"); continue; }
+      await sleep(400);
+      await ev(`window.__px = { banners: [], stage: false }; setInterval(() => { const s = TNC_PixiState(); if (s.banner && window.__px.banners[window.__px.banners.length - 1] !== s.banner) window.__px.banners.push(s.banner); if (s.stage) window.__px.stage = true; }, 50);
+        document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))`);
+      await sleep(300);
+      // The stages wait for a press or start by themselves; press their buttons through the state instead of waiting.
+      const done = await until(`!TNC_PixiState().busy`, 120000);
+      const st = await ev(`({ px: window.__px, bal: TNC_Auth.balance, tank: TNC_PixiState().tank })`);
+      if (!done) problems.push(name + ": did not finish");
+      if (st.bal !== api.balance) problems.push(`${name}: balance ${st.bal} != ${api.balance}`);
+      if (name === "jackpot" && !(st.px.stage && st.px.banners.some((b) => b === "MINOR JACKPOT! | 0.00003290 tBCH"))) problems.push("jackpot: " + JSON.stringify(st.px));
+      if (name === "reward" && !(st.px.banners.some((b) => /^FUEL TANK FULL!/.test(b)) && st.px.banners.some((b) => /^HYPERDRIVE!/.test(b)) && st.tank.filled === 0)) problems.push("reward: " + JSON.stringify(st));
+      if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    }
+    resetApi(); signIn();
+    await open(P, 375);
+    const phone = await until(`typeof TNC_PixiState === "function" && document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 15000);
+    if (!phone) problems.push("phone: sideways scroll or not built");
+    check("cosmic-voyage (PixiJS preview, ?pixi=1): jackpot on the Star Map Wheel and the Hyperdrive reward play from the same steps, balance settles, fits a phone", !problems.length, problems.join("; "));
+  }
+  {
     resetApi();
     await open("index.html", 1280);
     const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
