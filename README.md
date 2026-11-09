@@ -59,7 +59,7 @@ nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, hol
 |---|---|---|---|---|
 | 🍒 Fruit Orchard | Wooden fruit-stand crate, striped awning with string lights, hanging sign | Chalkboard | Pull **lever** | Price tags (1/10/100/500/MAX), crate − / +, chalk field to type any amount |
 | 🐚 Deep Sea | Riveted brass submarine hull, porthole reel window, brass nameplate | Sonar screen | Brass **DIVE** button | Rotary **dial** (drag, scroll, ◀ ▶ or arrow keys; tap a number), amount field in the knob |
-| 🌙 Cosmic Voyage | Angled starship cockpit, neon trim, HUD corners | Holographic HUD | Hexagonal **LAUNCH** button | **Throttle** slider (vertical on desktop, horizontal on phones), ▲ ▼, amount field |
+| 🌙 Cosmic Voyage | PixiJS starship cockpit: neon cabinet, a console sloping toward the player (see PixiJS machine) | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
 
 − / + and the dial and throttle move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Any whole amount from 1 to 1,000 can be typed. Space spins on every machine.
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
@@ -219,22 +219,27 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
   (back to 3 whenever a pearl lands) and the total. Then the meter starts again empty. `totalWin` includes the reward.
 - **Jackpots page**: each game's collector as a bar with "filled / size".
 
-## PixiJS machine (preview)
+## PixiJS machine
 
-`games/cosmic-voyage.html?pixi=1` plays Cosmic Voyage on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`,
-MIT, kept in the repo so the site does not depend on a CDN; about 240 KB gzipped, loaded only with `?pixi=1`). `slot.js` loads
-it and `assets/js/pixi-machine.js`; if either fails, or the theme is not supported yet, the HTML machine is used.
+Cosmic Voyage plays on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`, MIT, kept in the repo
+so the site does not depend on a CDN; about 240 KB gzipped, loaded only on that page). Its HTML machine was removed. Fruit
+Orchard and Deep Sea still use the HTML machines in `slot.js` until they are ported, then those go too. `slot.js` picks the
+machine by theme (`PIXI_THEMES`); if PixiJS cannot start (no WebGL), the page says so with a "Try again" button.
 
 - One canvas holds the whole machine: GRAND / MAJOR / MINOR, the cabinet and title, the reels (motion blur, landing with a
-  bounce), the Fuel Tank (waving fuel), the display, WIN and BALANCE, the LAUNCH button, the thrust (bet ladder), win lines,
-  banners, coin and emoji particles, the Warp Ladder and the Star Map Wheel. Static art is painted with Canvas 2D into
-  textures (gradients, glows) and moved by PixiJS.
-- The same steps as the HTML machine, from the same server responses (free spins, the bonus, a jackpot won in the game, fuel
+  bounce), the Fuel Tank (waving fuel), the display, win lines, banners, coin and emoji particles, the Warp Ladder and the
+  Star Map Wheel. Static art is painted with Canvas 2D into textures (gradients, glows) and moved by PixiJS.
+- **The cockpit console** (WIN, BALANCE, LAUNCH, THRUST) is drawn flat into a render texture every frame and shown on a
+  `PerspectiveMesh`, so it slopes toward the player: narrower at the back, a slab edge in front. LAUNCH is a hexagonal key
+  standing up from it (side walls, glowing socket) that sinks when pressed; WIN and BALANCE are recessed screens; the bet
+  lever runs in a sunken slot with raised ▲ ▼ keys. Taps are mapped back to the flat deck through the inverse homography.
+- The same steps as the HTML machines, from the same server responses (free spins, the bonus, a jackpot won in the game, fuel
   cells into the tank, the Hyperdrive reward). Space spins and stops the reels; there is no typed bet.
 - The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
   bit on MEGA and TOP PRIZE wins, and when the tank fills; the canvas also shakes. Shorter with reduced motion.
-- Outside the canvas, in HTML: the unit switch, sound, a link back to the classic machine, and Recent spins. Screen readers
-  get the display text through a live region.
+- Full screen: the button in the cabinet's top-right corner; the canvas grows to fill the screen.
+- Outside the canvas, in HTML: the unit switch, sound, the paytable and rules (`TNC_Slot.paytableSection`, shared with the
+  HTML machines) and Recent spins. Screen readers get the display text through a live region.
 - `window.TNC_PixiState()` reports what the machine shows (for the smoke test). `TNC_Jackpots.onRender(fn)` gives non-HTML
   displays every jackpot reading.
 
@@ -355,7 +360,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109x`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109y`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

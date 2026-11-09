@@ -3,8 +3,10 @@
  *
  * The whole machine is one canvas: the jackpot rows, the cabinet, the reels, the collector,
  * the display, the readouts, the LAUNCH button and the bet throttle, the banners, the particles
- * and the bonus and jackpot stages. Turned on with ?pixi=1 (slot.js loads PixiJS and this file);
- * without it the HTML machine plays as before.
+ * and the bonus and jackpot stages. slot.js loads PixiJS and this file for the themes it supports.
+ *
+ * Since D43 it is Cosmic Voyage's only machine (slot.js picks it for the themes in PIXI_THEMES);
+ * the paytable and rules come from slot.js (TNC_Slot.paytableSection), the same as the HTML machines.
  *
  * Same contract as slot.js: every outcome comes from POST /spins as `steps[]`, and this file only
  * animates them (paid spin and respins, multiplier wilds, free spins, the Warp Ladder bonus, a
@@ -109,15 +111,15 @@
     /* --- Page: the stage for the canvas, then the parts that stay HTML --- */
     root.innerHTML =
       '<div class="px-stage" id="px-stage"><div class="px-machine" id="slot-machine" role="application" aria-label="' + esc(game.name) + ' slot machine. Press Space to spin and to stop the reels.">' +
-        '<div class="px-canvas" id="px-canvas"></div></div></div>' +
+        '<div class="px-canvas" id="px-canvas"></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div></div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       '<section class="panel m-extras" aria-label="Credit unit and account"><div class="m-util">' +
         '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
           '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
-        '<a class="btn-ghost" href="?pixi=0">🎰 Classic machine</a>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
         '<p class="px-note">Press ' + esc(T.spin) + ' · or press <b>Space</b> key</p></section>' +
+      (window.TNC_Slot ? TNC_Slot.paytableSection(game) : '') +
       '<section class="panel" aria-labelledby="hist-title"><h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol></section>';
     var stageEl = document.getElementById("px-stage"), machineEl = document.getElementById("slot-machine");
@@ -133,13 +135,44 @@
     app.canvas.setAttribute("aria-hidden", "true");
     var world = new PIXI.Container();   // everything, shaken as one
     app.stage.addChild(world);
+    // Full screen: the page goes full screen, the site around the machine hides, and the canvas grows
+    // to fill the screen (MARGIN px on the side that runs out first).
+    var fsBtn = document.getElementById("fs-toggle"), docEl = document.documentElement, MARGIN = 10;
+    function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function fit() {
-      var w = Math.min(hostEl.clientWidth || W, W);
+      var full = document.body.classList.contains("is-fullscreen");
+      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * W / H) : Math.min(hostEl.clientWidth || W, W);
       app.renderer.resize(w, Math.round(w * H / W));
       app.stage.scale.set(w / W);
     }
     fit();
     window.addEventListener("resize", fit);
+    var FS_ICON = {
+      enter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+      exit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+    };
+    function renderFs() {
+      var on = !!fsElement();
+      fsBtn.innerHTML = on ? FS_ICON.exit : FS_ICON.enter;
+      fsBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+      fsBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
+    }
+    function onFsChange() {
+      document.body.classList.toggle("is-fullscreen", !!fsElement());
+      docEl.classList.toggle("is-fullscreen", !!fsElement());
+      renderFs(); fit();
+      if (!fsElement()) stageEl.scrollIntoView({ block: "nearest" });
+    }
+    if (!(docEl.requestFullscreen || docEl.webkitRequestFullscreen)) fsBtn.hidden = true;   // e.g. iPhone Safari
+    fsBtn.addEventListener("click", function () {
+      var p = fsElement() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+        : (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(function () {});
+    });
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    renderFs();
 
     /* --- Tweens on the ticker --- */
     var tweens = [];
@@ -1303,6 +1336,7 @@
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
       if (!(e.code === "Space" || e.key === " ")) return;
       if (tag === "BUTTON" || tag === "A" || tag === "SUMMARY") return;
+      if (t && t.closest && t.closest("details, .paytable")) return;
       e.preventDefault(); press();
     });
     if (GU) { unitSw.addEventListener("click", function () { sfx.chip(); GU.toggle(); }); GU.onChange(renderUnit); } else unitSw.hidden = true;

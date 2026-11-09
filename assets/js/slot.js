@@ -45,13 +45,6 @@
       welcome: "Welcome aboard, diver! Turn the dial and press DIVE",
       action: "Press DIVE!",
       twist: "RISING TIDE"
-    },
-    cosmic: {
-      burst: ["⭐", "✨", "🌟", "💫", "🪐"],
-      quips: ["Lost signal. Try again!", "Nothing but dark matter.", "Houston, no win.", "Recalibrating the thrusters…"],
-      welcome: "Welcome, commander! Set the thrust and press LAUNCH",
-      action: "Press LAUNCH!",
-      twist: "ALL WINS ×3"
     }
   };
 
@@ -111,11 +104,102 @@
   function sessionSet(k, v) { try { sessionStorage.setItem(k, String(v)); } catch (e) {} }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
-  /* ---------- PixiJS machine (preview: ?pixi=1) ---------- */
-  // The whole machine drawn in a canvas (pixi-machine.js). Loaded only when asked for, and only for
-  // the themes it supports; anything that fails falls back to the HTML machine below.
+  /* ---------- Paytable & rules (shared by the HTML and the PixiJS machines) ---------- */
+  function paytableSection(game) {
+    return '<section class="panel" aria-labelledby="pt-title"><h2 class="panel-label" id="pt-title">PAYTABLE &amp; RULES</h2>' + paytableHtml(game) + '</section>';
+  }
+  function paytableHtml(game) {
+    var syms = game.symbols, K = kinds(game);
+    var WILD = K.wild, SCAT = K.scatter, BONUS = K.bonus, TOP = K.top;
+    var FS = game.freeSpins, BON = game.bonus, JPC = game.jackpot || null, COL = game.collector || null;
+    var PAYLINES = game.engine.paylines, REELS = game.engine.reels || 5, ROWS = game.engine.rows || 3, MAX_FREE_SPINS = game.engine.maxFreeSpins || 100;
+    function pct(x) { return String(+(x * 100).toFixed(2)) + "%"; }
+    var RTP = pct(game.rtp || game.stats.rtp), PARTS = game.rtpParts || null;
+    function cellHtml(i) {
+      var s = syms[i];
+      return '<div class="symbol' + (s.kind ? " " + s.kind : "") + '"><span class="g">' + s.emoji + '</span></div>';
+    }
+    function buildPaytable() {
+      function pays(p) { return '<b>3</b> × ' + fmtMult(p[0]) + ' · <b>4</b> × ' + fmtMult(p[1]) + ' · <b>5</b> × ' + fmtMult(p[2]); }
+      var order = [WILD, SCAT, BONUS];
+      for (var i = syms.length - 1; i >= 0; i--) if (!syms[i].kind) order.push(i);
+      var items = order.map(function (i) {
+        var s = syms[i], body;
+        if (i === SCAT) body = pays(s.pays) + '<br>anywhere · <span class="jp">' + FS.awards.join(" / ") + ' free spins</span>';
+        else if (i === BONUS) body = 'on reels 1, 3 &amp; 5 together<br><span class="jp">starts ' + esc(BON.name) + '</span>';
+        else body = pays(s.pays) + (i === WILD || i === TOP ? '<br><span class="jp">5 on a line = TOP PRIZE</span>' : "");
+        return '<div class="pt-item' + (s.kind ? " special" : "") + '"><div class="pt-sym">' + cellHtml(i) + '</div>' +
+          '<div class="pt-pays"><span class="nm">' + esc(s.name) + (s.kind ? " · " + s.kind.toUpperCase() : "") + '</span>' + body + '</div></div>';
+      }).join("");
+
+      var lines = PAYLINES.map(function (pl, li) {
+        var cells = "";
+        for (var r = 0; r < ROWS; r++) for (var c = 0; c < REELS; c++) cells += '<i' + (pl[c] === r ? ' class="on"' : "") + '></i>';
+        return '<li class="pl" style="--lc:' + LINE_COLORS[li] + '" aria-label="Line ' + (li + 1) + '"><span class="pl-num">' + (li + 1) +
+          '</span><span class="pl-grid" aria-hidden="true">' + cells + '</span></li>';
+      }).join("");
+
+      var bonusDetail = BON.type === "pick" ? "Prizes: " + BON.prizes.map(function (x) { return x + "×"; }).join(", ") + " and " + BON.collect + " 🐛 worms."
+        : BON.type === "wheel" ? "Wheel prizes: " + BON.segments.slice().sort(function (a, b) { return a - b; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) { return x + "×"; }).join(", ") + "."
+        : "Levels: " + BON.levels.map(function (x) { return fmt(x) + "×"; }).join(" → ") + ". Each boost succeeds " + Math.round(BON.advance * 100) + "% of the time.";
+
+      return '<details class="paytable"><summary>Show paytable, features &amp; stats</summary>' +
+        '<div class="pt-section"><div class="pt-h">Features</div><ul class="rules">' +
+          '<li><b>' + syms[WILD].emoji + ' ' + esc(game.featureName) + ':</b> ' + esc(game.featureText) + '</li>' +
+          '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + MAX_FREE_SPINS + ').</li>' +
+          '<li><b>' + syms[BONUS].emoji + ' ' + esc(BON.name) + ' Bonus:</b> land ' + syms[BONUS].emoji + ' on reels 1, 3 and 5 at once. ' + esc(BON.text) + ' ' + esc(bonusDetail) + '</li>' +
+        '</ul></div>' + jackpotRules() +
+        '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet</div><div class="pt-grid">' + items + '</div></div>' +
+        '<div class="pt-section"><div class="pt-h">How to win</div><ul class="rules">' +
+          '<li><b>Line wins:</b> 3, 4 or 5 matching symbols on a payline, starting from the leftmost reel. Every winning line pays and they add up.</li>' +
+          '<li><b>' + syms[WILD].emoji + ' Wild:</b> stands in for every symbol except ' + syms[SCAT].emoji + ' and ' + syms[BONUS].emoji + '.</li>' +
+          '<li><b>TOP PRIZE:</b> five ' + syms[WILD].emoji + ' or five ' + syms[TOP].emoji + ' on one line. MEGA WIN ≥ 50× bet, BIG WIN ≥ 10× bet.</li>' +
+        '</ul></div>' +
+        '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
+        '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
+          '<div><dt>RTP</dt><dd>' + RTP + (PARTS ? ' in all' : '') + '</dd></div>' +
+          (PARTS ? '<div><dt>Reels, free spins, bonus</dt><dd>' + pct(PARTS.game) + '</dd></div>' +
+            (COL ? '<div><dt>' + esc(COL.name) + '</dt><dd>' + pct(PARTS.collector) + '</dd></div>' : '') +
+            '<div><dt>Jackpots</dt><dd>' + pct(PARTS.jackpots) + '</dd></div>' : '') +
+          '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
+          '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
+          '<div><dt>Bonus</dt><dd>1 in ' + game.stats.bonusEvery + '</dd></div>' +
+          '<div><dt>Volatility</dt><dd>' + esc(game.volatility) + '</dd></div>' +
+        '</dl><p class="pt-note">This is a faucet, so the machine pays back more than it takes in: an RTP of ' + RTP +
+          (PARTS ? ' with everything included: the reels, free spins and bonus ' + pct(PARTS.game) + (COL ? ', the ' + esc(COL.name) + "'s " + esc(COL.reward.name) + ' ' + pct(PARTS.collector) : '') +
+            ' and the jackpots ' + pct(PARTS.jackpots) + '. ' : '. ') +
+          'Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
+          'Rates were measured over ' + game.stats.spins + ' simulated spins. ' +
+          'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
+        '</details>';
+    }
+
+    // The jackpots and the collector in plain words (D43: inside the RTP, won in the game).
+    function jackpotRules() {
+      if (!JPC) return "";
+      var out = '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
+        '<li><b>' + JPC.emoji + ' ' + esc(JPC.name) + ':</b> ' + esc(JPC.text) + '</li>' +
+        '<li>Every bet adds ' + pct(JPC.minor.contribution) + ' of itself to this machine\'s MINOR, ' + pct(JPC.major.contribution) +
+          ' to its MAJOR and ' + pct(JPC.grand.contribution) + ' to the GRAND shared by all machines. A win takes everything the jackpot holds.</li>' +
+        '<li>After a win the next one starts with a head start from the faucet, so it never shows zero.</li>' +
+        '<li>Provably fair: whether a spin wins a jackpot comes from its seeds, like the rest of the spin. Each jackpot also publishes the SHA-256 hash of a secret seed that fixes its head start; anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
+        '</ul></div>';
+      if (COL) out += '<div class="pt-section"><div class="pt-h">' + esc(COL.name) + '</div><ul class="rules">' +
+        '<li><b>' + COL.emoji + ' ' + esc(COL.symbolName) + ':</b> ' + esc(COL.text) + '</li>' +
+        '<li><b>' + esc(COL.reward.name) + ':</b> ' + esc(COL.reward.text) + ' Played at your bet, at most the average bet that filled it.</li>' +
+        '</ul></div>';
+      return out;
+    }
+
+    return buildPaytable();
+  }
+  window.TNC_Slot = { paytableSection: paytableSection };
+
+  /* ---------- PixiJS machine ---------- */
+  // The whole machine drawn in a canvas (pixi-machine.js) for the themes it has (PIXI_THEMES); the
+  // others still use the HTML machine below until they are ported. PixiJS is loaded only for them.
   var HERE = (document.currentScript && document.currentScript.src) || "";
-  var WANT_PIXI = /[?&]pixi=1(&|$)/.test(location.search);
+  var PIXI_THEMES = { cosmic: true };
   function loadScript(src) {
     return new Promise(function (ok, fail) {
       var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function () { fail(new Error("Could not load " + src)); };
@@ -139,13 +223,17 @@
     (function load(attempt) {
       api.gameConfig(id).then(function (r) {
         if (r.status === 200 && r.data && r.data.symbols && r.data.engine) {
-          if (!WANT_PIXI) { build(root, id, r.data); return; }
+          if (!PIXI_THEMES[r.data.theme]) { build(root, id, r.data); return; }
           loadPixi().then(function () {
-            if (!window.TNC_PixiMachine || !TNC_PixiMachine.supports(r.data)) throw new Error("not supported");
+            if (!window.TNC_PixiMachine || !TNC_PixiMachine.supports(r.data)) throw new Error("This machine is not available.");
             return TNC_PixiMachine.build(root, id, r.data);
           }).catch(function (e) {
-            if (window.console) console.warn("PixiJS machine unavailable, using the classic one:", e && e.message);
-            root.innerHTML = ""; build(root, id, r.data);
+            if (window.console) console.error(e);
+            root.innerHTML = '<p class="panel m-loading" id="m-loading" role="status"></p>';
+            msg = document.getElementById("m-loading");
+            msg.innerHTML = "This machine could not be loaded. " + (window.WebGLRenderingContext ? "" : "Your browser needs WebGL. ") +
+              '<button type="button" class="btn-gold" id="m-retry">Try again</button>';
+            document.getElementById("m-retry").addEventListener("click", function () { location.reload(); });
           });
           return;
         }
@@ -196,7 +284,7 @@
     for (var gc = 0; gc < REELS; gc++) grid.push(picksFor(gc, ROWS));
 
     /* --- Markup: each game has its own machine (cabinet, spin control, bet control) --- */
-    var LADDER = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];   // bet steps for − / + / dial / throttle
+    var LADDER = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];   // bet steps for − / + and the dial
     var words = game.name.toUpperCase().split(" ");
     var titleHtml = words.length > 1
       ? esc(words.slice(0, -1).join(" ")) + " <span>★</span> " + esc(words[words.length - 1])
@@ -222,7 +310,7 @@
         '</div>' +
         (COL ? '<div class="collector-screen cl-' + esc(game.theme) + '" data-collector="' + esc(id) + '" data-collector-name="' + esc(COL.name) + '">' +
           '<span class="cl-sign" aria-hidden="true">' + esc(COL.name.toUpperCase()) + '</span><span class="cl-scene" aria-hidden="true"></span>' +
-          (game.theme === "cosmic" ? '<span class="cl-tank" aria-hidden="true"><span class="cl-level"></span></span>' : '<span class="cl-pile" aria-hidden="true"></span>') +
+          '<span class="cl-pile" aria-hidden="true"></span>' +
           '<span class="cl-count" aria-hidden="true"></span><span class="cl-full" aria-hidden="true">FULL!</span>' +
         '</div>' : '') +
         '<div class="cell-fx" id="cell-fx" aria-hidden="true"></div></div>' +
@@ -332,44 +420,12 @@
         '</div>' + P.stage + '</div>';
     }
 
-    function machineCosmic() {
-      var scale = LADDER.slice().reverse().map(function (v) {
-        return '<button type="button" class="thr-mark" data-bet="' + v + '" tabindex="-1" aria-hidden="true">' + short(v) + '</button>';
-      }).join("");
-      return '<div class="machine m-cosmic" id="slot-machine">' + P.jackpots +
-        '<div class="cx-hull">' + P.sound +
-          '<div class="cx-head"><h1 class="m-title">' + titleHtml + '</h1></div>' +
-          P.sign +
-          '<div class="cx-hud"><span class="cx-corners" aria-hidden="true"></span>' + P.reels + '</div>' + P.wins +
-          P.lcd('<span class="cx-cursor" aria-hidden="true"></span>') +
-          '<div class="cx-cockpit">' +
-            '<div class="cx-readouts">' + P.readout("meter-win", "WIN", unitLabel()) + P.readout("meter-bal", "BALANCE", unitLabel()) + '</div>' +
-            '<div class="cx-launch-wrap spin-wrap" id="spin-wrap">' +
-              '<span class="cx-lights" aria-hidden="true"></span>' +
-              '<button type="button" class="cx-launch btn3d" id="spin-btn" aria-label="Launch: spin the reels">' +
-                '<span class="b3-base" aria-hidden="true"></span>' +
-                '<span class="b3-cap"><span class="b3-shine" aria-hidden="true"></span>' +
-                  '<span class="spin-label">LAUNCH</span><span class="spin-sub" id="spin-sub"></span></span>' +
-              '</button>' +
-            '</div>' +
-            '<div class="cx-throttle">' +
-              '<div class="thr-head">THRUST <small>· bet</small></div>' +
-              '<div class="thr-body"><div class="thr-scale">' + scale + '</div>' +
-                '<div class="thr-rail"><input type="range" id="bet-range" min="0" max="' + (LADDER.length - 1) + '" step="1" aria-label="Bet throttle"></div></div>' +
-              '<div class="thr-input"><button type="button" id="bet-down" aria-label="Lower bet">▼</button>' + P.input("cx-input") +
-                '<button type="button" id="bet-up" aria-label="Raise bet">▲</button></div>' +
-            '</div>' +
-          '</div>' +
-          hint("Press LAUNCH") +
-        '</div>' + P.stage + '</div>';
-    }
-
-    var builders = { orchard: machineOrchard, deepsea: machineDeepSea, cosmic: machineCosmic };
+    var builders = { orchard: machineOrchard, deepsea: machineDeepSea };
     root.innerHTML =
       '<div class="machine-stage">' + (builders[game.theme] || machineOrchard)() + '</div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       P.extras +
-      '<section class="panel" aria-labelledby="pt-title"><h2 class="panel-label" id="pt-title">PAYTABLE &amp; RULES</h2>' + buildPaytable() + '</section>' +
+      paytableSection(game) +
       '<section class="panel" aria-labelledby="hist-title">' +
         '<h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol>' +
@@ -383,7 +439,7 @@
     var reelEls = strips.map(function (s) { return s.parentNode; });
     var betInput = $("#bet-input"), spinBtn = $("#spin-btn"), spinWrap = $("#spin-wrap");
     var quickBtns = Array.prototype.slice.call(machine.querySelectorAll("[data-bet]"));
-    var betRange = $("#bet-range"), betDial = $("#bet-dial");
+    var betDial = $("#bet-dial");
     var spinSub = $("#spin-sub"), lcd = $("#slot-lcd"), lcdMain = $("#lcd-main"), lcdSub = $("#lcd-sub");
     var meterWin = $("#meter-win"), meterBal = $("#meter-bal"), breakdown = $("#breakdown");
     var banner = $("#win-banner"), fsSign = $("#fs-sign"), historyEl = $("#history");
@@ -391,78 +447,6 @@
     var down = $("#bet-down"), up = $("#bet-up"), soundBtn = $("#sound-toggle");
     var lockEl = $("#m-lock"), lockBtn = $("#m-lock-btn"), unitSw = $("#unit-switch");
     var marquee = document.getElementById("marquee");
-
-    function buildPaytable() {
-      function pays(p) { return '<b>3</b> × ' + fmtMult(p[0]) + ' · <b>4</b> × ' + fmtMult(p[1]) + ' · <b>5</b> × ' + fmtMult(p[2]); }
-      var order = [WILD, SCAT, BONUS];
-      for (var i = syms.length - 1; i >= 0; i--) if (!syms[i].kind) order.push(i);
-      var items = order.map(function (i) {
-        var s = syms[i], body;
-        if (i === SCAT) body = pays(s.pays) + '<br>anywhere · <span class="jp">' + FS.awards.join(" / ") + ' free spins</span>';
-        else if (i === BONUS) body = 'on reels 1, 3 &amp; 5 together<br><span class="jp">starts ' + esc(BON.name) + '</span>';
-        else body = pays(s.pays) + (i === WILD || i === TOP ? '<br><span class="jp">5 on a line = TOP PRIZE</span>' : "");
-        return '<div class="pt-item' + (s.kind ? " special" : "") + '"><div class="pt-sym">' + cellHtml(i) + '</div>' +
-          '<div class="pt-pays"><span class="nm">' + esc(s.name) + (s.kind ? " · " + s.kind.toUpperCase() : "") + '</span>' + body + '</div></div>';
-      }).join("");
-
-      var lines = PAYLINES.map(function (pl, li) {
-        var cells = "";
-        for (var r = 0; r < ROWS; r++) for (var c = 0; c < REELS; c++) cells += '<i' + (pl[c] === r ? ' class="on"' : "") + '></i>';
-        return '<li class="pl" style="--lc:' + LINE_COLORS[li] + '" aria-label="Line ' + (li + 1) + '"><span class="pl-num">' + (li + 1) +
-          '</span><span class="pl-grid" aria-hidden="true">' + cells + '</span></li>';
-      }).join("");
-
-      var bonusDetail = BON.type === "pick" ? "Prizes: " + BON.prizes.map(function (x) { return x + "×"; }).join(", ") + " and " + BON.collect + " 🐛 worms."
-        : BON.type === "wheel" ? "Wheel prizes: " + BON.segments.slice().sort(function (a, b) { return a - b; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) { return x + "×"; }).join(", ") + "."
-        : "Levels: " + BON.levels.map(function (x) { return fmt(x) + "×"; }).join(" → ") + ". Each boost succeeds " + Math.round(BON.advance * 100) + "% of the time.";
-
-      return '<details class="paytable"><summary>Show paytable, features &amp; stats</summary>' +
-        '<div class="pt-section"><div class="pt-h">Features</div><ul class="rules">' +
-          '<li><b>' + syms[WILD].emoji + ' ' + esc(game.featureName) + ':</b> ' + esc(game.featureText) + '</li>' +
-          '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + MAX_FREE_SPINS + ').</li>' +
-          '<li><b>' + syms[BONUS].emoji + ' ' + esc(BON.name) + ' Bonus:</b> land ' + syms[BONUS].emoji + ' on reels 1, 3 and 5 at once. ' + esc(BON.text) + ' ' + esc(bonusDetail) + '</li>' +
-        '</ul></div>' + jackpotRules() +
-        '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet</div><div class="pt-grid">' + items + '</div></div>' +
-        '<div class="pt-section"><div class="pt-h">How to win</div><ul class="rules">' +
-          '<li><b>Line wins:</b> 3, 4 or 5 matching symbols on a payline, starting from the leftmost reel. Every winning line pays and they add up.</li>' +
-          '<li><b>' + syms[WILD].emoji + ' Wild:</b> stands in for every symbol except ' + syms[SCAT].emoji + ' and ' + syms[BONUS].emoji + '.</li>' +
-          '<li><b>TOP PRIZE:</b> five ' + syms[WILD].emoji + ' or five ' + syms[TOP].emoji + ' on one line. MEGA WIN ≥ 50× bet, BIG WIN ≥ 10× bet.</li>' +
-        '</ul></div>' +
-        '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
-        '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
-          '<div><dt>RTP</dt><dd>' + RTP + (PARTS ? ' in all' : '') + '</dd></div>' +
-          (PARTS ? '<div><dt>Reels, free spins, bonus</dt><dd>' + pct(PARTS.game) + '</dd></div>' +
-            (COL ? '<div><dt>' + esc(COL.name) + '</dt><dd>' + pct(PARTS.collector) + '</dd></div>' : '') +
-            '<div><dt>Jackpots</dt><dd>' + pct(PARTS.jackpots) + '</dd></div>' : '') +
-          '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
-          '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
-          '<div><dt>Bonus</dt><dd>1 in ' + game.stats.bonusEvery + '</dd></div>' +
-          '<div><dt>Volatility</dt><dd>' + esc(game.volatility) + '</dd></div>' +
-        '</dl><p class="pt-note">This is a faucet, so the machine pays back more than it takes in: an RTP of ' + RTP +
-          (PARTS ? ' with everything included: the reels, free spins and bonus ' + pct(PARTS.game) + (COL ? ', the ' + esc(COL.name) + "'s " + esc(COL.reward.name) + ' ' + pct(PARTS.collector) : '') +
-            ' and the jackpots ' + pct(PARTS.jackpots) + '. ' : '. ') +
-          'Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
-          'Rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
-        '</details>';
-    }
-
-    // The jackpots and the collector in plain words (D43: inside the RTP, won in the game).
-    function jackpotRules() {
-      if (!JPC) return "";
-      var out = '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
-        '<li><b>' + JPC.emoji + ' ' + esc(JPC.name) + ':</b> ' + esc(JPC.text) + '</li>' +
-        '<li>Every bet adds ' + pct(JPC.minor.contribution) + ' of itself to this machine\'s MINOR, ' + pct(JPC.major.contribution) +
-          ' to its MAJOR and ' + pct(JPC.grand.contribution) + ' to the GRAND shared by all machines. A win takes everything the jackpot holds.</li>' +
-        '<li>After a win the next one starts with a head start from the faucet, so it never shows zero.</li>' +
-        '<li>Provably fair: whether a spin wins a jackpot comes from its seeds, like the rest of the spin. Each jackpot also publishes the SHA-256 hash of a secret seed that fixes its head start; anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
-        '</ul></div>';
-      if (COL) out += '<div class="pt-section"><div class="pt-h">' + esc(COL.name) + '</div><ul class="rules">' +
-        '<li><b>' + COL.emoji + ' ' + esc(COL.symbolName) + ':</b> ' + esc(COL.text) + '</li>' +
-        '<li><b>' + esc(COL.reward.name) + ':</b> ' + esc(COL.reward.text) + ' Played at your bet, at most the average bet that filled it.</li>' +
-        '</ul></div>';
-      return out;
-    }
 
     function cellHtml(i) {
       var s = syms[i];
@@ -893,7 +877,6 @@
       sessionSet("tnc.bet." + id, bet);
       quickBtns.forEach(function (b) { b.classList.toggle("is-active", +b.getAttribute("data-bet") === bet); });
       var idx = ladderIndex(bet);
-      if (betRange) { betRange.value = idx; betRange.setAttribute("aria-valuetext", fmt(bet) + " tSats"); machine.style.setProperty("--thr", idx / (LADDER.length - 1)); }
       if (betDial) {
         betDial.setAttribute("aria-valuenow", bet);
         betDial.setAttribute("aria-valuetext", fmt(bet) + " tSats");
@@ -928,7 +911,6 @@
       spinSub.textContent = canStop ? "STOP" : busy ? (stage.hidden ? (feature ? "FREE SPINS" : "GOOD LUCK") : "BONUS") : out ? "SIGN IN" : "BET " + fmt(bet);
       [down, up, betInput].forEach(function (x) { x.disabled = busy; });
       quickBtns.forEach(function (b) { b.disabled = busy; });
-      if (betRange) betRange.disabled = busy;
       if (betDial) { betDial.setAttribute("aria-disabled", busy ? "true" : "false"); betDial.tabIndex = busy ? -1 : 0; }
       lockEl.hidden = !out || busy;
       if (Auth) lockBtn.href = Auth.loginHref();
@@ -1044,8 +1026,7 @@
       stage.className = "bonus-stage bonus-" + BON.type;
       updateControls();
       if (BON.type === "pick") await playPick(script);
-      else if (BON.type === "wheel") await playWheel(script);
-      else await playLadder(script);
+      else await playWheel(script);
 
       var won = script.win;
       await sleep(reduce ? 400 : 1300);
@@ -1175,60 +1156,6 @@
         }
         btn.addEventListener("click", go);
         setTimeout(function () { if (!started && !stage.hidden) go(); }, 12000); // auto-spin if left idle
-      });
-    }
-
-    function playLadder(script) {
-      return new Promise(function (resolve) {
-        var lv = BON.levels;
-        stage.innerHTML = stageHead("🛰️ WARP LADDER", "Ignite the engines and climb!") +
-          '<div class="ladder-wrap"><ol class="ladder" id="ladder">' + lv.map(function (v, i) {
-            return '<li data-i="' + i + '"><span class="lv-n">' + (i + 1) + '</span><span class="lv-v">' + fmt(v) + '×</span><span class="lv-s">≈' + rawSats(v) + '</span></li>';
-          }).reverse().join("") + '</ol>' +
-          '<div class="ladder-side"><div class="rocket" id="rocket">🚀</div>' +
-          '<button type="button" class="btn-red" id="ignite">IGNITE</button></div></div>';
-        var ladder = $("#ladder"), btn = $("#ignite"), sub = $("#bs-sub"), rocket = $("#rocket");
-        btn.focus({ preventScroll: true });
-        var level = 0, started = false;
-        function mark() {
-          ladder.querySelectorAll("li").forEach(function (li) {
-            var i = +li.getAttribute("data-i");
-            li.classList.toggle("on", i === level);
-            li.classList.toggle("past", i < level);
-          });
-        }
-        mark();
-        async function go() {
-          if (started) return;
-          started = true;
-          btn.disabled = true;
-          var boosts = script.boosts || [];
-          for (var s = 0; s < boosts.length; s++) {
-            sub.textContent = "Boosting to level " + (level + 2) + "…";
-            rocket.className = "rocket boost";
-            await sleep(reduce ? 250 : 850);
-            if (boosts[s]) {
-              level++;
-              mark();
-              sfx.ladderUp(level);
-              rocket.className = "rocket";
-              sub.textContent = "Level " + (level + 1) + ": " + fmt(lv[level]) + "×!";
-              await sleep(reduce ? 150 : 400);
-            } else {
-              rocket.className = "rocket fail";
-              ladder.classList.add("fail");
-              sfx.ladderFail();
-              sub.textContent = "Engines cut out at level " + (level + 1) + ": " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]);
-              await sleep(reduce ? 300 : 900);
-              return resolve();
-            }
-          }
-          sub.textContent = "TOP OF THE LADDER! " + fmt(lv[level]) + "× ≈ " + rawSats(lv[level]);
-          await sleep(reduce ? 300 : 900);
-          resolve();
-        }
-        btn.addEventListener("click", go);
-        setTimeout(function () { if (!started && !stage.hidden) go(); }, 12000);
       });
     }
 
@@ -1429,11 +1356,6 @@
         toast(JPC.emoji + " " + JPC.name.toUpperCase() + "!", "feat");
         await sleep(reduce ? 500 : 1500);
         await openStage("jackpot-clams", function (done) { playClams(st, done); });
-      } else {
-        setLcd("3 " + JPC.emoji + " shooting stars! The " + JPC.name + " spins.", "win blink");
-        toast("3 " + JPC.emoji + " " + JPC.name.toUpperCase() + "!", "feat");
-        await sleep(reduce ? 500 : 1500);
-        await openStage("jackpot-wheel", function (done) { playStarWheel(st, done); });
       }
       await celebrateJackpot(st);
     }
@@ -1506,55 +1428,6 @@
       $("#bs-auto").addEventListener("click", auto);
       setTimeout(function () { if (!finished && !opened && !stage.hidden) auto(); }, 12000);   // opens by itself if left idle
     }
-    // Cosmic Voyage: the Star Map Wheel (config jackpot.slices) stops on `slice`.
-    function playStarWheel(st, done) {
-      var slices = JPC.slices || ["minor", "major", "minor", "grand"], n = slices.length, seg = 360 / n, R = 100;
-      var colors = { minor: "#1f6fb2", major: "#7b3fe4", grand: "#e0313f" };
-      var paths = slices.map(function (t, i) {
-        var a0 = (i * seg - 90) * Math.PI / 180, a1 = ((i + 1) * seg - 90) * Math.PI / 180;
-        var x0 = R * Math.cos(a0), y0 = R * Math.sin(a0), x1 = R * Math.cos(a1), y1 = R * Math.sin(a1);
-        var am = ((i + 0.5) * seg - 90) * Math.PI / 180, tx = 64 * Math.cos(am), ty = 64 * Math.sin(am);
-        return '<path d="M0,0 L' + x0.toFixed(2) + ',' + y0.toFixed(2) + ' A' + R + ',' + R + ' 0 0 1 ' + x1.toFixed(2) + ',' + y1.toFixed(2) + ' Z" fill="' +
-          colors[t] + '" stroke="#9ff0ff" stroke-width="1" data-i="' + i + '"/>' +
-          '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" transform="rotate(' + ((i + 0.5) * seg) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')" ' +
-          'class="wheel-txt sw-' + t + '">' + TIER_NAMES[t] + '</text>';
-      }).join("");
-      stage.innerHTML = stageHead("🌠 " + JPC.name.toUpperCase(), "Spin the wheel for your jackpot!") +
-        '<div class="wheel-wrap"><div class="wheel-pointer">▼</div>' +
-        '<svg class="wheel star-wheel" viewBox="-110 -110 220 220" aria-hidden="true"><g id="wheel-g">' + paths +
-        '<circle r="16" fill="#120a2e" stroke="#9ff0ff" stroke-width="3"/><text class="wheel-hub" y="5">🌠</text></g>' +
-        '<circle r="104" fill="none" stroke="#8a46f0" stroke-width="7"/></svg>' +
-        '<button type="button" class="btn-red wheel-btn" id="wheel-btn">SPIN THE WHEEL</button></div>';
-      var g = $("#wheel-g"), btn = $("#wheel-btn"), sub = $("#bs-sub"), started = false;
-      btn.focus({ preventScroll: true });
-      function go() {
-        if (started) return;
-        started = true;
-        btn.disabled = true;
-        sub.textContent = "The stars are turning…";
-        var idx = st.slice != null ? st.slice : slices.indexOf(st.tier);
-        var jitter = (Math.random() - 0.5) * seg * 0.6;
-        var target = 360 * 5 + (360 - (idx + 0.5) * seg) + jitter;
-        var dur = reduce ? 800 : 4600, t0 = performance.now(), lastSeg = -1;
-        (function frame() {
-          var p = Math.min(1, (performance.now() - t0) / dur), a = target * (1 - Math.pow(1 - p, 4));
-          g.setAttribute("transform", "rotate(" + a.toFixed(2) + ")");
-          var sgi = Math.floor(a / seg);
-          if (sgi !== lastSeg) { lastSeg = sgi; sfx.wheelTick(); }
-          if (p < 1) requestAnimationFrame(frame);
-          else {
-            var win = g.querySelector('path[data-i="' + idx + '"]');
-            if (win) win.classList.add("win-seg");
-            sub.textContent = "The wheel stops on the " + TIER_NAMES[st.tier] + " JACKPOT!";
-            sfx.wheelStop();
-            setTimeout(done, reduce ? 400 : 900);
-          }
-        }());
-      }
-      btn.addEventListener("click", go);
-      setTimeout(function () { if (!started && !stage.hidden) go(); }, 9000);   // spins by itself if left idle
-    }
-
     /* --- Collect symbols: onto their cells, then into the meter beside the reels --- */
     async function playCollect(st) {
       if (!COL || !st.cells || !st.cells.length) {
@@ -1890,11 +1763,6 @@
         setBet(+b.getAttribute("data-bet"));
         betChanged();
       });
-    });
-    // Cosmic: throttle slider over the bet ladder.
-    if (betRange) betRange.addEventListener("input", function () {
-      var v = LADDER[+betRange.value];
-      if (v !== bet) { sfx.chip(); setBet(v); betChanged(); }
     });
     // Deep Sea: rotary dial: drag, scroll or use the arrow keys.
     if (betDial) {

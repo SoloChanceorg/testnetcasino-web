@@ -29,6 +29,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 const FIX = path.join(HERE, "fixtures");
 const GAMES = ["fruit-orchard", "deep-sea", "cosmic-voyage"];
+const HTML_GAMES = ["fruit-orchard", "deep-sea"];   // Cosmic Voyage plays on the PixiJS machine (its own tests below)
 const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "jackpots.html", "withdrawals.html",
   ...GAMES.map((g) => `games/${g}.html`)];
 const CONFIGS = Object.fromEntries(GAMES.map((g) => [g, fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")]));
@@ -222,12 +223,14 @@ try {
   }
 
   /* ═══ 4. A spin in each game, then the full-screen fit ═══ */
-  for (const g of GAMES) {
+  for (const g of HTML_GAMES) {
     resetApi(); signIn(500000);
     const v = SPINS[g];
     api.spinQueue.push(v);
     await open(`games/${g}.html`, 1280);
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled`);
+    // Measured once the page has settled: the signed-in account chip can wrap the nav bar onto a second line.
+    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && !!document.querySelector(".auth-user")`);
+    await sleep(300);
     const before = await ev(`Math.round(document.getElementById("spin-btn").getBoundingClientRect().top + scrollY)`);
     await ev(`(() => { const b = document.getElementById("bet-input"); b.value = ${v.bet}; b.dispatchEvent(new Event("change")); document.getElementById("spin-btn").click(); })()`);
     await sleep(500);
@@ -297,7 +300,7 @@ try {
 
   /* ═══ 4b. Jackpots and the collector on the machines; won or filled by someone else ═══ */
   const SIZES = Object.fromEntries(GAMES.map((g) => [g, JSON.parse(CONFIGS[g]).collector.size]));
-  for (const g of GAMES) {
+  for (const g of HTML_GAMES) {
     resetApi(); signIn();
     await open(`games/${g}.html`, 1280);
     // At the very top of the machine: GRAND, then MAJOR and MINOR side by side, all amounts in the machine's
@@ -381,7 +384,7 @@ try {
     return { done, spoiler, ...st, calls: api.jackpotCalls - callsBefore };
   }
   const SIGN = { orchard: "fruit-orchard", deepsea: "deep-sea", cosmic: "cosmic-voyage" };
-  for (const g of GAMES) {
+  for (const g of HTML_GAMES) {
     // A jackpot won in the game: its own show (golden apples, the oyster's clam pick, the Star Map Wheel),
     // then the celebration in tBCH; nothing on the jackpots gives it away while the reels turn.
     resetApi(); signIn(500000);
@@ -404,7 +407,7 @@ try {
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
     check(`${g}: ${jst.tier} jackpot won in the game (${{ apples: "golden apples", clams: "clam pick", wheel: "Star Map Wheel" }[JSON.parse(CONFIGS[g]).jackpot.type]}), celebration in tBCH, no spoiler`, !problems.length, problems.join("; "));
   }
-  for (const g of GAMES) {
+  for (const g of HTML_GAMES) {
     // The spin that fills the collector: the symbols fly in, FULL!, the reward at its own bet, then from empty.
     resetApi(); signIn(500000);
     const v = SPINS["reward-" + g], rw = v.reward, cfg = JSON.parse(CONFIGS[g]), R = cfg.collector.reward;
@@ -427,11 +430,23 @@ try {
     check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tSats, then the meter starts again`, !problems.length, problems.join("; "));
   }
   {
-    // The PixiJS machine (preview, ?pixi=1): it builds, plays a jackpot spin and a reward spin from the same
-    // steps (Space to spin), settles the balance, and fits a phone.
+    // Cosmic Voyage: the PixiJS machine. It builds, shows the jackpots and the Fuel Tank, plays a plain spin, a jackpot
+    // spin and a reward spin from the same steps (Space to spin), settles the balance, has the paytable, fits full
+    // screen and a phone.
     const problems = [];
-    const P = "games/cosmic-voyage.html?pixi=1";
-    for (const [name, v] of [["jackpot", { ...SPINS["jackpot-cosmic-voyage"], jackpotWin: 3290 }], ["reward", SPINS["reward-cosmic-voyage"]]]) {
+    const P = "games/cosmic-voyage.html";
+    resetApi(); signIn();
+    await open(P, 1280);
+    const idle = await until(`typeof TNC_PixiState === "function" && (() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tSats" && s.jackpots.major === "45,680 tSats"
+      && s.jackpots.minor === "2,312 tSats" && s.tank.filled === ${COLLECTOR["cosmic-voyage"].filled} && s.tank.size === ${COLLECTOR["cosmic-voyage"].size}; })()
+      && !document.querySelector("#slot-machine .reels-window") && /RTP110% in all/.test(document.querySelector(".paytable .facts").textContent)`, 15000);
+    if (!idle) problems.push("idle: " + JSON.stringify(await ev(`typeof TNC_PixiState === "function" ? TNC_PixiState() : null`)));
+    await ev(`document.body.classList.add("is-fullscreen"); document.documentElement.classList.add("is-fullscreen"); scrollTo(0, 0); dispatchEvent(new Event("resize"))`);
+    await sleep(400);
+    const fs = await ev(`(() => { const r = document.querySelector("#px-canvas canvas").getBoundingClientRect(); return { l: r.left, t: r.top, r: innerWidth - r.right, b: innerHeight - r.bottom }; })()`);
+    if (!(Math.min(fs.t, fs.b) >= 6 && Math.min(fs.t, fs.b) <= 14 && fs.l >= 6)) problems.push("full screen: " + JSON.stringify(fs));
+    await ev(`document.body.classList.remove("is-fullscreen"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
+    for (const [name, v] of [["spin", SPINS["cosmic-voyage"]], ["jackpot", { ...SPINS["jackpot-cosmic-voyage"], jackpotWin: 3290 }], ["reward", SPINS["reward-cosmic-voyage"]]]) {
       resetApi(); signIn(500000); api.spinQueue.push(v);
       await open(P, 1280);
       if (!(await until(`typeof TNC_PixiState === "function" && !!document.querySelector("#px-canvas canvas")`, 15000))) { problems.push(name + ": not built"); continue; }
@@ -452,7 +467,7 @@ try {
     await open(P, 375);
     const phone = await until(`typeof TNC_PixiState === "function" && document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 15000);
     if (!phone) problems.push("phone: sideways scroll or not built");
-    check("cosmic-voyage (PixiJS preview, ?pixi=1): jackpot on the Star Map Wheel and the Hyperdrive reward play from the same steps, balance settles, fits a phone", !problems.length, problems.join("; "));
+    check("cosmic-voyage (PixiJS machine): jackpots and Fuel Tank, a spin, a jackpot on the Star Map Wheel and the Hyperdrive reward from the same steps, balance, paytable, full screen, phone", !problems.length, problems.join("; "));
   }
   {
     resetApi();
