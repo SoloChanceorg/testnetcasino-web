@@ -117,7 +117,7 @@
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="?pixi=0">🎰 Classic machine</a>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
-        '<p class="px-note">Preview: the whole machine drawn with PixiJS. Press <b>Space</b> to spin, and again to stop the reels.</p></section>' +
+        '<p class="px-note">Preview: the whole machine drawn with PixiJS. Press <b>' + esc(T.spin) + '</b> or <b>Space</b> to spin, and again to stop the reels. Bitcoin Cash Testnet4 coins only: no real money.</p></section>' +
       '<section class="panel" aria-labelledby="hist-title"><h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol></section>';
     var stageEl = document.getElementById("px-stage"), machineEl = document.getElementById("slot-machine");
@@ -218,8 +218,6 @@
       for (var y = 20; y < h; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
       for (var x0 = 14; x0 < w; x0 += 28) { g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, h); g.stroke(); }
       g.restore();
-      // the deck, lower part
-      g.fillStyle = "rgba(0,0,0,.28)"; rr(g, 22, 600, w - 44, h - 620, 20); g.fill();
     })).position.set(10, 140);
     var title = txt(T.title, { fontSize: 50, fill: "#f2e6ff", letterSpacing: 3,
       dropShadow: { color: T.neon, blur: 18, distance: 0, alpha: 1 }, stroke: { color: "#2a0f5a", width: 3 } });
@@ -412,64 +410,185 @@
       clearTimeout(srTimer); srLive.textContent = ""; srTimer = setTimeout(function () { srLive.textContent = plain; }, 60);
     }
 
-    /* ═══ Deck: readouts, LAUNCH, throttle ═══ */
-    function readout(label, y) {
-      var c = new PIXI.Container(); c.position.set(46, y);
-      c.addChild(paint(220, 118, function (g, w, h) {
-        g.beginPath(); g.moveTo(14, 2); g.lineTo(w - 2, 2); g.lineTo(w - 2, h - 14); g.lineTo(w - 14, h - 2); g.lineTo(2, h - 2); g.lineTo(2, 14); g.closePath();
-        g.fillStyle = "rgba(6,4,20,.9)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(154,107,255,.7)"; g.stroke();
-      }));
-      var l = txt(label, { fontSize: 15, fill: "#b9a6ff", letterSpacing: 3 }); l.position.set(110, 24);
-      var v = txt("0", { fontFamily: MONO, fontWeight: "700", fontSize: 36, fill: "#ffffff", dropShadow: { color: T.neon, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(110, 64);
-      var u = txt(unit(), { fontSize: 12, fill: "#8f86b8" }); u.position.set(110, 98);
-      c.addChild(l, v, u); L.panel.addChild(c);
+    /* ═══ Deck: readouts, LAUNCH, throttle, on a console that slopes toward the player ═══
+       The deck is drawn flat (DW × DH) into a render texture every frame and shown on a
+       PerspectiveMesh: narrower at the back, wider at the front, like a cockpit console. Keys stand
+       up from it (their side walls face the player), screens and the lever's slot are sunk into it.
+       Taps are mapped back through the same projection to the flat deck. */
+    var DW = 700, DH = 290, DX = 30, DY = 742;
+    var deck = new PIXI.Container();
+    var Q = [DX + 74, DY + 10, DX + DW - 74, DY + 10, DX + DW + 10, DY + DH - 2, DX - 10, DY + DH - 2];   // TL, TR, BR, BL
+    // The slab under the console: its front edge, facing the player
+    L.panel.addChild(paint(W, 40, function (g) {
+      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 14, 24); g.lineTo(Q[6] + 14, 24); g.closePath();
+      g.fillStyle = grad(g, 0, 24, ["#3a1f7a", "#140834"]); g.fill();
+      g.lineWidth = 2; g.strokeStyle = T.neon2; g.shadowColor = T.neon2; g.shadowBlur = 10;
+      g.beginPath(); g.moveTo(Q[6] + 14, 23); g.lineTo(Q[4] - 14, 23); g.stroke();
+      g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Q[6], 1); g.lineTo(Q[4], 1); g.stroke();
+    })).position.set(0, Q[5] - 1);
+    // The console surface (painted flat, seen in perspective)
+    deck.addChild(paint(DW, DH, function (g, w, h) {
+      rr(g, 0, 0, w, h, 18); g.fillStyle = grad(g, 0, h, ["#2b1566", "#1a0b44", "#100628"]); g.fill();
+      g.save(); g.clip();
+      g.globalAlpha = 0.07; g.strokeStyle = "#ffffff"; g.lineWidth = 1;
+      for (var y = 6; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }   // brushed metal
+      g.globalAlpha = 1; g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 2;                         // panel seams
+      [252, 528].forEach(function (x) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); });
+      g.strokeStyle = "rgba(179,136,255,.18)"; g.lineWidth = 1;
+      [254, 530].forEach(function (x) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); });
+      g.restore();
+      [[12, 12], [w - 12, 12], [12, h - 12], [w - 12, h - 12], [253, 12], [529, 12], [253, h - 12], [529, h - 12]].forEach(function (q) {   // rivets
+        var rg = g.createRadialGradient(q[0] - 1, q[1] - 1, 0.5, q[0], q[1], 4); rg.addColorStop(0, "#d9ccff"); rg.addColorStop(1, "#3b2a7a");
+        g.beginPath(); g.arc(q[0], q[1], 3.5, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
+      });
+      rr(g, 1.5, 1.5, w - 3, h - 3, 17); g.lineWidth = 3; g.strokeStyle = "rgba(154,107,255,.85)"; g.stroke();
+      g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.25)"; rr(g, 5, 5, w - 10, h - 10, 14); g.stroke();
+    }));
+    // A recessed screen: dark glass sunk into the panel, its upper inner wall in shadow, a lit lip below.
+    function recess(w, h, r) {
+      return paint(w + 8, h + 8, function (g) {
+        rr(g, 4, 6, w, h, r); g.fillStyle = "rgba(255,255,255,.18)"; g.fill();                  // lit lower lip
+        rr(g, 4, 4, w, h, r); g.fillStyle = "#04020e"; g.fill();
+        g.save(); rr(g, 4, 4, w, h, r); g.clip();
+        g.shadowColor = "rgba(0,0,0,.95)"; g.shadowBlur = 14; g.shadowOffsetY = 8;               // inner shadow from the top wall
+        g.lineWidth = 16; rr(g, -4, -4, w + 16, h + 16, r + 6); g.strokeStyle = "#000"; g.stroke();
+        g.shadowColor = "rgba(46,197,255,.35)"; g.shadowBlur = 18; g.shadowOffsetY = 0; g.lineWidth = 2; rr(g, 4, 4, w, h, r); g.stroke();
+        g.restore();
+        rr(g, 4, 4, w, h, r); g.lineWidth = 1.5; g.strokeStyle = "rgba(154,107,255,.6)"; g.stroke();
+      });
+    }
+    // A raised key: a top face and side walls toward the player (depth px), with a contact shadow.
+    function keyArt(w, h, r, depth, top, wall) {
+      return paint(w + 12, h + depth + 14, function (g) {
+        g.shadowColor = "rgba(0,0,0,.7)"; g.shadowBlur = 10; g.shadowOffsetY = 4;
+        rr(g, 6, 6 + depth, w, h, r); g.fillStyle = wall[1]; g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
+        for (var d = depth; d > 0; d--) { rr(g, 6, 6 + d, w, h, r); g.fillStyle = d > depth / 2 ? wall[1] : wall[0]; g.fill(); }
+        rr(g, 6, 6, w, h, r); g.fillStyle = grad(g, 6, 6 + h, top); g.fill();
+        g.lineWidth = 1.5; g.strokeStyle = "rgba(255,255,255,.55)"; g.stroke();
+      });
+    }
+
+    // Hit areas on the flat deck (the mesh maps taps back to them)
+    var deckHits = [];
+    function deckHit(x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); }
+
+    // WIN and BALANCE: recessed screens
+    function readout(label, x, y) {
+      var c = new PIXI.Container(); c.position.set(x, y);
+      var sc = recess(212, 112, 12); sc.position.set(-4, -4); c.addChild(sc);
+      var l = txt(label, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 3 }); l.position.set(106, 20);
+      var v = txt("0", { fontFamily: MONO, fontWeight: "700", fontSize: 36, fill: "#ffffff", dropShadow: { color: T.neon, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(106, 60);
+      var u = txt(unit(), { fontSize: 12, fill: "#8f86b8" }); u.position.set(106, 94);
+      c.addChild(l, v, u); deck.addChild(c);
       return { v: v, u: u };
     }
-    var winRO = readout("WIN", 760), balRO = readout("BALANCE", 892);
+    var winRO = readout("WIN", 22, 22), balRO = readout("BALANCE", 22, 156);
     var winShown = 0, balShown = currentBalance();
 
-    // LAUNCH: a glowing hexagon
-    var launch = new PIXI.Container(); launch.position.set(410, 885); L.panel.addChild(launch);
+    // LAUNCH: a hexagonal key standing up from the console; it sinks when pressed.
     function hexPath(g, cx, cy, r) { g.beginPath(); for (var i = 0; i < 6; i++) { var a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); } g.closePath(); }
-    var launchBase = paint(260, 260, function (g) {
-      g.shadowColor = "#ff4fd8"; g.shadowBlur = 30; hexPath(g, 130, 136, 104); g.fillStyle = "#3a0b4a"; g.fill();
-      g.shadowBlur = 0; hexPath(g, 130, 126, 100);
-      var rg = g.createRadialGradient(130, 96, 10, 130, 126, 110); rg.addColorStop(0, "#ffb3f2"); rg.addColorStop(0.45, "#e040c8"); rg.addColorStop(1, "#6a1fb8");
-      g.fillStyle = rg; g.fill(); g.lineWidth = 4; g.strokeStyle = "#ffd6f6"; g.stroke();
-      g.globalAlpha = 0.35; g.beginPath(); g.ellipse(130, 80, 66, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill();
+    var LDEPTH = 24, LR = 100;
+    var launch = new PIXI.Container(); launch.position.set(390, 130); deck.addChild(launch);
+    var launchWell = paint(260, 260, function (g) {                // the socket in the console
+      hexPath(g, 130, 130 + LDEPTH, LR + 14); g.fillStyle = "#07031a"; g.fill();
+      g.lineWidth = 3; g.strokeStyle = "rgba(255,79,216,.55)"; g.shadowColor = "#ff4fd8"; g.shadowBlur = 22; g.stroke();
     });
-    launchBase.anchor.set(0.5); launch.addChild(launchBase);
+    launchWell.anchor.set(0.5); launch.addChild(launchWell);
+    var launchWalls = paint(260, 260, function (g) {               // the key's side walls
+      for (var d = LDEPTH; d >= 0; d--) { hexPath(g, 130, 130 + d, LR); g.fillStyle = d > LDEPTH * 0.55 ? "#2a0838" : "#5a1470"; g.fill(); }
+      g.lineWidth = 2; g.strokeStyle = "rgba(255,180,240,.35)"; hexPath(g, 130, 130 + LDEPTH, LR); g.stroke();
+    });
+    launchWalls.anchor.set(0.5); launch.addChild(launchWalls);
+    var launchTop = new PIXI.Container(); launch.addChild(launchTop);
+    var launchCap = paint(240, 240, function (g) {
+      hexPath(g, 120, 120, LR);
+      var rg = g.createRadialGradient(120, 80, 8, 120, 120, 112); rg.addColorStop(0, "#ffc4f4"); rg.addColorStop(0.45, "#e040c8"); rg.addColorStop(1, "#6a1fb8");
+      g.fillStyle = rg; g.fill(); g.lineWidth = 4; g.strokeStyle = "#ffd6f6"; g.stroke();
+      g.save(); hexPath(g, 120, 120, LR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(120, 62, 70, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
+    });
+    launchCap.anchor.set(0.5); launchTop.addChild(launchCap);
     var launchLabel = txt(T.spin, { fontSize: 34, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
     launchLabel.y = -8;
     var launchSub = txt("", { fontSize: 15, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 30;
-    launch.addChild(launchLabel, launchSub);
-    var launchPulse = 0;
-    app.ticker.add(function (tk) { launchPulse += tk.deltaMS / 600; if (!busy && !launch._off) launchBase.scale.set(1 + Math.sin(launchPulse) * 0.015); });
-    button(launch, function () { press(); });
+    launchTop.addChild(launchLabel, launchSub);
+    var launchPulse = 0, launchDown = 0;
+    app.ticker.add(function (tk) {
+      launchPulse += tk.deltaMS / 600;
+      launchTop.y = launchDown;
+      launchWell.alpha = launch._off ? 0.5 : 0.75 + Math.sin(launchPulse) * 0.25;
+    });
+    function sinkKey(set, depth) {   // press: down, then back up
+      return animate(R(90), function (p) { set(depth * p); }, ease.out).then(function () { return animate(R(160), function (p) { set(depth * (1 - p)); }, ease.out); });
+    }
+    function pressLaunch() { sinkKey(function (v) { launchDown = v; }, LDEPTH * 0.7); }
+    deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { press(); });
 
-    // The throttle: the bet ladder 1 ... 1,000
-    var thr = new PIXI.Container(); thr.position.set(600, 760); L.panel.addChild(thr);
-    thr.addChild(paint(126, 250, function (g, w, h) {
-      rr(g, 2, 2, w - 4, h - 4, 14); g.fillStyle = "rgba(6,4,20,.9)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(154,107,255,.7)"; g.stroke();
-      rr(g, 78, 30, 14, 190, 7); g.fillStyle = grad(g, 30, 220, ["#ff4fd8", "#6a1fb8"]); g.fill();
-    }));
-    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(63, 16); thr.addChild(thrHead);
+    // THRUST: the bet ladder 1 ... 1,000; a lever in a slot sunk into the console, ▲ ▼ keys below.
+    var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
+    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(63, 12); thr.addChild(thrHead);
+    var slot = recess(18, 196, 9); slot.position.set(72, 24); thr.addChild(slot);
+    var slotFill = paint(10, 190, function (g) { rr(g, 0, 0, 10, 190, 5); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.85; g.fill(); });
+    slotFill.position.set(80, 31); thr.addChild(slotFill);
     var thrMarks = LADDER.map(function (v, i) {
       var y = 214 - i * 20, m = txt(v >= 1000 ? "1K" : String(v), { fontFamily: MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
-      m.anchor.set(1, 0.5); m.position.set(64, y);
-      var hit = new PIXI.Graphics().rect(6, y - 10, 110, 20).fill({ color: 0, alpha: 0.001 });
-      thr.addChild(m, hit);
-      button(hit, function () { if (!busy) { sfx.chip(); setBet(v); } });
+      m.anchor.set(1, 0.5); m.position.set(62, y); thr.addChild(m);
+      deckHit(556 + 4, 12 + y - 10, 120, 20, null, function () { if (!busy) { sfx.chip(); setBet(v); } });
       return m;
     });
-    var thrKnob = paint(36, 20, function (g) { rr(g, 1, 1, 34, 18, 6); g.fillStyle = grad(g, 0, 20, ["#ffffff", "#c7b6ff"]); g.fill(); });
-    thrKnob.anchor.set(0.5); thrKnob.x = 85; thr.addChild(thrKnob);
-    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(63, 238); thr.addChild(betVal);
-    var betUp = txt("▲", { fontSize: 22, fill: "#e0c3ff" }), betDown = txt("▼", { fontSize: 22, fill: "#e0c3ff" });
-    betUp.position.set(108, 238); betDown.position.set(18, 238); thr.addChild(betUp, betDown);
-    button(betUp, function () { stepBet(1); }); button(betDown, function () { stepBet(-1); });
-    var hint = txt("Press " + T.spin + " · or Space (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.", { fontFamily: "Poppins, sans-serif", fontSize: 13, fill: "#8f86b8" });
-    hint.position.set(W / 2, 1050); L.panel.addChild(hint);
+    var thrKnob = keyArt(40, 18, 6, 8, ["#ffffff", "#c7b6ff"], ["#8a73d9", "#4b3a8a"]);
+    thrKnob.anchor.set(0.5, 0.42); thrKnob.x = 85; thr.addChild(thrKnob);
+    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(63, 252); thr.addChild(betVal);
+    function smallKey(label, x) {
+      var k = new PIXI.Container(); k.position.set(x, 252);
+      var art = keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); k.addChild(art);
+      var top = new PIXI.Container(); var t = txt(label, { fontSize: 15, fill: "#fff" }); t.y = -1; top.addChild(t); k.addChild(top);
+      k._sink = function () { sinkKey(function (v) { art.y = v; top.y = v; }, 5); };
+      thr.addChild(k);
+      return k;
+    }
+    var betDown = smallKey("▼", 20), betUp = smallKey("▲", 106);
+    deckHit(556 + 2, 12 + 236, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
+    deckHit(556 + 88, 12 + 236, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
+
+    // The console in perspective
+    var deckRT = PIXI.RenderTexture.create({ width: DW, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
+    var deckMesh = new PIXI.PerspectiveMesh({ texture: deckRT, verticesX: 12, verticesY: 12,
+      x0: Q[0], y0: Q[1], x1: Q[2], y1: Q[3], x2: Q[4], y2: Q[5], x3: Q[6], y3: Q[7] });
+    L.panel.addChild(deckMesh);
+    app.ticker.add(function () { app.renderer.render({ container: deck, target: deckRT, clear: true }); });
+    // Square -> quad homography (Heckbert), inverted to map a tap on the console back to the flat deck.
+    var HM = (function (q) {
+      var x0 = q[0], y0 = q[1], x1 = q[2], y1 = q[3], x2 = q[4], y2 = q[5], x3 = q[6], y3 = q[7];
+      var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+      var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
+      var m = [x1 - x0 + gg * x1, x3 - x0 + hh * x3, x0, y1 - y0 + gg * y1, y3 - y0 + hh * y3, y0, gg, hh, 1];
+      var A = m[0], B = m[1], C = m[2], D = m[3], E = m[4], F = m[5], G = m[6], Hh = m[7], I = m[8];
+      return [E * I - F * Hh, C * Hh - B * I, B * F - C * E, F * G - D * I, A * I - C * G, C * D - A * F, D * Hh - E * G, B * G - A * Hh, A * E - B * D];
+    }(Q));
+    function toDeck(x, y) {
+      var u = HM[0] * x + HM[1] * y + HM[2], v = HM[3] * x + HM[4] * y + HM[5], w = HM[6] * x + HM[7] * y + HM[8];
+      return { x: u / w * DW, y: v / w * DH };
+    }
+    function hitAt(e) {
+      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
+      for (var i = 0; i < deckHits.length; i++) {
+        var h = deckHits[i];
+        if (d.x >= h.x && d.x <= h.x + h.w && d.y >= h.y && d.y <= h.y + h.h && !(h.view && h.view._off)) return h;
+      }
+      return null;
+    }
+    deckMesh.eventMode = "static";
+    deckMesh.on("pointertap", function (e) { var h = hitAt(e); if (h) h.fn(); });
+    deckMesh.on("pointermove", function (e) { deckMesh.cursor = hitAt(e) ? "pointer" : "default"; });
+
+    // For tests: the panel point where a deck control is drawn.
+    function deckPoint(x, y) {   // flat deck -> panel (the forward homography)
+      var u = x / DW, v = y / DH, q = Q;
+      var dx1 = q[2] - q[4], dx2 = q[6] - q[4], dx3 = q[0] - q[2] + q[4] - q[6], dy1 = q[3] - q[5], dy2 = q[7] - q[5], dy3 = q[1] - q[3] + q[5] - q[7];
+      var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
+      var a = q[2] - q[0] + gg * q[2], b = q[6] - q[0] + hh * q[6], d = q[3] - q[1] + gg * q[3], e = q[7] - q[1] + hh * q[7], w = gg * u + hh * v + 1;
+      return { x: (a * u + b * v + q[0]) / w, y: (d * u + e * v + q[1]) / w };
+    }
 
     /* ═══ State ═══ */
     var busy = false, feature = null, presentToken = 0, settle = 0;
@@ -483,7 +602,7 @@
       try { sessionStorage.setItem("tnc.bet." + id, String(bet)); } catch (e) {}
       var i = ladderIndex(bet);
       thrMarks.forEach(function (m, k) { m.style.fill = k === i ? "#ffffff" : "#8f86b8"; });
-      animate(R(220), (function (from) { return function (p) { thrKnob.y = from + (214 - i * 20 - from) * p; }; })(thrKnob.y || 214));
+      animate(R(220), (function (from) { return function (p) { thrKnob.y = from + (214 - i * 20 - from) * p; slotFill.height = Math.max(4, 190 - (thrKnob.y - 31)); slotFill.y = thrKnob.y; }; })(thrKnob.y || 214));
       betVal.text = fmt(bet);
       updateControls();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
@@ -502,7 +621,7 @@
       setOff(launch, (busy && !canStop) || (!busy && cantAfford()));
       launchSub.text = canStop ? "STOP" : busy ? (feature ? "FREE SPINS" : "GOOD LUCK") : out ? "SIGN IN" : "BET " + fmt(bet);
       [betUp, betDown].forEach(function (b) { setOff(b, busy); });
-      thr.alpha = busy ? 0.6 : 1;
+      thrMarks.forEach(function (m) { m.alpha = busy ? 0.55 : 1; });
     }
     function renderLcdSub() {
       lcdSub.text = feature
@@ -1115,7 +1234,7 @@
       if (busy) return;
       if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " tSats is more than your " + amt(b) + ".", true); sfx.tilt(); shake(R(400), 8); return; }
       sfx.press();
-      animate(R(160), function (p) { launch.scale.set(1 - Math.sin(p * Math.PI) * 0.06); }, ease.lin);
+      pressLaunch();
       busy = true; playBet = bet; updateControls();
       if (window.TNC_Jackpots) TNC_Jackpots.hold();
       ++presentToken; hideBanner(); clearWins(); overLayer.removeChildren();
@@ -1198,7 +1317,7 @@
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { return { busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
+    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 106, 12 + 252); return { launchAt: lp, betUpAt: up, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
   }
 
   window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };
