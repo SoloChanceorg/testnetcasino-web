@@ -321,7 +321,8 @@
     }
 
     /* ═══ Reels ═══ */
-    var reelMask = new PIXI.Graphics().rect(RX, RY, RW, RH).fill(0xffffff);
+    var REEL_R = 10;   // the reel area's corners, following the window frame's curve
+    var reelMask = new PIXI.Graphics().roundRect(RX, RY, RW, RH, REEL_R).fill(0xffffff);
     L.reels.addChild(reelMask);
     var reelsBox = new PIXI.Container(); reelsBox.mask = reelMask; L.reels.addChild(reelsBox);
     var grid = [];
@@ -401,6 +402,15 @@
       g.fillStyle = vg; g.fillRect(0, 0, w, h);
     });
     for (var dv = 1; dv < REELS; dv++) { var div = new PIXI.Sprite(dividerTex); div.position.set(RX + dv * (CW + GAP) - GAP - 2, RY); L.reels.addChild(div); }
+    // The window's inner edge: a soft shadow all round and a thin lit rim, so the drums sit inside the frame.
+    var bezel = paint(RW + 8, RH + 8, function (g, w, h) {
+      g.save(); rr(g, 4, 4, RW, RH, REEL_R); g.clip();
+      g.shadowColor = "rgba(8,2,30,.9)"; g.shadowBlur = 16; g.lineWidth = 14; g.strokeStyle = "#000";
+      rr(g, -3, -3, RW + 14, RH + 14, REEL_R + 7); g.stroke();
+      g.restore();
+      rr(g, 4.5, 4.5, RW - 1, RH - 1, REEL_R); g.lineWidth = 1.5; g.strokeStyle = "rgba(190,170,255,.55)"; g.stroke();
+    });
+    bezel.position.set(RX - 4, RY - 4); L.reels.addChild(bezel);
     app.ticker.add(function (tk) { var dt = Math.min(50, tk.deltaMS); reels.forEach(function (r) { r.tick(dt); }); });   // speed: px per ms
     function cellXY(c, r) { return { x: RX + c * (CW + GAP) + CW / 2, y: RY + r * CH + CH / 2 }; }
     for (var gc = 0; gc < REELS; gc++) { var col0 = []; for (var gr = 0; gr < ROWS; gr++) col0.push(pickers[gc]()); grid.push(col0); reels[gc].setStatic(col0); }
