@@ -9,14 +9,18 @@
  *   - slot rules: the same as the backend's frozen reference engine;
  *   - wins: exact BigInt arithmetic, 1 unit = 10^-7 of the bet, each item
  *     rounded to whole sats with one draw when there is a remainder;
- *   - game versions: the API serves the current config (version 3). Versions 1
- *     and 3 have the same rules; version 2 (2026-11-08 to 2026-11-09) adds two
- *     jackpot draws after every other draw: the game's Major, then the shared
- *     Grand, a hit when randInt(oneInSats) < bet (FAIRNESS.md section 4, step 5).
- *     configFor() rebuilds a version from the current config;
- *   - jackpots (FAIRNESS.md section 8): meter() derives a cycle's target,
- *     display scale and head start from its revealed seed; verifyMeterWin()
- *     checks a win.
+ *   - game versions: the API serves the current config (version 4 from D43, before
+ *     that version 3). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
+ *     2026-11-09) adds two jackpot draws after every other draw: the game's Major,
+ *     then the shared Grand (FAIRNESS.md section 4, step 5). Version 4 has version
+ *     3's reels with its own payScale, plus the jackpots won in the game and the
+ *     collector (section 3, item 6; section 4, items 6 and 7): after the free spins,
+ *     the jackpot draws (skipped when the spin said "jackpots": false), the collect
+ *     symbols, and, when the spin filled the collector, its reward at the collect
+ *     step's bet. configFor() rebuilds an older version from the current config;
+ *   - jackpots (FAIRNESS.md section 8): meter() derives a cycle's target and head
+ *     start from its revealed seed (and the display scale of the D40 / D41 cycles);
+ *     verifyMeterWin() checks a win.
  *
  * No DOM. Works in browsers (window.TNC_Fair) and in Node 20+ (module.exports).
  */
@@ -48,15 +52,21 @@
   /* ═══════════════ Game versions ═══════════════ */
   // Version 2's jackpot draws (the same for all three games; frozen, they never change).
   var V2_JACKPOTS = { major: { oneInSats: 730000 }, grand: { oneInSats: 9300000 } };
-  /** The rules a spin of `version` was played with, built from the current config (version 3). */
+  // Versions 1 to 3 paid with these (frozen); version 4 has its own payScale (x 0.96 / 1.0001).
+  var V3_PAYSCALE = { "fruit-orchard": 1.039426, "deep-sea": 1.043096, "cosmic-voyage": 1.038924 };
+  var V4_ONLY = ["jackpots", "jackpot", "collector", "rtpParts"];
+  /** The rules a spin of `version` was played with, built from the current config (version 3 or 4). */
   function configFor(game, version) {
     version = Number(version || game.version);
-    if (game.version !== 3 || [1, 2, 3].indexOf(version) === -1) {
+    var ok = version === game.version || (version >= 1 && version <= 3 && (game.version === 3 || (game.version === 4 && V3_PAYSCALE[game.id])));
+    if (!ok) {
       throw new Error("Game version " + version + " cannot be checked with the version " + game.version + " rules the server serves.");
     }
+    if (version === game.version && version !== 2) return game;
     var g = {};
-    Object.keys(game).forEach(function (k) { if (k !== "jackpots") g[k] = game[k]; });
+    Object.keys(game).forEach(function (k) { if (V4_ONLY.indexOf(k) === -1) g[k] = game[k]; });
     g.version = version;
+    if (game.version === 4) { g.payScale = V3_PAYSCALE[game.id]; g.rtp = 1.0001; }
     if (version === 2) g.jackpots = V2_JACKPOTS;
     return g;
   }
@@ -87,7 +97,10 @@
           var limit = Math.floor(4294967296 / n) * n;
           for (;;) { var v = next32(); if (v < limit) return v % n; }
         }
-        return { next32: next32, randInt: randInt };
+        // Where the stream is now, and a way back to it (to try the reward at several bets).
+        function mark() { return [bi, off]; }
+        function reset(m) { bi = m[0]; off = m[1]; }
+        return { next32: next32, randInt: randInt, mark: mark, reset: reset };
       });
   }
 
@@ -170,6 +183,7 @@
     function round(pickers, randInt, feat) {
       var free = !!feat, fsMult = free ? feat.mult : 1, fixed = {};
       if (free && game.freeSpins.sticky) for (var sk in feat.sticky) fixed[sk] = WILD;
+      if (free && feat.locked) fixed[key(feat.locked[0], feat.locked[1])] = WILD;   // version 4: Hyperdrive
       var phases = [], respins = 0, award = 0, bonus = false, total = 0;
       var grid = spinGrid(pickers, fixed);
       for (;;) {
@@ -223,7 +237,71 @@
       return { bonus: "ladder", level: level, boosts: boosts, prize: b.levels[level] };
     }
 
-    return { makePickers: makePickers, round: round, bonusGame: bonusGame, MAX_FREE_SPINS: MAX_FREE_SPINS, WILD: WILD };
+    /* --- Version 4 (D43): jackpots in the game, the collector and its rewards (section 3, item 6) --- */
+    var TIERS = ["minor", "major", "grand"];
+    // k distinct cells: each randInt(free.length) over the cells not taken yet (reel by reel, top to bottom).
+    function randomCells(randInt, k, taken) {
+      var free = [], out = [];
+      for (var c = 0; c < REELS; c++) for (var r = 0; r < ROWS; r++) if (!taken[key(c, r)]) free.push([c, r]);
+      for (var i = 0; i < k && free.length; i++) {
+        var cell = free.splice(randInt(free.length), 1)[0];
+        taken[key(cell[0], cell[1])] = true;
+        out.push(cell);
+      }
+      return out;
+    }
+    // The clam pick: the other tiers 0 to 2 times each, shuffled with two of the won tier; the third one last.
+    function clamPick(tier, randInt) {
+      var seq = [tier, tier];
+      TIERS.forEach(function (t) { if (t !== tier) { var n = randInt(3); for (var i = 0; i < n; i++) seq.push(t); } });
+      for (var x = seq.length - 1; x > 0; x--) { var y = randInt(x + 1), t = seq[x]; seq[x] = seq[y]; seq[y] = t; }
+      seq.push(tier);
+      return seq;
+    }
+    // Grand, Major, Minor: a hit when randInt(oneInSats) < bet (all three drawn); the highest hit is won.
+    function jackpotDraw(bet, randInt, taken) {
+      var j = game.jackpot;
+      var grand = randInt(j.grand.oneInSats) < bet, major = randInt(j.major.oneInSats) < bet, minor = randInt(j.minor.oneInSats) < bet;
+      var tier = grand ? "grand" : major ? "major" : minor ? "minor" : null;
+      if (!tier) return null;
+      if (j.type === "apples") return { type: "jackpot", tier: tier, cells: randomCells(randInt, 3 + TIERS.indexOf(tier), taken) };
+      if (j.type === "clams") {
+        var oyster = randomCells(randInt, 1, taken);
+        return { type: "jackpot", tier: tier, cells: oyster, picks: clamPick(tier, randInt) };
+      }
+      var stars = randomCells(randInt, 3, taken), of = [];
+      j.slices.forEach(function (s, i) { if (s === tier) of.push(i); });
+      return { type: "jackpot", tier: tier, cells: stars, slice: of[randInt(of.length)] };
+    }
+    function collect(randInt, taken) {
+      var n = weighted(randInt, game.collector.weights);
+      return n ? randomCells(randInt, n, taken) : [];
+    }
+    // Treasure Hold & Win; values in tenths of the bet (before payScale).
+    function holdAndWin(randInt) {
+      var r = game.collector.reward, taken = {}, total = 0;
+      var vals = r.values.map(function (v) { return Math.round(v * 10); });
+      function value() { return vals[weighted(randInt, r.valueWeights)]; }
+      var start = randomCells(randInt, r.pearls, taken).map(function (c) { var v = value(); total += v; return { reel: c[0], row: c[1], value: v }; });
+      var count = start.length, left = r.respins, respins = [], land = Math.round(r.land * 1000);
+      while (left > 0 && count < REELS * ROWS) {
+        left--;
+        var landed = [];
+        for (var c = 0; c < REELS; c++) for (var row = 0; row < ROWS; row++) {
+          if (!taken[key(c, row)] && randInt(1000) < land) {
+            taken[key(c, row)] = true;
+            var v = value(); total += v;
+            landed.push({ reel: c, row: row, value: v });
+          }
+        }
+        respins.push(landed);
+        if (landed.length) { count += landed.length; left = r.respins; }
+      }
+      return { start: start, respins: respins, totalTenths: total };
+    }
+
+    return { makePickers: makePickers, round: round, bonusGame: bonusGame, MAX_FREE_SPINS: MAX_FREE_SPINS, WILD: WILD,
+             jackpotDraw: jackpotDraw, collect: collect, holdAndWin: holdAndWin };
   }
 
   /* ═══════════════ Exact wins (FAIRNESS.md section 5) ═══════════════ */
@@ -232,6 +310,7 @@
     var scat = game.symbols.findIndex(function (s) { return s.kind === "scatter"; });
     function tenths(sym, count) { return count >= 3 ? BigInt(Math.round(game.symbols[sym].pays[Math.min(count, 5) - 3] * 10)) : 0n; }
     return {
+      scale: scale,
       line: function (w) { return tenths(w.symbol, w.count) * scale * BigInt(w.wildMult); },
       scatter: function (s) { return tenths(scat, Math.min(s.count, 5)) * scale; },
       prize: function (p) { return BigInt(Math.round(p * 10)) * scale; }
@@ -244,52 +323,75 @@
   }
 
   /* ═══════════════ One paid spin, in the documented draw order ═══════════════ */
-  function play(game, bet, randInt) {
+  // opts.jackpots === false: the version 4 jackpot draws were skipped (the spin said "jackpots": false).
+  // opts.rewardBet: the spin filled the collector (its collect step: full, bet); the reward is played at it.
+  // Without rewardBet the result has `stream` and `reward(bet)` to play the reward afterwards, from the
+  // stream's position after the collect symbols, as often as needed (the fairness page tries bets with it).
+  function play(game, bet, randInt, opts, stream) {
+    opts = opts || {};
     var spinBet = bet;
     var R = rules(game), X = exact(game), pickers = R.makePickers(randInt);
     var steps = [], total = 0;
 
-    function paid(r) {
+    function paid(r, b) {
       var win = 0;
       var phases = r.phases.map(function (ph) {
         var pw = 0;
-        ph.res.lines.forEach(function (w) { pw += toSats(bet, X.line(w) * BigInt(ph.mult), randInt); });
-        if (ph.res.scatter) pw += toSats(bet, X.scatter(ph.res.scatter) * BigInt(ph.mult), randInt);
+        ph.res.lines.forEach(function (w) { pw += toSats(b, X.line(w) * BigInt(ph.mult), randInt); });
+        if (ph.res.scatter) pw += toSats(b, X.scatter(ph.res.scatter) * BigInt(ph.mult), randInt);
         win += pw;
         return { grid: ph.grid, win: pw };
       });
       return { phases: phases, win: win };
     }
-    function bonus() {
-      var b = R.bonusGame(randInt);
-      b.type = "bonus";
-      b.win = toSats(bet, X.prize(b.prize), randInt);
-      steps.push(b);
-      return b.win;
+    function bonus(b, out) {
+      var x = R.bonusGame(randInt);
+      x.type = "bonus";
+      x.win = toSats(b, X.prize(x.prize), randInt);
+      out.push(x);
+      return x.win;
     }
-
-    var base = R.round(pickers, randInt, null), bs = paid(base);
-    steps.push({ type: "spin", free: false, multiplier: 1, phases: bs.phases, win: bs.win });
-    total += bs.win;
-    if (base.bonus) total += bonus();
-    if (base.freeSpins) {
-      var fs = game.freeSpins;
-      var feat = { left: base.freeSpins, played: 0, mult: fs.progressive ? fs.progressive.start : (fs.multiplier || 1), sticky: {} };
-      steps.push({ type: "freeSpinsStart", spins: base.freeSpins });
-      var featureWin = 0;
+    // The free-spin loop (the paid spin's free spins or a reward's): pushes the steps, returns the win.
+    function freeSpins(feat, b, out) {
+      var fs = game.freeSpins, featureWin = 0;
       while (feat.left > 0 && feat.played < R.MAX_FREE_SPINS) {
         feat.left--; feat.played++;
-        var mult = feat.mult, f = R.round(pickers, randInt, feat), fr = paid(f);
-        steps.push({ type: "spin", free: true, freeSpin: feat.played, multiplier: mult, phases: fr.phases, win: fr.win });
-        total += fr.win; featureWin += fr.win;
-        if (fs.progressive && f.pay > 0) feat.mult = Math.min(fs.progressive.max, feat.mult + fs.progressive.step);
-        if (f.bonus) { var w = bonus(); total += w; featureWin += w; }
+        var mult = feat.mult, f = R.round(pickers, randInt, feat), fr = paid(f, b);
+        out.push({ type: "spin", free: true, freeSpin: feat.played, multiplier: mult, phases: fr.phases, win: fr.win });
+        featureWin += fr.win;
+        if (feat.riseStep) feat.mult = Math.min(feat.riseMax, feat.mult + feat.riseStep);   // Hyperdrive: every spin
+        else if (fs.progressive && f.pay > 0) feat.mult = Math.min(fs.progressive.max, feat.mult + fs.progressive.step);
+        if (f.bonus) featureWin += bonus(b, out);
         if (f.freeSpins) {
           var add = Math.max(0, Math.min(f.freeSpins, R.MAX_FREE_SPINS - feat.played - feat.left));
-          if (add) { feat.left += add; steps.push({ type: "retrigger", added: add, spinsLeft: feat.left }); }
+          if (add) { feat.left += add; out.push({ type: "retrigger", added: add, spinsLeft: feat.left }); }
         }
       }
-      steps.push({ type: "freeSpinsEnd", played: feat.played, win: featureWin });
+      out.push({ type: "freeSpinsEnd", played: feat.played, win: featureWin });
+      return featureWin;
+    }
+
+    var base = R.round(pickers, randInt, null), bs = paid(base, bet);
+    steps.push({ type: "spin", free: false, multiplier: 1, phases: bs.phases, win: bs.win });
+    total += bs.win;
+    if (base.bonus) total += bonus(bet, steps);
+    if (base.freeSpins) {
+      var fs = game.freeSpins;
+      steps.push({ type: "freeSpinsStart", spins: base.freeSpins });
+      total += freeSpins({ left: base.freeSpins, played: 0, mult: fs.progressive ? fs.progressive.start : (fs.multiplier || 1), sticky: {} }, bet, steps);
+    }
+    // Version 4: the jackpot draws (unless off), then the collect symbols (never on a jackpot cell).
+    var jackpot = null, collected = [];
+    if (game.jackpot || game.collector) {
+      var taken = {};
+      if (game.jackpot && opts.jackpots !== false) {
+        jackpot = R.jackpotDraw(spinBet, randInt, taken);
+        if (jackpot) steps.push(jackpot);
+      }
+      if (game.collector) {
+        collected = R.collect(randInt, taken);
+        if (collected.length) steps.push({ type: "collect", cells: collected });
+      }
     }
     // Version 2 only: the old jackpot draws (FAIRNESS.md section 4), after everything else, Major first, then Grand.
     var jackpotHits = null;
@@ -299,18 +401,62 @@
         grand: randInt(game.jackpots.grand.oneInSats) < spinBet
       };
     }
-    return { totalWin: total, steps: steps, jackpotHits: jackpotHits };
+    // The collector's reward, at its own bet, continuing the stream (section 4, item 7).
+    function reward(b) {
+      var r = game.collector.reward, out = [], win;
+      if (r.type === "freeSpins") {
+        var rise = r.rise || {};
+        out.push({ type: "rewardStart", bet: b, spins: r.spins });
+        win = freeSpins({ left: r.spins, played: 0, mult: Math.max(1, r.multiplier || 1), sticky: {},
+          riseStep: rise.step || 0, riseMax: rise.max || 0, locked: r.lockedWild || null }, b, out);
+      } else {
+        var h = R.holdAndWin(randInt);
+        win = toSats(b, BigInt(h.totalTenths) * X.scale, randInt);
+        var pearls = function (list) { return list.map(function (p) { return { reel: p.reel, row: p.row, value: p.value / 10 }; }); };
+        out.push({ type: "holdAndWin", bet: b, start: pearls(h.start), respins: h.respins.map(pearls), prize: h.totalTenths / 10, win: win });
+      }
+      return { win: win, steps: out };
+    }
+    var result = { totalWin: total, steps: steps, jackpotHits: jackpotHits, jackpot: jackpot, collected: collected.length };
+    if (collected.length && opts.rewardBet) {
+      var rw = reward(opts.rewardBet);
+      result.rewardBet = opts.rewardBet;
+      result.reward = rw;
+      result.totalWin += rw.win;
+      rw.steps.forEach(function (x) { steps.push(x); });
+    } else if (collected.length && stream && stream.mark) {
+      var at = stream.mark();
+      result.tryReward = function (b) { stream.reset(at); return reward(b); };
+    }
+    return result;
   }
 
   /**
-   * Replays one spin: { serverSeed, clientSeed, nonce, bet } with the game config.
-   * Resolves to { totalWin, steps, serverSeedHash }.
+   * Replays one spin: { serverSeed, clientSeed, nonce, bet } with the game config; opts as for play()
+   * ({ jackpots, rewardBet }), plus matchTotal: a spin's totalWin from GET /spins, which does not say
+   * whether the spin filled the collector or at what bet. If the replay has collect symbols and does
+   * not reach matchTotal, the reward is tried at every bet from the spin's bet down to 1 (the reward's
+   * bet is the spin's bet capped at the cycle's average); a match is kept as rewardBet.
+   * Resolves to { totalWin, steps, serverSeedHash, ... }.
    */
-  function replay(game, spin) {
+  function replay(game, spin, opts) {
     var blocks = 32;
     function attempt() {
       return makeStream(spin.serverSeed, spin.clientSeed, spin.nonce, blocks).then(function (st) {
-        try { return play(game, spin.bet, st.randInt); }
+        try {
+          var res = play(game, spin.bet, st.randInt, opts, st), want = opts && opts.matchTotal;
+          if (want != null && res.tryReward && res.totalWin < want) {
+            for (var b = spin.bet; b >= 1; b--) {
+              var rw = res.tryReward(b);
+              if (res.totalWin + rw.win === want) {
+                res.rewardBet = b; res.reward = rw; res.totalWin += rw.win;
+                rw.steps.forEach(function (x) { res.steps.push(x); });
+                break;
+              }
+            }
+          }
+          return res;
+        }
         catch (e) {
           if (e === NEED_MORE && blocks < 65536) { blocks *= 4; return attempt(); }
           throw e;
@@ -324,12 +470,12 @@
   }
 
   /* ═══════════════ Jackpot meters (FAIRNESS.md section 8) ═══════════════ */
-  var TWO96 = 1n << 96n, TWO32 = 1n << 32n;
+  var TWO96 = 1n << 96n, TWO32 = 1n << 32n, TWO34 = 1n << 34n;
   /**
-   * A jackpot cycle from its revealed seed (64 hex) and the tier's range in sats:
-   * resolves to { seedHash, target, displayScale, startSats } (exact BigInt
-   * arithmetic). startSats is the head start of a Major or Grand cycle; a Minor
-   * cycle starts at 0 whatever it says.
+   * A jackpot cycle from its revealed seed (64 hex) and the tier's range in sats: resolves to
+   * { seedHash, target, startSats, legacy: { displayScale, startSats } } (exact BigInt arithmetic).
+   * startSats: the head start of a cycle since D43 (25% to 75% of the target, every tier). legacy: what
+   * the D40 / D41 cycles used (a display scale; a head start of min x z / 2^32, the Minor none).
    */
   function meter(seedHex, minSats, maxSats) {
     var seed = hexToBytes(seedHex), min = BigInt(minSats), max = BigInt(maxSats);
@@ -341,30 +487,37 @@
       var v = new DataView(r[0]);
       var x = BigInt(v.getUint32(0, false)), y = BigInt(v.getUint32(4, false)), z = BigInt(v.getUint32(8, false));
       var target = min + (max - min) * x * x * x / TWO96;
-      var displayScale = target + (max - target) * y / TWO32;
-      var startSats = min * z / TWO32;
-      return { seedHash: r[1], target: Number(target), displayScale: Number(displayScale), startSats: Number(startSats) };
+      return { seedHash: r[1], target: Number(target), startSats: Number(target * (TWO32 + 2n * y) / TWO34),
+               legacy: { displayScale: Number(target + (max - target) * y / TWO32), startSats: Number(min * z / TWO32) } };
     });
   }
   /**
-   * Checks one jackpot win from GET /jackpots recentWins (seed, seedHash, tier or
-   * pool, minSats, maxSats, target, displayScale, startSats, amount). Resolves to
-   * { ok, checks: [ { id, ok, text } ], derived }.
+   * Checks one jackpot win from GET /jackpots recentWins (seed, seedHash, tier or pool, minSats, maxSats,
+   * target, startSats, amount; D40 / D41 wins also displayScale). Resolves to { ok, checks: [ { id, ok, text } ], derived }.
    */
   function verifyMeterWin(w) {
-    var minor = (w.tier || String(w.pool || "").split(":")[0]) === "minor";
+    var minor = (w.tier || String(w.pool || "").split(":")[0]) === "minor", old = w.displayScale != null;
     return meter(w.seed, w.minSats, w.maxSats).then(function (d) {
-      var start = minor ? 0 : d.startSats;
-      var checks = [
-        { id: "hash", ok: d.seedHash === String(w.seedHash).toLowerCase(),
-          text: "SHA-256 of the seed equals the seed hash published when the cycle started" },
-        { id: "target", ok: d.target === Number(w.target) && d.displayScale === Number(w.displayScale) && (w.startSats == null || start === Number(w.startSats)),
-          text: "The seed gives target " + d.target + ", display scale " + d.displayScale + " and head start " + start +
-            " (the server said " + w.target + ", " + w.displayScale + " and " + (w.startSats == null ? "nothing" : w.startSats) + ")" },
-        { id: "amount", ok: Number(w.amount) >= d.target,
-          text: "The amount won (" + w.amount + ") is at least the target (" + d.target + ")" }
-      ];
-      return { ok: checks.every(function (c) { return c.ok; }), checks: checks, derived: d };
+      var hash = { id: "hash", ok: d.seedHash === String(w.seedHash).toLowerCase(),
+        text: "SHA-256 of the seed equals the seed hash published when the cycle started" };
+      var checks;
+      if (old) {   // a D40 / D41 cycle: it paid when it reached its target
+        var start = minor ? 0 : d.legacy.startSats;
+        checks = [hash,
+          { id: "target", ok: d.target === Number(w.target) && d.legacy.displayScale === Number(w.displayScale) && (w.startSats == null || start === Number(w.startSats)),
+            text: "The seed gives target " + d.target + ", display scale " + d.legacy.displayScale + " and head start " + start +
+              " (the server said " + w.target + ", " + w.displayScale + " and " + (w.startSats == null ? "nothing" : w.startSats) + ")" },
+          { id: "amount", ok: Number(w.amount) >= d.target,
+            text: "The amount won (" + w.amount + ") is at least the target (" + d.target + ")" }];
+      } else {
+        checks = [hash,
+          { id: "target", ok: d.target === Number(w.target) && d.startSats === Number(w.startSats),
+            text: "The seed gives target " + d.target + " and head start " + d.startSats +
+              " (the server said " + w.target + " and " + (w.startSats == null ? "nothing" : w.startSats) + ")" },
+          { id: "amount", ok: Number(w.amount) >= d.startSats,
+            text: "The amount won (" + w.amount + ") is at least the head start (" + d.startSats + ") the cycle began with" }];
+      }
+      return { ok: checks.every(function (c) { return c.ok; }), checks: checks, derived: d, legacy: old };
     });
   }
 

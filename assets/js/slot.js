@@ -3,7 +3,9 @@
  *
  * A thin client of testnetcasino-service. Every outcome comes from
  * POST /spins: the server returns the whole spin as `steps[]` (reel stops,
- * respins, free spins, bonus games) and this file only animates them. Win
+ * respins, free spins, bonus games; from game config version 4 also a jackpot
+ * won in the game, the collect symbols and the collector's reward) and this
+ * file only animates them. Win
  * values arrive as whole sats and are shown as they come: in tSats by default,
  * or in tBCH with the machine's unit switch (bets are always tSats). Paytables,
  * symbols and texts come from GET /games/{id}/config. Randomness here is
@@ -138,10 +140,12 @@
     var K = kinds(game);
     var WILD = K.wild, SCAT = K.scatter, BONUS = K.bonus, TOP = K.top;
     var FS = game.freeSpins, BON = game.bonus;
-    var S = game.payScale || 1;                         // faucet boost the server applies to every payout
-    var RTP = ((game.rtp || game.stats.rtp) * 100).toFixed(2) + "%";
-    var BOOST = "+" + ((S - 1) * 100).toFixed(1) + "%";
-    function rawSats(x) { return amt(Math.floor(bet * x * S)); }   // preview of a paytable value (display only)
+    var JPC = game.jackpot || null, COL = game.collector || null;   // version 4: jackpots in the game, the collector
+    var S = game.payScale || 1;                         // the server's scale on every paytable value
+    function pct(x) { return String(+(x * 100).toFixed(2)) + "%"; }
+    var RTP = pct(game.rtp || game.stats.rtp);
+    var PARTS = game.rtpParts || null;                   // { game, collector, jackpots }
+    function rawSats(x) { return amt(Math.floor(playBet * x * S)); }   // preview of a paytable value (display only)
     var flavor = FLAVOR[game.theme] || FLAVOR.orchard;
     var pickers = makePickers(game);
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -159,6 +163,7 @@
     var reelsTurning = false, stopReq = false, stopWake = null;
     var settle = 0;            // ms the last win's animations still need before the next spin
     var bet = clampBet(parseInt(sessionGet("tnc.bet." + id), 10) || 10);
+    var playBet = bet;         // the bet the current step is played at: the spin's, or a collector reward's
     var balShown = currentBalance();
     var grid = [];
     for (var gc = 0; gc < REELS; gc++) grid.push(picksFor(gc, ROWS));
@@ -177,9 +182,10 @@
           '<li><span class="e">' + syms[SCAT].emoji + '</span>' + esc(FS.name) + '</li>' +
           '<li><span class="e">' + syms[BONUS].emoji + '</span>' + esc(BON.name) + ' Bonus</li>' +
         '</ul><div class="fs-sign" id="fs-sign" hidden></div></div>',
-      // The reels and, beside them (under them on phones), the Minor jackpot's own screen: items
-      // falling into a pile as the Minor grows (filled by jackpots.js).
-      reels: '<div class="reel-bay"><div class="reels-window" id="reels-window" role="img" aria-label="Slot reels">' +
+      // The reels and, beside them (under them on phones), the collector's own screen: the game's
+      // shared fill meter (filled by jackpots.js). cell-fx: jackpot and collect symbols drawn over
+      // the reels, and the collect symbols flying into the meter.
+      reels: '<div class="reel-bay' + (COL ? '' : ' no-collector') + '"><div class="reels-window" id="reels-window" role="img" aria-label="Slot reels">' +
           new Array(REELS + 1).join('<div class="reel"><div class="reel-strip"></div></div>') +
           '<div class="sticky-layer" id="sticky-layer" aria-hidden="true"></div>' +
           '<svg class="paylines-svg" id="paylines" aria-hidden="true"></svg>' +
@@ -187,10 +193,12 @@
           '<div class="win-banner" id="win-banner" aria-hidden="true"><div class="rays"></div>' +
             '<div class="wb-title" id="wb-title"></div><div class="wb-amount" id="wb-amount"></div></div>' +
         '</div>' +
-        '<div class="minor-screen mn-' + esc(game.theme) + '" data-meter="minor:' + esc(id) + '">' +
-          '<span class="mn-sign" aria-hidden="true">MINOR</span><span class="mn-scene" aria-hidden="true"></span>' +
-          '<span class="mn-pile" aria-hidden="true"></span><span class="mn-won" aria-hidden="true">WON!</span>' +
-        '</div></div>' +
+        (COL ? '<div class="collector-screen cl-' + esc(game.theme) + '" data-collector="' + esc(id) + '" data-collector-name="' + esc(COL.name) + '">' +
+          '<span class="cl-sign" aria-hidden="true">' + esc(COL.name.toUpperCase()) + '</span><span class="cl-scene" aria-hidden="true"></span>' +
+          (game.theme === "cosmic" ? '<span class="cl-tank" aria-hidden="true"><span class="cl-level"></span></span>' : '<span class="cl-pile" aria-hidden="true"></span>') +
+          '<span class="cl-count" aria-hidden="true"></span><span class="cl-full" aria-hidden="true">FULL!</span>' +
+        '</div>' : '') +
+        '<div class="cell-fx" id="cell-fx" aria-hidden="true"></div></div>' +
         '<div class="m-lock" id="m-lock" hidden><a class="btn-red m-lock-btn" id="m-lock-btn" href="#">🔑 Sign in to play</a>' +
           '<p>New accounts get 10,000 free tSats (0.0001 tBCH).</p></div>',
       lcd: function (extra) {
@@ -215,14 +223,18 @@
           '</div>' +
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
-      // Jackpots at the top of the machine (filled by jackpots.js): the shared GRAND (one style
-      // on every machine, the most prominent) and this game's MAJOR as live prize amounts in the
-      // machine's unit. This game's MINOR has its own screen beside the reels (see reels).
+      // Jackpots at the top of the machine (filled by jackpots.js), like real progressive displays:
+      // the shared GRAND (one style on every machine, the most prominent), then this game's MAJOR
+      // and MINOR side by side, as live prize amounts in the machine's unit.
       jackpots: '<div class="jp-rows" role="group" aria-label="Jackpots">' +
           '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span>' +
             '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
-          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span>' +
-            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
+          '<div class="jp-pair">' +
+            '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span>' +
+              '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
+            '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span>' +
+              '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="minor:' + esc(id) + '">…</span></div>' +
+          '</div>' +
         '</div>'
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
@@ -383,7 +395,7 @@
           '<li><b>' + syms[SCAT].emoji + ' ' + esc(FS.name) + ':</b> 3, 4 or 5 scatters anywhere award ' + FS.awards.join(" / ") + ' free spins. ' + esc(FS.text) + ' Free spins can retrigger (up to ' + MAX_FREE_SPINS + ').</li>' +
           '<li><b>' + syms[BONUS].emoji + ' ' + esc(BON.name) + ' Bonus:</b> land ' + syms[BONUS].emoji + ' on reels 1, 3 and 5 at once. ' + esc(BON.text) + ' ' + esc(bonusDetail) + '</li>' +
         '</ul></div>' + jackpotRules() +
-        '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet, plus the ' + BOOST + ' faucet boost</div><div class="pt-grid">' + items + '</div></div>' +
+        '<div class="pt-section"><div class="pt-h">Symbols · pays × total bet</div><div class="pt-grid">' + items + '</div></div>' +
         '<div class="pt-section"><div class="pt-h">How to win</div><ul class="rules">' +
           '<li><b>Line wins:</b> 3, 4 or 5 matching symbols on a payline, starting from the leftmost reel. Every winning line pays and they add up.</li>' +
           '<li><b>' + syms[WILD].emoji + ' Wild:</b> stands in for every symbol except ' + syms[SCAT].emoji + ' and ' + syms[BONUS].emoji + '.</li>' +
@@ -391,30 +403,38 @@
         '</ul></div>' +
         '<div class="pt-section"><div class="pt-h">10 paylines</div><ol class="lines-grid">' + lines + '</ol></div>' +
         '<div class="pt-section"><div class="pt-h">Machine stats</div><dl class="facts">' +
-          '<div><dt>RTP</dt><dd>' + RTP + ' (the game)</dd></div>' +
-          '<div><dt>Jackpots</dt><dd>Extra, from the faucet</dd></div>' +
-          '<div><dt>Faucet boost</dt><dd>' + BOOST + '</dd></div>' +
+          '<div><dt>RTP</dt><dd>' + RTP + (PARTS ? ' in all' : '') + '</dd></div>' +
+          (PARTS ? '<div><dt>Reels, free spins, bonus</dt><dd>' + pct(PARTS.game) + '</dd></div>' +
+            (COL ? '<div><dt>' + esc(COL.name) + '</dt><dd>' + pct(PARTS.collector) + '</dd></div>' : '') +
+            '<div><dt>Jackpots</dt><dd>' + pct(PARTS.jackpots) + '</dd></div>' : '') +
           '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
           '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
           '<div><dt>Bonus</dt><dd>1 in ' + game.stats.bonusEvery + '</dd></div>' +
           '<div><dt>Volatility</dt><dd>' + esc(game.volatility) + '</dd></div>' +
-        '</dl><p class="pt-note">This is a faucet, so the machine pays back slightly more than it takes in: every win, including free spins and bonus prizes, gets a ' + BOOST +
-          ' faucet boost on top of the paytable, for an RTP of ' + RTP + '. Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
-          'RTP and rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'The jackpot meters come on top: the faucet pays them, nothing is taken from your bets. ' +
+        '</dl><p class="pt-note">This is a faucet, so the machine pays back more than it takes in: an RTP of ' + RTP +
+          (PARTS ? ' with everything included: the reels, free spins and bonus ' + pct(PARTS.game) + (COL ? ', the ' + esc(COL.name) + "'s " + esc(COL.reward.name) + ' ' + pct(PARTS.collector) : '') +
+            ' and the jackpots ' + pct(PARTS.jackpots) + '. ' : '. ') +
+          'Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
+          'Rates were measured over ' + game.stats.spins + ' simulated spins. ' +
           'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
         '</details>';
     }
 
-    // The jackpots in plain words (D40, D41: a gift from the faucet, outside the RTP).
+    // The jackpots and the collector in plain words (D43: inside the RTP, won in the game).
     function jackpotRules() {
-      return '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
-        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet grows this machine\'s 🪙 Minor and ⭐ Major and the 🏆 Grand shared by all machines. Nothing is taken from your bet.</li>' +
-        '<li>Every tSat you bet adds 1 tSat to the Minor, 3 to the Major and 10 to the Grand.</li>' +
-        '<li>Each one has a hidden target, fixed when it starts. The spin that reaches it wins everything it holds. When that happens is a surprise.</li>' +
-        '<li>The Major and the Grand show their prize and never start from zero: after a win the faucet gives the next one a head start. The Minor is a coin pot that starts empty after a win.</li>' +
-        '<li>Provably fair: each jackpot publishes the SHA-256 hash of its secret seed when it starts, and the win reveals the seed. Anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
-      '</ul></div>';
+      if (!JPC) return "";
+      var out = '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
+        '<li><b>' + JPC.emoji + ' ' + esc(JPC.name) + ':</b> ' + esc(JPC.text) + '</li>' +
+        '<li>Every bet adds ' + pct(JPC.minor.contribution) + ' of itself to this machine\'s MINOR, ' + pct(JPC.major.contribution) +
+          ' to its MAJOR and ' + pct(JPC.grand.contribution) + ' to the GRAND shared by all machines. A win takes everything the jackpot holds.</li>' +
+        '<li>After a win the next one starts with a head start from the faucet, so it never shows zero.</li>' +
+        '<li>Provably fair: whether a spin wins a jackpot comes from its seeds, like the rest of the spin. Each jackpot also publishes the SHA-256 hash of a secret seed that fixes its head start; anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
+        '</ul></div>';
+      if (COL) out += '<div class="pt-section"><div class="pt-h">' + esc(COL.name) + '</div><ul class="rules">' +
+        '<li><b>' + COL.emoji + ' ' + esc(COL.symbolName) + ':</b> ' + esc(COL.text) + '</li>' +
+        '<li><b>' + esc(COL.reward.name) + ':</b> ' + esc(COL.reward.text) + ' Played at your bet, at most the average bet that filled it.</li>' +
+        '</ul></div>';
+      return out;
     }
 
     function cellHtml(i) {
@@ -610,8 +630,8 @@
     function tierOf(ph, total) {
       var jp = (ph.lines || []).filter(function (w) { return w.count === 5 && (w.symbol === WILD || w.symbol === TOP); })[0];
       if (jp) return { tier: "jackpot", jp: jp };
-      if (total >= bet * 50) return { tier: "mega" };
-      if (total >= bet * 10) return { tier: "big" };
+      if (total >= playBet * 50) return { tier: "mega" };
+      if (total >= playBet * 10) return { tier: "big" };
       if (total > 0) return { tier: "win" };
       return { tier: "none" };
     }
@@ -761,8 +781,8 @@
     }
     function renderLcdSub() {
       if (feature) {
-        lcdSub.textContent = "Free spin " + feature.played + " / " + (feature.played + feature.left) +
-          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + " · feature won " + amt(feature.total);
+        lcdSub.textContent = (feature.reward ? feature.name + " " : "Free spin ") + feature.played + " / " + (feature.played + feature.left) +
+          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + (feature.reward ? " · bet " + fmt(playBet) + " tSats" : "") + " · won " + amt(feature.total);
       } else {
         lcdSub.textContent = "Bet " + fmt(bet) + " tSats · 10 lines";
       }
@@ -797,7 +817,8 @@
       fsSign.hidden = false;
       var extra = "";
       if (FS.sticky) extra = '<span>' + syms[WILD].emoji + ' STICKY ' + feature.sticky + '</span>';
-      fsSign.innerHTML = '<span><span class="e">' + syms[SCAT].emoji + '</span> FREE SPINS</span><span>' + feature.left + ' LEFT</span>' +
+      else if (feature.locked) extra = '<span>' + syms[WILD].emoji + ' LOCKED</span>';
+      fsSign.innerHTML = '<span><span class="e">' + (feature.reward ? feature.emoji : syms[SCAT].emoji) + '</span> ' + (feature.reward ? esc(feature.name.toUpperCase()) : 'FREE SPINS') + '</span><span>' + feature.left + ' LEFT</span>' +
         (feature.mult > 1 || FS.progressive ? '<span class="mult">WINS ×' + feature.mult + '</span>' : '') + extra +
         '<span>WON ' + amt(feature.total) + '</span>';
     }
@@ -909,7 +930,10 @@
       var token = ++presentToken;
       if (!prespun) { hideBanner(); clearWins(); meterWin.textContent = "0"; winShown = 0; }
       if (free) {
-        if (feature.played > 0 && st.multiplier > feature.mult) { toast("🌊 THE TIDE RISES: WINS ×" + st.multiplier + "!", "feat"); sfx.feature(); }
+        if (feature.played > 0 && st.multiplier > feature.mult) {
+          toast((feature.reward ? feature.emoji + " " + feature.name.toUpperCase() : "🌊 THE TIDE RISES") + ": WINS ×" + st.multiplier + "!", "feat");
+          sfx.feature();
+        }
         feature.played = st.freeSpin;
         feature.left = st.spinsLeft;
         feature.mult = st.multiplier;
@@ -931,6 +955,7 @@
           await sleep(reduce ? 300 : 900);
         }
         if (feature && FS.sticky) { feature.sticky = fixedKeys.length; renderFeature(); }
+        if (pi === 0) clearCellFx();
         renderSticky(fixedKeys);
         if (!(prespun && pi === 0)) {
           sfx.spinStart();
@@ -969,6 +994,7 @@
         renderFeature();
         renderLcdSub();
       }
+      if (!free) firstGrid = phases.length ? phases[0].grid : grid;
       addHistory(free ? "free spin" : "bet " + fmt(bet) + " tSats", free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
       return WAIT[lastTier];
     }
@@ -999,7 +1025,7 @@
       stage.hidden = true;
       stage.innerHTML = "";
       token = ++presentToken;
-      var tier = won >= bet * 50 ? "mega" : won >= bet * 10 ? "big" : won > 0 ? "win" : "none";
+      var tier = won >= playBet * 50 ? "mega" : won >= playBet * 10 ? "big" : won > 0 ? "win" : "none";
       if (won > 0) {
         setLcd(BON.name + " paid " + fmtMult(script.prize) + "× = " + amt(won), "win");
         celebrate(won, tier === "win" ? "big" : tier, token, "BONUS WIN!");
@@ -1189,6 +1215,7 @@
       setTimeout(function () { spinBtn.classList.remove("pressed"); }, 160);
       sfx.press();
       busy = true;
+      playBet = bet;
       updateControls();
       // The meters stay as they are until the spin has played out (no spoilers), then are read again.
       if (window.TNC_Jackpots) window.TNC_Jackpots.hold();
@@ -1219,6 +1246,9 @@
         if (window.TNC_Jackpots) window.TNC_Jackpots.release();
         busy = false;
         feature = null;
+        playBet = bet;
+        clearCellFx();
+        machine.classList.remove("in-feature", "in-reward");
         renderFeature();
         if (Auth) Auth.setBalance(r.data.balance);
         syncBalance();
@@ -1273,7 +1303,7 @@
       for (var i = 0; i < steps.length; i++) {
         var st = steps[i];
         if (st.type === "spin") {
-          if (st.free && i > 0 && steps[i - 1].type !== "freeSpinsStart") await sleep(Math.max(reduce ? 400 : 900, wait));
+          if (st.free && i > 0 && steps[i - 1].type !== "freeSpinsStart" && steps[i - 1].type !== "rewardStart") await sleep(Math.max(reduce ? 400 : 900, wait));
           wait = await playSpinStep(st, first);
           first = false;
         } else if (st.type === "bonus") {
@@ -1289,46 +1319,377 @@
           toast(syms[SCAT].emoji + " RETRIGGER +" + st.added + "!", "feat");
           sfx.scatter(5);
         } else if (st.type === "freeSpinsEnd") {
+          var wasReward = !!(feature && feature.reward);
           await sleep(Math.max(reduce ? 400 : 900, wait));
           endFeature(st);
+          if (wasReward) rewardDone();
           wait = 0;
         } else if (st.type === "jackpot") {
-          // Always the last steps, smallest first: a spin can win the Minor, Major and Grand.
-          await sleep(Math.max(reduce ? 500 : 1200, wait));
-          await celebrateJackpot(st);
+          await sleep(Math.max(reduce ? 400 : 900, Math.min(wait, 1500)));
+          if (st.cells) await showJackpot(st); else await celebrateJackpot(st);   // st.cells: won in the game (version 4)
+          wait = 0;
+        } else if (st.type === "collect") {
+          await sleep(reduce ? 150 : Math.min(wait, 600));
+          await playCollect(st);
+          wait = st.full ? 0 : wait;
+        } else if (st.type === "rewardStart") {
+          await sleep(reduce ? 300 : 700);
+          await startReward(st);
+          wait = 0;
+        } else if (st.type === "holdAndWin") {
+          await sleep(reduce ? 300 : 700);
+          await playHoldAndWin(st);
+          rewardDone();
           wait = 0;
         }
       }
     }
 
-    // A jackpot paid out: its own celebration (the Minor: the coin pot bursts; the Major: big; the
-    // Grand: biggest), with the amount in tBCH. The jackpots are read again when the spin ends.
+    /* --- Version 4: symbols over the paid spin's first grid (jackpot and collect symbols) --- */
+    // They are drawn on top of the symbols (which still pay as shown). If respins or free spins
+    // came in between, the paid spin's first grid is put back first.
+    var firstGrid = null, cellFx = $("#cell-fx"), reelBay = reelsWin.parentNode;
+    function bayBox(el) {   // an element's layout box relative to the reel bay (untransformed, like the paylines)
+      var x = 0, y = 0, e = el;
+      while (e && e !== reelBay) { x += e.offsetLeft; y += e.offsetTop; e = e.offsetParent; }
+      return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight };
+    }
+    function cellBox(c, r) {
+      var b = bayBox(reelEls[c]), h = b.h / ROWS;
+      return { x: b.x, y: b.y + r * h, w: b.w, h: h };
+    }
+    function clearCellFx() { if (cellFx) cellFx.textContent = ""; reelsWin.classList.remove("has-fx"); }
+    function backToFirstGrid() {
+      if (!firstGrid) return;
+      var same = firstGrid.every(function (col, c) { return col.every(function (v, r) { return grid[c] && grid[c][r] === v; }); });
+      if (same) return false;
+      renderSticky([]);
+      reelEls.forEach(function (r) { r.classList.remove("expanded"); });
+      for (var c = 0; c < REELS; c++) setStatic(c, firstGrid[c]);
+      grid = firstGrid;
+      return true;
+    }
+    function overlay(cells, emoji, cls, stagger) {
+      return cells.map(function (rc, k) {
+        var b = cellBox(rc[0], rc[1]), o = document.createElement("div");
+        o.className = "ov-sym " + cls;
+        o.style.cssText = "left:" + b.x + "px;top:" + b.y + "px;width:" + b.w + "px;height:" + b.h + "px;" +
+          (stagger && !reduce ? "animation-delay:" + (k * stagger) + "ms" : "");
+        o.innerHTML = '<span class="g">' + emoji + '</span>';
+        cellFx.appendChild(o);
+        return o;
+      });
+    }
+
+    /* --- A jackpot won in the game: each game shows it its own way, then the celebration --- */
+    var TIER_NAMES = { minor: "MINOR", major: "MAJOR", grand: "GRAND" };
+    async function showJackpot(st) {
+      var token = ++presentToken, tier = st.tier;
+      hideBanner();
+      clearWins();
+      clearCellFx();
+      if (backToFirstGrid()) { setLcd("Back to your spin…", ""); await sleep(reduce ? 200 : 500); }
+      reelsWin.classList.add("has-fx");
+      var type = JPC.type;
+      overlay(st.cells, JPC.emoji, "ov-jackpot ov-" + type, type === "apples" ? 260 : 220);
+      sfx.scatter(st.cells.length);
+      if (type === "apples") {
+        setLcd(st.cells.length + " " + JPC.emoji + " " + JPC.name + ": the " + TIER_NAMES[tier] + " JACKPOT!", "win blink");
+        toast(new Array(st.cells.length + 1).join(JPC.emoji) + " " + TIER_NAMES[tier] + "!", "feat");
+        await sleep(reduce ? 600 : 1400 + st.cells.length * 260);
+      } else if (type === "clams") {
+        setLcd(JPC.emoji + " " + JPC.name + "! Open the clams until three match.", "win blink");
+        toast(JPC.emoji + " " + JPC.name.toUpperCase() + "!", "feat");
+        await sleep(reduce ? 500 : 1500);
+        await openStage("jackpot-clams", function (done) { playClams(st, done); });
+      } else {
+        setLcd("3 " + JPC.emoji + " shooting stars! The " + JPC.name + " spins.", "win blink");
+        toast("3 " + JPC.emoji + " " + JPC.name.toUpperCase() + "!", "feat");
+        await sleep(reduce ? 500 : 1500);
+        await openStage("jackpot-wheel", function (done) { playStarWheel(st, done); });
+      }
+      await celebrateJackpot(st);
+    }
+    // The bonus stage, for a jackpot pick or wheel and the Hold & Win.
+    function openStage(cls, run) {
+      return new Promise(function (resolve) {
+        stage.hidden = false;
+        stage.className = "bonus-stage " + cls;
+        updateControls();
+        run(function () {
+          setTimeout(function () { stage.hidden = true; stage.innerHTML = ""; updateControls(); resolve(); }, reduce ? 300 : 1100);
+        });
+      });
+    }
+    // Deep Sea: 7 clams. The player opens them (or Auto); they reveal `picks` in order, the last one
+    // the third of the won tier. The clams left closed get the other tiers, at most two of each, so
+    // only the won tier ever shows three.
+    function playClams(st, done) {
+      var picks = st.picks || [st.tier, st.tier, st.tier], N = 7, opened = 0, count = { minor: 0, major: 0, grand: 0 }, autoTimer = null, finished = false;
+      stage.innerHTML = stageHead("🦪 MAGIC OYSTER", "Open the clams! Three alike win that jackpot.") +
+        '<div class="clam-tally">' + ["grand", "major", "minor"].map(function (t) {
+          return '<span class="ct ct-' + t + '" data-t="' + t + '"><b>' + TIER_NAMES[t] + '</b><i></i><i></i><i></i></span>';
+        }).join("") + '</div>' +
+        '<div class="clam-bed">' + new Array(N + 1).join('<button type="button" class="clam"><span class="clam-shell">🐚</span></button>') + '</div>' +
+        '<div class="bs-foot"><span class="bs-total" id="bs-total"></span><button type="button" class="btn-ghost" id="bs-auto">Auto open</button></div>';
+      var clams = Array.prototype.slice.call(stage.querySelectorAll(".clam")), sub = $("#bs-sub");
+      clams[0].focus({ preventScroll: true });
+      function mark(t) {
+        count[t]++;
+        var pips = stage.querySelectorAll('.ct-' + t + ' i');
+        if (pips[count[t] - 1]) pips[count[t] - 1].classList.add("on");
+      }
+      function reveal(c) {
+        if (finished || c.disabled) return;
+        var t = picks[opened++];
+        c.disabled = true;
+        c.classList.add("open", "t-" + t);
+        c.innerHTML = '<span class="clam-pearl"></span><small>' + TIER_NAMES[t] + '</small>';
+        mark(t);
+        sfx.reveal(t === "grand" ? 25 : t === "major" ? 10 : 3);
+        if (opened < picks.length) { sub.textContent = TIER_NAMES[t] + "! Keep opening…"; return; }
+        finished = true;
+        clearInterval(autoTimer);
+        stage.querySelector('.ct-' + st.tier).classList.add("won");
+        sub.textContent = "Three " + TIER_NAMES[st.tier] + " pearls: the " + TIER_NAMES[st.tier] + " JACKPOT!";
+        sfx.collect();
+        // What the closed clams held: the other tiers, up to two of each (never a second set of three).
+        var fill = [];
+        ["minor", "major", "grand"].forEach(function (x) { if (x !== st.tier) for (var k = count[x]; k < 2; k++) fill.push(x); });
+        for (var j = fill.length - 1; j > 0; j--) { var y = rnd(j + 1), tmp = fill[j]; fill[j] = fill[y]; fill[y] = tmp; }
+        clams.filter(function (x) { return !x.disabled; }).forEach(function (x, k) {
+          var f = fill[k % fill.length] || (st.tier === "minor" ? "major" : "minor");
+          x.disabled = true;
+          x.classList.add("open", "ghost", "t-" + f);
+          x.innerHTML = '<span class="clam-pearl"></span><small>' + TIER_NAMES[f] + '</small>';
+        });
+        setTimeout(done, reduce ? 500 : 1400);
+      }
+      clams.forEach(function (c) { c.addEventListener("click", function () { reveal(c); }); });
+      function auto() {
+        var btn = $("#bs-auto");
+        if (btn) btn.disabled = true;
+        clearInterval(autoTimer);
+        autoTimer = setInterval(function () {
+          var left = clams.filter(function (x) { return !x.disabled; });
+          if (!left.length || finished) return clearInterval(autoTimer);
+          reveal(left[rnd(left.length)]);
+        }, reduce ? 200 : 650);
+      }
+      $("#bs-auto").addEventListener("click", auto);
+      setTimeout(function () { if (!finished && !opened && !stage.hidden) auto(); }, 12000);   // opens by itself if left idle
+    }
+    // Cosmic Voyage: the Star Map Wheel (config jackpot.slices) stops on `slice`.
+    function playStarWheel(st, done) {
+      var slices = JPC.slices || ["minor", "major", "minor", "grand"], n = slices.length, seg = 360 / n, R = 100;
+      var colors = { minor: "#1f6fb2", major: "#7b3fe4", grand: "#e0313f" };
+      var paths = slices.map(function (t, i) {
+        var a0 = (i * seg - 90) * Math.PI / 180, a1 = ((i + 1) * seg - 90) * Math.PI / 180;
+        var x0 = R * Math.cos(a0), y0 = R * Math.sin(a0), x1 = R * Math.cos(a1), y1 = R * Math.sin(a1);
+        var am = ((i + 0.5) * seg - 90) * Math.PI / 180, tx = 64 * Math.cos(am), ty = 64 * Math.sin(am);
+        return '<path d="M0,0 L' + x0.toFixed(2) + ',' + y0.toFixed(2) + ' A' + R + ',' + R + ' 0 0 1 ' + x1.toFixed(2) + ',' + y1.toFixed(2) + ' Z" fill="' +
+          colors[t] + '" stroke="#9ff0ff" stroke-width="1" data-i="' + i + '"/>' +
+          '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" transform="rotate(' + ((i + 0.5) * seg) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')" ' +
+          'class="wheel-txt sw-' + t + '">' + TIER_NAMES[t] + '</text>';
+      }).join("");
+      stage.innerHTML = stageHead("🌠 " + JPC.name.toUpperCase(), "Spin the wheel for your jackpot!") +
+        '<div class="wheel-wrap"><div class="wheel-pointer">▼</div>' +
+        '<svg class="wheel star-wheel" viewBox="-110 -110 220 220" aria-hidden="true"><g id="wheel-g">' + paths +
+        '<circle r="16" fill="#120a2e" stroke="#9ff0ff" stroke-width="3"/><text class="wheel-hub" y="5">🌠</text></g>' +
+        '<circle r="104" fill="none" stroke="#8a46f0" stroke-width="7"/></svg>' +
+        '<button type="button" class="btn-red wheel-btn" id="wheel-btn">SPIN THE WHEEL</button></div>';
+      var g = $("#wheel-g"), btn = $("#wheel-btn"), sub = $("#bs-sub"), started = false;
+      btn.focus({ preventScroll: true });
+      function go() {
+        if (started) return;
+        started = true;
+        btn.disabled = true;
+        sub.textContent = "The stars are turning…";
+        var idx = st.slice != null ? st.slice : slices.indexOf(st.tier);
+        var jitter = (Math.random() - 0.5) * seg * 0.6;
+        var target = 360 * 5 + (360 - (idx + 0.5) * seg) + jitter;
+        var dur = reduce ? 800 : 4600, t0 = performance.now(), lastSeg = -1;
+        (function frame() {
+          var p = Math.min(1, (performance.now() - t0) / dur), a = target * (1 - Math.pow(1 - p, 4));
+          g.setAttribute("transform", "rotate(" + a.toFixed(2) + ")");
+          var sgi = Math.floor(a / seg);
+          if (sgi !== lastSeg) { lastSeg = sgi; sfx.wheelTick(); }
+          if (p < 1) requestAnimationFrame(frame);
+          else {
+            var win = g.querySelector('path[data-i="' + idx + '"]');
+            if (win) win.classList.add("win-seg");
+            sub.textContent = "The wheel stops on the " + TIER_NAMES[st.tier] + " JACKPOT!";
+            sfx.wheelStop();
+            setTimeout(done, reduce ? 400 : 900);
+          }
+        }());
+      }
+      btn.addEventListener("click", go);
+      setTimeout(function () { if (!started && !stage.hidden) go(); }, 9000);   // spins by itself if left idle
+    }
+
+    /* --- Collect symbols: onto their cells, then into the meter beside the reels --- */
+    async function playCollect(st) {
+      if (!COL || !st.cells || !st.cells.length) {
+        if (st.filled != null && window.TNC_Jackpots) TNC_Jackpots.collect(id, st.filled, st.size, !!st.full);
+        return;
+      }
+      // The paylines belong to the grid that was on screen; the list of wins under the reels stays.
+      if (backToFirstGrid()) { svg.innerHTML = ""; reelsWin.classList.remove("has-win", "has-focus"); await sleep(reduce ? 150 : 400); }
+      var items = overlay(st.cells, COL.emoji, "ov-collect", 140);
+      sfx.chip();
+      await sleep(reduce ? 200 : 650 + st.cells.length * 140);
+      var meter = reelBay.querySelector(".collector-screen"), mb = meter && bayBox(meter);
+      if (mb && meter.offsetWidth) {
+        items.forEach(function (o, k) {
+          var x = mb.x + mb.w / 2 - (o.offsetLeft + o.offsetWidth / 2), y = mb.y + mb.h * 0.45 - (o.offsetTop + o.offsetHeight / 2);
+          o.style.setProperty("--fx", x + "px");
+          o.style.setProperty("--fy", y + "px");
+          o.style.animationDelay = (k * 90) + "ms";
+          o.classList.add("ov-fly");
+        });
+        await sleep(reduce ? 150 : 700 + items.length * 90);
+      }
+      items.forEach(function (o) { o.remove(); });
+      if (window.TNC_Jackpots) TNC_Jackpots.collect(id, st.filled, st.size, !!st.full);
+      sfx.collect();
+      if (st.filled != null && !st.full) {
+        lcdSub.textContent = COL.emoji + " +" + st.cells.length + " · " + COL.name + " " + fmt(st.filled) + " / " + fmt(st.size);
+      }
+      if (st.full) {
+        var token = ++presentToken;
+        hideBanner();
+        clearWins();
+        clearCellFx();
+        showBanner("free", COL.name.toUpperCase() + " FULL!", COL.reward.name.toUpperCase());
+        machine.classList.add("celebrate");
+        setLcd(COL.emoji + " You filled the " + COL.name + "! " + COL.reward.name + " at " + fmt(st.bet || bet) + " tSats a spin.", "win blink");
+        sfx.freeSpins();
+        fx.burst([COL.emoji, "✨"].concat(flavor.burst), 40);
+        await sleep(reduce ? 900 : 2600);
+        if (token === presentToken) hideBanner();
+      }
+    }
+
+    /* --- The collector's reward --- */
+    // Harvest Festival, Hyperdrive: free spins at the reward's bet (the steps that follow).
+    async function startReward(st) {
+      var R = COL.reward;
+      playBet = st.bet || bet;
+      feature = { left: st.spins, played: 0, total: 0, sticky: 0, mult: Math.max(1, R.multiplier || 1),
+                  reward: true, name: R.name, emoji: COL.emoji, locked: R.lockedWild || null };
+      updateControls();
+      renderFeature();
+      var token = ++presentToken;
+      hideBanner();
+      clearWins();
+      showBanner("free", R.name.toUpperCase() + "!", st.spins + " SPINS" + (R.multiplier > 1 ? " · WINS ×" + R.multiplier : R.rise ? " · RISING ×" : ""));
+      machine.classList.add("celebrate", "in-feature", "in-reward");
+      setLcd(R.name + ": " + st.spins + " free spins at " + fmt(playBet) + " tSats!", "win blink");
+      sfx.freeSpins();
+      fx.burst(flavor.burst, 30);
+      await sleep(reduce ? 900 : 2400);
+      if (token === presentToken) hideBanner();
+    }
+    function rewardDone() {
+      playBet = bet;
+      machine.classList.remove("in-reward");
+      if (window.TNC_Jackpots) TNC_Jackpots.collectorDone(id);
+    }
+    // Treasure Hold & Win: pearls lock on a 5 × 3 board, every respin may add more (and resets the
+    // respins to 3); each pearl shows its value × the reward's bet; then the total win.
+    function playHoldAndWin(st) {
+      var R = COL.reward, b = st.bet || bet;
+      playBet = b;
+      return openStage("bonus-hold", function (done) {
+        var left = R.respins, sum = 0, token = ++presentToken;
+        stage.innerHTML = stageHead("🪙 " + R.name.toUpperCase(), "The pearls lock in place. New pearls reset the respins to " + R.respins + ".") +
+          '<div class="hw-info"><span>RESPINS <b id="hw-left">' + left + '</b></span><span>BET <b>' + fmt(b) + ' tSats</b></span></div>' +
+          '<div class="hw-board" id="hw-board">' + new Array(REELS * ROWS + 1).join('<span class="hw-cell"></span>') + '</div>' +
+          '<div class="bs-foot"><span class="bs-total" id="bs-total">0</span></div>';
+        var cells = stage.querySelectorAll(".hw-cell"), leftEl = $("#hw-left"), totalEl = $("#bs-total"), sub = $("#bs-sub");
+        function place(p, k) {
+          var c = cells[p.row * REELS + p.reel], v = p.value * b;
+          c.className = "hw-cell pearl" + (p.value >= 10 ? " big" : "");
+          c.style.animationDelay = reduce ? "" : (k * 120) + "ms";
+          c.innerHTML = '<span class="hw-p"></span><small>' + amt(Math.round(v)) + '</small>';
+          sum += v;
+        }
+        function showSum() { totalEl.textContent = "≈ " + amt(Math.round(sum * S)); }
+        (async function () {
+          (st.start || []).forEach(place);
+          showSum();
+          sfx.reveal(5);
+          setLcd(R.name + ": " + (st.start || []).length + " pearls locked!", "win");
+          await sleep(reduce ? 400 : 1300);
+          var respins = st.respins || [];
+          for (var i = 0; i < respins.length; i++) {
+            stage.querySelector("#hw-board").classList.add("spinning");
+            left--;
+            leftEl.textContent = left;
+            sfx.spinStart();
+            await sleep(reduce ? 150 : 700);
+            stage.querySelector("#hw-board").classList.remove("spinning");
+            var landed = respins[i];
+            if (landed.length) {
+              landed.forEach(place);
+              showSum();
+              left = R.respins;
+              leftEl.textContent = left;
+              leftEl.parentNode.classList.remove("reset"); void leftEl.offsetWidth; leftEl.parentNode.classList.add("reset");
+              sub.textContent = "+" + landed.length + " pearl" + (landed.length > 1 ? "s" : "") + "! Respins back to " + R.respins + ".";
+              sfx.reveal(10);
+            } else {
+              sub.textContent = left ? "No new pearl. " + left + " respin" + (left > 1 ? "s" : "") + " left…" : "No respins left.";
+              sfx.reelStop(2);
+            }
+            await sleep(reduce ? 200 : 600);
+          }
+          totalEl.textContent = amt(st.win);
+          sub.textContent = R.name + " over: " + fmtMult(st.prize) + "× your bet = " + amt(st.win);
+          await sleep(reduce ? 300 : 900);
+          done();
+        }());
+      }).then(function () {
+        var token = ++presentToken, won = st.win || 0;
+        var tier = won >= b * 50 ? "mega" : won >= b * 10 ? "big" : won > 0 ? "win" : "none";
+        setLcd(R.name + " paid " + fmtMult(st.prize) + "× = " + amt(won), won ? "win" : "");
+        if (won > 0) celebrate(won, tier === "win" ? "big" : tier, token, R.name.toUpperCase() + "!");
+        addHistory(R.name, won, won, tier);
+        settle = won > 0 ? 2800 + SETTLE_MS : 0;
+        return sleep(reduce ? 800 : 2600).then(function () { if (token === presentToken) hideBanner(); });
+      });
+    }
+
+    // A jackpot paid out: its own celebration (the Minor: big; the Major: bigger; the Grand: biggest),
+    // with the amount in tBCH. The jackpots are read again when the spin ends.
     var JP = {
       minor: { title: "MINOR JACKPOT!", banner: "big", ms: 3200, coins: 60, burst: 30, shake: false, count: 1600 },
       major: { title: "MAJOR JACKPOT!", banner: "mega", ms: 4400, coins: 140, burst: 60, shake: true, count: 2400 },
       grand: { title: "GRAND JACKPOT!", banner: "jackpot", ms: 5600, coins: 240, burst: 100, shake: true, count: 3200 }
     };
     async function celebrateJackpot(st) {
-      var c = JP[st.pool] || JP.major, bchs = window.TNC_Units ? TNC_Units.format(st.win) : fmt(st.win) + " tSats";
+      var tier = st.tier || st.pool, c = JP[tier] || JP.major, win = st.win || 0;
+      var bchs = window.TNC_Units ? TNC_Units.format(win) : fmt(win) + " tSats";
       var token = ++presentToken;
       hideBanner();
       clearWins();
-      winShown = st.win;
-      countUp(meterWin, 0, st.win, reduce ? 0 : c.count, token, true);
-      credit(st.win, token, reduce ? 0 : c.count);
+      winShown = win;
+      countUp(meterWin, 0, win, reduce ? 0 : c.count, token, true);
+      credit(win, token, reduce ? 0 : c.count);
       showBanner(c.banner, c.title, bchs);
-      if (st.pool === "minor" && window.TNC_Jackpots) window.TNC_Jackpots.burst("minor:" + id);
       machine.classList.add("celebrate");
       if (c.shake && !reduce) machine.classList.add("shake");
-      if (st.pool === "grand" && marquee) marquee.classList.add("jackpot");
-      (st.pool === "minor" ? sfx.bigWin : st.pool === "major" ? sfx.megaWin : sfx.jackpot).call(sfx);
+      if (tier === "grand" && marquee) marquee.classList.add("jackpot");
+      (tier === "minor" ? sfx.bigWin : tier === "major" ? sfx.megaWin : sfx.jackpot).call(sfx);
       fx.coinShower(c.coins);
-      fx.burst(flavor.burst, c.burst);
+      fx.burst(JPC ? [JPC.emoji].concat(flavor.burst) : flavor.burst, c.burst);
       setLcd(c.title + " " + bchs, "win blink");
-      lcdSub.textContent = "A gift from the faucet, on top of the game's win.";
-      addHistory(st.pool + " jackpot", st.win, st.win, st.pool === "minor" ? "big" : "jackpot");
+      lcdSub.textContent = JPC ? "Won with the " + JPC.name + "." : "A jackpot, on top of the game's win.";
+      addHistory(tier + " jackpot", win, win, tier === "minor" ? "big" : "jackpot");
       await sleep(reduce ? 1500 : c.ms);
       if (token === presentToken) hideBanner();
+      clearCellFx();
       settle = SETTLE_MS;
     }
 
@@ -1350,7 +1711,7 @@
     }
 
     function endFeature(st) {
-      var total = st.win, played = st.played;
+      var total = st.win, played = st.played, feature0 = feature;
       feature = null;
       renderFeature();
       renderSticky([]);
@@ -1358,11 +1719,11 @@
       var t2 = ++presentToken;
       hideBanner();
       clearWins();
-      showBanner(total >= bet * 10 ? "big" : "free", "FEATURE OVER", played + " SPINS WON " + amt(total));
-      setLcd("Free spins over: " + played + " spins won " + amt(total), total ? "win" : "");
+      showBanner(total >= playBet * 10 ? "big" : "free", feature0 && feature0.reward ? feature0.name.toUpperCase() + " OVER" : "FEATURE OVER", played + " SPINS WON " + amt(total));
+      setLcd((feature0 && feature0.reward ? feature0.name : "Free spins") + " over: " + played + " spins won " + amt(total), total ? "win" : "");
       winShown = total;
       meterWin.textContent = num(total);
-      if (total >= bet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
+      if (total >= playBet * 10) { sfx.bigWin(); fx.coinShower(50); fx.burst(flavor.burst, 30); machine.classList.add("celebrate"); }
       else if (total > 0) sfx.win(); else sfx.noWin();
       setTimeout(function () { if (t2 === presentToken) hideBanner(); }, 2600);
       settle = total > 0 ? 2600 + SETTLE_MS : 0;
@@ -1374,6 +1735,7 @@
       var li = document.createElement("li");
       li.className = (win > 0 ? "is-win" : "") + (tier === "big" || tier === "mega" || tier === "jackpot" ? " is-big" : "");
       var line = kind === "bonus" ? syms[BONUS].emoji + " " + esc(BON.name)
+        : COL && kind === COL.reward.name ? COL.emoji + " " + esc(kind)
         : /jackpot/.test(kind) ? (/grand/.test(kind) ? "🏆 Grand" : /minor/.test(kind) ? "✨ Minor" : "⭐ Major") + " jackpot"
         : grid.map(function (col) { return syms[col[1]].emoji; }).join("");
       li.innerHTML = '<span class="h-line">' + line + '</span><span class="h-kind">' + kind +

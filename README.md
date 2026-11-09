@@ -13,8 +13,10 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 
 - Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
   **1,000 sat** daily bonus (resets at 00:00 UTC).
-- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **100.01%** (it is a faucet, so it pays back slightly more than it takes).
-- Jackpots: a Minor and a Major per game and a shared Grand, grown by the faucet with every bet, on top of the RTP.
+- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **110%** with everything included (it is a faucet, so it pays
+  back more than it takes): the reels, free spins and bonus games 96%, the collector's reward 4%, the jackpots 10%.
+- Jackpots: a Minor and a Major per game and a shared Grand, won inside the game (backend decision D43).
+- Collectors: a shared fill meter per game; the spin that fills it plays a reward.
 - Withdrawals go to any Testnet4 address the player enters.
 
 ## Games
@@ -35,13 +37,16 @@ Every machine has:
 | Bonus game (🧺/🧭/🛰️) | **Harvest Pick**: pick baskets until a 🐛 | **Ship's Wheel**: 16 segments, 5×–100× | **Warp Ladder**: 8 levels 3×–1,000×, 60% per boost |
 | Sound | Marimba, plucks, birdsong | Bubbles, sonar, whale calls | Synth arps, lasers, space drone |
 | World | Sunlit orchard, leaves and butterflies | Ocean depths, light shafts, bubbles, fish | Starfield, nebulae, shooting stars |
-| RTP · hit rate | 100.01% · 34% | 100.01% · 32% | 100.01% · 25% |
+| Jackpots (Minor / Major / Grand) | 🍎 **Golden Apples**: 3 / 4 / 5 on the reels | 🦪 **Magic Oyster**: open clams until 3 match | 🌠 3 shooting stars spin the **Star Map Wheel** |
+| Collector · reward | 🍃 **Apple Tree** (186) · **Harvest Festival**: 10 sticky-wild free spins, wins ×2 | 🪙 **Treasure Chest** (109) · **Treasure Hold & Win**: 6 pearls, respins reset on every new pearl | ⛽ **Fuel Tank** (940) · **Hyperdrive**: 7 free spins, a wild locked in the middle, ×1 rising to ×10 |
+| RTP · hit rate | 110% in all · 34% | 110% in all · 32% | 110% in all · 25% |
 | Free spins · bonus | 1 in 75 · 1 in 202 | 1 in 66 · 1 in 431 | 1 in 130 · 1 in 783 |
 | Volatility | Low | Medium | High |
 
 Every spin is played on the server (testnetcasino-service), which is the source of truth for the game math: `GET /games/{id}/config`
 returns the symbols, paytables, features and stats, and the algorithm is described in its `docs/FAIRNESS.md` (provably fair:
-HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every game's RTP is 100.01%.
+HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every game's RTP is 110% with everything included
+(`rtp` and `rtpParts` in the config; game config version 4).
 
 ## Look & feel
 
@@ -138,7 +143,8 @@ and builds the machine and the paytable from it. A spin sends `POST /spins { gam
 `crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
 The reels start turning at once and land one by one on the server's result (a stop request only shortens the wait). The response's `steps[]` are then animated in order:
 `spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
-`retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed), `freeSpinsEnd` and `jackpot` (see below). Every win is shown in sats
+`retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed), `freeSpinsEnd`, and from version 4 `jackpot`,
+`collect`, `rewardStart` and `holdAndWin` (see Jackpots and Collectors below). Every win is shown in sats
 exactly as the server sent it, and the balance is set to the response's `balance` at the end.
 
 Signed-out visitors see the machine with a "Sign in to play" button. Errors show the server's message
@@ -146,53 +152,72 @@ Signed-out visitors see the machine with a "Sign in to play" button. Errors show
 
 ## Jackpots
 
-The jackpots (backend decisions D40 and D41, live since 2026-11-09) are a gift from the faucet, outside the games' RTP:
-the 100.01% is the game alone. Each game has a **Minor** and a **Major**, and all three share the **Grand**. Every bet of
-`b` sats grows the game's Minor by `b`, its Major by `3 × b` and the Grand by `10 × b`, all faucet money. Each cycle has a
-hidden target (Minor 500 to 50,000 sats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000; small targets more likely);
-the spin that reaches it wins everything it holds, and a new cycle starts with a new target.
+The jackpots (backend decision D43, game config version 4) are part of every game's 110% RTP: every bet adds 4% of itself
+to its game's **Minor**, 3% to its **Major** and 3% to the **Grand** shared by all three. They are won **inside the game**:
+after the free spins, a paid spin with bet `b` draws Grand, Major and Minor (each a hit with chance `b / oneInSats`, from the
+spin's own stream) and wins the highest tier hit, everything its meter holds. After a win the next cycle starts with a head
+start from the house (25% to 75% of a hidden target), so a jackpot never shows 0. Names, emojis and texts come from the
+config's `jackpot` block.
 
 `assets/js/jackpots.js` reads `GET /jackpots` (public) when the page opens and every 12 s while the tab is visible. It only
 ever shows what the server sent:
 
-- **GRAND and MAJOR are prize amounts** (`amount`, `maxAmount`): every `[data-jackpot="grand" | "major:<id>"]` counts up
-  smoothly to each new reading. `data-jackpot-units="bch8"` is
-  tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch. A new cycle never starts
-  at 0: the faucet gives it a random head start.
-- **MINOR is a level, never an amount** (`fill`): every `[data-meter="minor:<id>"]` (`role="meter"`) is either the
-  machine's own **Minor screen** in the games (`.minor-screen`, see below) or, on the jackpots page, a coin pot whose coins
-  rise. It starts empty after a win.
-- **A surprise, a pure gift:** the limits are never shown (no "Must hit by", no `maxAmount`, no target ranges, nothing like
-  "before it is full") on the lobby, the games, the rules or the jackpots page. Only a win's Verify details show its
-  range, because the check needs it.
-- When a `cycle` goes up between two readings, someone won it: GRAND / MAJOR flash "WON!" and then show the new, smaller
-  amount; the pot bursts (coins flying, "WON!") and starts again nearly empty.
+- **GRAND, MAJOR and MINOR are prize amounts** (`amount`), like real progressive displays: every
+  `[data-jackpot="grand" | "major:<id>" | "minor:<id>"]` counts up smoothly to each new reading. `data-jackpot-units="bch8"`
+  is tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch.
+- When a `cycle` goes up between two readings, someone won it: the amount flashes "WON!" and then shows the new, smaller one.
+- The target ranges are never shown (a surprise). Only a win's Verify details show its range, because the check needs it.
 - GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
   `<body>` in the games and on each lobby card).
 
+A jackpot won in a spin is a step `{ type: "jackpot", tier, cells, picks?, slice?, win }`. `cells` are `[reel, row]` on the
+paid spin's **first grid**; the game draws its jackpot symbols there, over the symbols (they still pay as shown; if respins
+or free spins came in between, the first grid is put back first):
+
+- 🍒 **Fruit Orchard**: 3, 4 or 5 golden 🍎 on those cells: MINOR, MAJOR or GRAND.
+- 🐚 **Deep Sea**: one 🦪 Magic Oyster, then a clam pick on the bonus stage: 7 clams, opened by the player (or Auto, or by
+  themselves after 12 s), revealing `picks` in order; the last is the third of the won tier. The clams left closed show the
+  other tiers, at most two of each, so only the won tier ever shows three.
+- 🚀 **Cosmic Voyage**: three 🌠, then the Star Map Wheel (`jackpot.slices`) spins and stops on `slice`.
+
+Then the celebration with the amount in tBCH (`win`; `jackpotWin` and `balance` include it): the Minor big, the Major bigger,
+the Grand the biggest, and a line in Recent spins. A response with `"jackpots": false` had its jackpot draws skipped.
+
+While a spin plays the displays are held (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop;
+when the spin has played out they are read at once (`release()`).
+
 Where they are:
 
-- **Games**: two rows at the very top of the machine, also in full screen: GRAND (the most prominent) and MAJOR, label
-  left and amount right. The MINOR has its own screen right of the reels, about 1.5 reels wide (`.reel-bay` grid,
-  5 : 1.45), under the reels as a strip on phones (600 px and less). Items fall in and settle into a pile of 15 spots:
-  a pyramid of rows 5, 4, 3, 2, 1, or on phones 8 + 7 filled left to right; `floor(fill% of 15)` are shown, so the pile
-  is never complete. 🍒 apples fall from a branch into a wicker basket, 🐚 pearls sink into a treasure chest on the sand
-  with bubbles rising, 🚀 stars streak into a glass energy capsule. A win makes everything fly out with "WON!", then the
-  pile starts again nearly empty. While a spin plays the displays are held
-  (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop; when the spin has played out they are
-  read at once (`release()`). A spin can end with up to three `{ type: "jackpot", pool: "minor" | "major" | "grand", win }`
-  steps (smallest first; `jackpotWin` is their sum, `balance` includes it, `totalWin` is the game alone). Each plays its
-  own celebration with the amount in tBCH: the Minor screen bursts (`TNC_Jackpots.burst()`), the Major is big, the Grand the
-  biggest. Each gets a line in Recent spins. The rules section explains the jackpots (version 3 configs have no `jackpots`
-  field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
-- **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each
-  machine's Major amount at the top of its card (the Minor pot is shown in the games and on the jackpots page).
-- **Jackpots page** (`jackpots.html`): every jackpot now, the rules in short, the seed hash of every running jackpot ("Seed
-  hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and tSats). Wins with
-  a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must give the same
-  `target`, `displayScale` and `startSats` (0 for a Minor), and the amount must be at least the target; each check shows as
-  passed or failed. Wins from the old pools (no `seed`) show "Old jackpot" and no Verify. The API has no full history of
-  jackpot wins.
+- **Games**: at the very top of the machine, also in full screen: GRAND (the most prominent), then MAJOR and MINOR side by
+  side (stacked on phones). The rules section explains the jackpots and the collector from the config.
+- **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each machine's Major
+  amount at the top of its card.
+- **Jackpots page** (`jackpots.html`): every jackpot and collector now, the rules in short, the seed hash of every running
+  jackpot ("Seed hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and
+  tSats). Wins with a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must
+  give the same `target` and `startSats`, and the amount must be at least the head start. Older wins (D40, D41, with a
+  `displayScale`) are checked by their own rules (display scale, the old head start, amount at least the target). Wins from
+  the first pools (no `seed`) show "Old jackpot" and no Verify. The API has no full history of jackpot wins.
+
+## Collectors
+
+Every game has a collector (config `collector`), a fill meter **shared by all players**: 🍃 the Apple Tree (186 leaves), 🪙 the
+Treasure Chest (109 coins), ⛽ the Fuel Tank (940 fuel cells). Every paid spin shows 0 to 3 collect symbols: the step
+`{ type: "collect", cells, filled, size, full, bet? }` after the jackpot. The game draws them on those first-grid cells (never
+on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every game's `collector { filled, size, cycle }`.
+
+- **Games**: the collector has its own screen right of the reels, about 1.5 reels wide (`.reel-bay` grid, 5 : 1.45), under
+  the reels as a strip on phones (600 px and less), with "filled / size". The Apple Tree's crown and the Treasure Chest fill
+  with leaves and coins: a pile of 15 spots (a pyramid of rows 5, 4, 3, 2, 1, or on phones 8 + 7), `floor(filled / size of
+  15)` shown, so it is complete only when full. The Fuel Tank fills like a tank. When someone else fills it (its `cycle`
+  goes up) it says "FULL!" and starts again empty.
+- **Full** (`full: true`): the meter glows "FULL!", a banner announces the reward, and the reward is played at `bet` (the
+  spin's bet capped at the cycle's average): 🍒 **Harvest Festival** and 🚀 **Hyperdrive** start with
+  `{ type: "rewardStart", bet, spins }`, then free spins (`spin` steps, the Hyperdrive with a wild locked at reel 3, row 2
+  and the multiplier rising every spin) and a `freeSpinsEnd`; 🐚 **Treasure Hold & Win** is one `holdAndWin` step
+  (`start` pearls, `respins[]`, `prize`, `win`), shown on a 5 × 3 board with each pearl's value × bet, the respins counter
+  (back to 3 whenever a pearl lands) and the total. Then the meter starts again empty. `totalWin` includes the reward.
+- **Jackpots page**: each game's collector as a bar with "filled / size".
 
 ## Account and withdrawals
 
@@ -311,7 +336,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109s`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109u`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

@@ -5,10 +5,14 @@
  *   Your spins   GET /spins?cursor= (50 per page). A spin can be verified once its
  *                server seed is revealed (`serverSeed` is filled in after a rotation).
  *   Verify       replays any spin in the browser with fairness-engine.js and the
- *                game config from GET /games/{id}/config (version 3; older spins are
- *                replayed with TNC_Fair.configFor). Nothing is sent anywhere.
- *   Jackpots     checks a jackpot seed: seed hash, target, display scale and head
- *                start (FAIRNESS.md section 8).
+ *                game config from GET /games/{id}/config (version 4; older spins are
+ *                replayed with TNC_Fair.configFor). Version 4 spins include the
+ *                jackpot draws, the collect symbols and, when the spin filled the
+ *                collector, its reward. GET /spins does not say at what bet the
+ *                reward was played, so the list finds it (TNC_Fair.replay matchTotal);
+ *                the form takes it from the spin's collect step. Nothing is sent anywhere.
+ *   Jackpots     checks a jackpot seed: seed hash, target and head start (older
+ *                cycles: display scale; FAIRNESS.md section 8).
  *
  * Depends on: api.js, auth.js, fairness-engine.js.
  */
@@ -143,9 +147,9 @@
     tr.appendChild(el("td", "", GAMES[s.gameId] || s.gameId));
     tr.appendChild(el("td", "num", U.bch(s.bet)));
     var winCell = el("td", "num", U.bch(s.totalWin));
-    if (s.jackpotWin > 0) {   // jackpots are paid on top of the game's own result
+    if (s.jackpotWin > 0) {   // a jackpot is paid on top of the game's result (totalWin)
       var jp = el("span", "sp-jp", "+ 🏆 " + U.bch(s.jackpotWin));
-      jp.title = "Plus a jackpot of " + bch(s.jackpotWin) + " (" + fmt(s.jackpotWin) + " tSats), a gift from the faucet";
+      jp.title = "Plus a jackpot of " + bch(s.jackpotWin) + " (" + fmt(s.jackpotWin) + " tSats)";
       winCell.appendChild(jp);
       winCell.appendChild(el("span", "sr-only", " tBCH from a jackpot"));
     }
@@ -173,15 +177,29 @@
       var game;
       try { game = Fair.configFor(current, s.gameVersion); }
       catch (e) { return { ok: null, note: e.message }; }
-      return Fair.replay(game, s).then(function (got) {
+      var paid = (s.jackpotWin || 0) > 0;
+      function check(got) {
         var hashOk = got.serverSeedHash === s.serverSeedHash, winOk = got.totalWin === s.totalWin;
-        // Version 2 only: the old jackpot draws. A hit in the replay must match a jackpot paid, and no
-        // hit no jackpot. From version 3 the jackpots are meters, outside the spin's random stream.
-        var hit = !!(got.jackpotHits && (got.jackpotHits.major || got.jackpotHits.grand)), paid = (s.jackpotWin || 0) > 0;
-        var jpOk = !got.jackpotHits || hit === paid;
-        return { ok: hashOk && winOk && jpOk, got: got,
+        // Version 2: the old jackpot draws. Version 4: the jackpot won in the game. A hit in the
+        // replay must match a jackpot paid, and no hit no jackpot. (Version 3 drew nothing.)
+        var hit = got.jackpotHits ? !!(got.jackpotHits.major || got.jackpotHits.grand) : !!got.jackpot;
+        var jpOk = !(got.jackpotHits || game.jackpot) || hit === paid;
+        return { ok: hashOk && winOk && jpOk, got: got, jpOk: jpOk,
           note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + bch(got.totalWin) + ", the server paid " + bch(s.totalWin) + "."
-            : !jpOk ? (hit ? "The replay hits a jackpot, but none was paid." : "A jackpot was paid, but the replay does not hit one.") : "" };
+            : !jpOk ? (hit ? "The replay hits a jackpot, but none was paid." : "A jackpot was paid, but the replay does not hit one.")
+            : got.rewardBet ? "This spin filled the collector; its reward played at " + fmt(got.rewardBet) + " tSats." : "" };
+      }
+      return Fair.replay(game, s, { matchTotal: s.totalWin }).then(function (got) {
+        var res = check(got);
+        // Jackpots can be switched off (the spin then said "jackpots": false and skipped the draws).
+        if (!res.ok && game.jackpot && !paid) {
+          return Fair.replay(game, s, { jackpots: false, matchTotal: s.totalWin }).then(function (off) {
+            var r2 = check(off);
+            if (r2.ok) r2.note = "Jackpots were off for this spin." + (r2.note ? " " + r2.note : "");
+            return r2.ok ? r2 : res;
+          });
+        }
+        return res;
       });
     }).catch(function (e) { return { ok: null, note: e && e.message || "Could not verify." }; });
   }
@@ -223,24 +241,28 @@
     var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
+    var rewardBet = $("vf-reward").value.trim() === "" ? null : parseInt($("vf-reward").value, 10), noJp = $("vf-nojp").checked;
     out.textContent = "";
     out.className = "vf-result";
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The server seed must be 64 hex characters."
       : !/^[A-Za-z0-9_-]{1,64}$/.test(client) ? "The client seed must be 1 to 64 letters, digits, _ or -."
       : !(nonce >= 0) ? "The nonce must be 0 or more."
-      : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 tSats." : "";
+      : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 tSats."
+      : rewardBet !== null && !(rewardBet >= 1 && rewardBet <= bet) ? "The reward bet must be 1 tSat up to the spin's bet." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
     getConfig(gameId).then(function (current) {
       var game = Fair.configFor(current, version);
-      return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet }).then(function (got) { showReplay(game, got, expect); });
+      return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet }, { jackpots: !noJp, rewardBet: rewardBet })
+        .then(function (got) { showReplay(game, got, expect, rewardBet); });
     }).catch(function (err) {
       out.className = "vf-result is-bad";
       out.textContent = err && err.message || "Could not replay this spin.";
     }).then(function () { busy(btn, false); });
   });
 
-  function showReplay(game, got, expect) {
+  var TIER = { minor: "Minor", major: "Major", grand: "Grand" };
+  function showReplay(game, got, expect, rewardBet) {
     var out = $("vf-result"), syms = game.symbols;
     var match = expect === null ? null : expect === got.totalWin;
     out.className = "vf-result" + (match === true ? " is-ok" : match === false ? " is-bad" : "");
@@ -260,15 +282,25 @@
       reels.appendChild(row);
     }
     out.appendChild(reels);
-    var ul = el("ul", "vf-steps"), free = 0, freeWin = 0;
+    var ul = el("ul", "vf-steps"), free = 0, freeWin = 0, inReward = false;
+    function cells(list) { return list.map(function (c) { return "reel " + (c[0] + 1) + " row " + (c[1] + 1); }).join(", "); }
     got.steps.forEach(function (s) {
       if (s.type === "spin" && !s.free) ul.appendChild(el("li", "", "Paid spin" + (s.phases.length > 1 ? " with " + (s.phases.length - 1) + " respin" + (s.phases.length > 2 ? "s" : "") : "") + ": " + bch(s.win)));
       else if (s.type === "spin") { free++; freeWin += s.win; }
       else if (s.type === "bonus") ul.appendChild(el("li", "", game.bonus.name + " bonus: " + s.prize + "× = " + bch(s.win)));
       else if (s.type === "freeSpinsStart") ul.appendChild(el("li", "", s.spins + " free spins awarded"));
       else if (s.type === "retrigger") ul.appendChild(el("li", "", "Retrigger: +" + s.added + " free spins"));
-      else if (s.type === "freeSpinsEnd") ul.appendChild(el("li", "", "Free spins: " + s.played + " played, " + bch(s.win) + " (spins " + bch(freeWin) + ", bonuses " + bch(s.win - freeWin) + ")"));
+      else if (s.type === "freeSpinsEnd") { ul.appendChild(el("li", "", (inReward ? game.collector.reward.name : "Free spins") + ": " + s.played + " played, " + bch(s.win) + " (spins " + bch(freeWin) + ", bonuses " + bch(s.win - freeWin) + ")")); free = 0; freeWin = 0; }
+      else if (s.type === "jackpot") ul.appendChild(el("li", "jp-draws", "🏆 " + TIER[s.tier] + " jackpot won (" + game.jackpot.name + "): " + cells(s.cells) +
+        (s.picks ? ", clams " + s.picks.map(function (t) { return TIER[t]; }).join(", ") : "") +
+        (s.slice != null ? ", the wheel stops on slice " + (s.slice + 1) : "") + ". It pays what the jackpot holds at that moment."));
+      else if (s.type === "collect") ul.appendChild(el("li", "", game.collector.emoji + " " + s.cells.length + " " + game.collector.symbolName.toLowerCase() + (s.cells.length > 1 ? "s" : "") + " for the " + game.collector.name + ": " + cells(s.cells)));
+      else if (s.type === "rewardStart") { inReward = true; ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " tSats: " + s.spins + " free spins")); }
+      else if (s.type === "holdAndWin") ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " tSats: " + (s.start.length + s.respins.reduce(function (n, r) { return n + r.length; }, 0)) +
+        " pearls, " + s.respins.length + " respins, " + s.prize + "× = " + bch(s.win)));
     });
+    if (game.jackpot && !got.jackpot) ul.appendChild(el("li", "", "No jackpot on this spin."));
+    if (got.collected && !rewardBet && !got.rewardBet) ul.appendChild(el("li", "", "If this spin filled the " + game.collector.name + ", enter its reward bet to replay the " + game.collector.reward.name + " too."));
     if (got.jackpotHits) {
       var j = got.jackpotHits, yes = "hit (won the whole pool at that moment)", no = "no hit";
       ul.appendChild(el("li", "jp-draws", "Old jackpot draws (version 2): Major " + (j.major ? yes : no) + ", Grand " + (j.grand ? yes : no)));
@@ -290,17 +322,19 @@
       : !(min >= 0) || !(max >= min) ? "Enter the range from the win's Verify details: a minimum of 0 or more and a maximum at least as big." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Checking...");
+    var old = $("mt-rules").value === "old", tier = $("mt-tier").value;
     Fair.meter(seedHex, min, max).then(function (d) {
+      var start = old ? (tier === "minor" ? 0 : d.legacy.startSats) : d.startSats;
       var checks = [];
       if (hash) checks.push([d.seedHash === hash, "SHA-256 of the seed equals the published seed hash"]);
-      if (amount !== null) checks.push([amount >= d.target, "The amount won (" + fmt(amount) + ") is at least the target (" + fmt(d.target) + ")"]);
+      if (amount !== null) checks.push(old ? [amount >= d.target, "The amount won (" + fmt(amount) + ") is at least the target (" + fmt(d.target) + ")"]
+        : [amount >= start, "The amount won (" + fmt(amount) + ") is at least the head start (" + fmt(start) + ")"]);
       var bad = checks.some(function (c) { return !c[0]; });
       out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
       out.appendChild(el("p", "rv-title", checks.length ? (bad ? "✗ Something does not match." : "✓ Every check passed.") : "Derived from the seed:"));
       var dl = el("dl", "seed-list");
-      var tier = $("mt-tier").value;
-      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"], ["Display scale", fmt(d.displayScale) + " tSats"],
-       ["Head start", tier === "minor" ? "0 tSats (a Minor starts empty)" : fmt(d.startSats) + " tSats"]].forEach(function (p) {
+      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"]].concat(old ? [["Display scale", fmt(d.legacy.displayScale) + " tSats"]] : [])
+       .concat([["Head start", old && tier === "minor" ? "0 tSats (a Minor started empty)" : fmt(start) + " tSats"]]).forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       out.appendChild(dl);

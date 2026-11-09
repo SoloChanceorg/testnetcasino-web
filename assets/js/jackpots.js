@@ -1,37 +1,41 @@
 /*
- * TestnetCasino.com: jackpot displays (lobby, games and the jackpots page).
+ * TestnetCasino.com: jackpot and collector displays (lobby, games and the jackpots page).
  *
- * GET /jackpots (public, D40 + D41):
- *   { grand: { amount, maxAmount, cycle, seedHash },
- *     games: { gameId: { major: { amount, maxAmount, cycle, seedHash }, minor: { fill, cycle, seedHash } } },
+ * GET /jackpots (public, D43):
+ *   { grand: { amount, cycle, seedHash },
+ *     games: { gameId: { minor: { amount, cycle, seedHash }, major: { amount, cycle, seedHash },
+ *                        collector: { filled, size, cycle } } },
  *     recentWins: [ { pool, tier, gameId, player, amount, wonAt,
- *                     cycle, seed, seedHash, minSats, maxSats, target, displayScale, startSats } ], updatedAt }
+ *                     cycle, seed, seedHash, minSats, maxSats, target, startSats (D40/D41 wins: displayScale) } ],
+ *     updatedAt }
  *
- * The jackpots are a gift from the faucet, on top of the games' RTP. Every bet grows the game's
- * Minor and Major and the shared Grand; each is won at a hidden target. When is a surprise: the
- * limits (`maxAmount`, the target ranges) are never shown.
+ * The jackpots are part of the games' RTP (110% in all): every bet adds a share to its game's Minor
+ * and Major and to the shared Grand, and a spin wins them inside the game, by its rules. When is a
+ * surprise: the target ranges are never shown.
  *
- *   - GRAND and MAJOR are prize amounts: every [data-jackpot="grand" | "major:<gameId>"] shows
- *     `amount`, counting up smoothly to each new reading. Units: data-jackpot-units="bch8" is
- *     tBCH with 8 decimals (lobby, jackpots page); "game" follows the machine's tSats / tBCH
- *     switch.
- *   - MINOR is a level, never an amount: every [data-meter="minor:<gameId>"] (role="meter")
- *     is either the machine's own Minor screen beside the reels (.minor-screen: apples,
- *     pearls or stars falling into a pile) or, on the jackpots page, a coin pot.
- *   - When a `cycle` goes up between two readings, someone won it: a short "WON!" (the Minor
- *     bursts), then the new state (a smaller amount, or a nearly empty Minor).
+ *   - GRAND, MAJOR and MINOR are prize amounts, like real progressive displays: every
+ *     [data-jackpot="grand" | "major:<gameId>" | "minor:<gameId>"] shows `amount`, counting up
+ *     smoothly to each new reading. Units: data-jackpot-units="bch8" is tBCH with 8 decimals (lobby,
+ *     jackpots page); "game" follows the machine's tSats / tBCH switch.
+ *   - The COLLECTOR is every game's shared fill meter (`filled` of `size` collect symbols):
+ *     [data-collector="<gameId>"]. On the machines it is the screen beside the reels
+ *     (.collector-screen: the Apple Tree grows leaves, the Treasure Chest fills with coins, the Fuel
+ *     Tank fills up); elsewhere a small bar. Both show "filled / size".
+ *   - When a `cycle` goes up between two readings, someone won (a short "WON!", then the new, smaller
+ *     amount) or filled the collector ("FULL!", then it starts again empty).
  * Values are only ever what the server sent: nothing is predicted between readings.
  *
- * Reads GET /jackpots when the page opens, every 12 s while the tab is visible, and on
- * refresh(). The game page calls hold() while a spin plays, so a display never gives away a
- * win before the reels stop, and release() when it ends (which reads them again at once).
- * burst(key) bursts a Minor (the player's own Minor win).
+ * Reads GET /jackpots when the page opens, every 12 s while the tab is visible, and on refresh().
+ * The game page calls hold() while a spin plays, so a display never gives away a win before the
+ * reels stop, and release() when it ends (which reads them again at once). The spin shows its own
+ * collect symbols with collect(gameId, filled, size, full) and, after a full meter's reward,
+ * collectorDone(gameId).
  *
  * On the jackpots page: the recent wins (#jp-wins-body) with a Verify button for wins with a
  * seed (checked in the browser by fairness-engine.js), and the seed hashes now (#jp-hashes).
  *
  * Depends on: api.js, units.js; fairness-engine.js for the Verify buttons.
- * Exposed as window.TNC_Jackpots { refresh, render, hold, release, burst, data }.
+ * Exposed as window.TNC_Jackpots { refresh, render, hold, release, collect, collectorDone, data }.
  */
 (function () {
   "use strict";
@@ -49,17 +53,17 @@
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
-  // "grand", "major:deep-sea", "minor:deep-sea" -> that jackpot's state, or null
+  // "grand", "major:deep-sea", "minor:deep-sea", "collector:deep-sea" -> that state, or null
   function stateOf(d, key) {
     if (!d) return null;
     if (key === "grand") return d.grand || null;
-    var m = /^(minor|major):(.+)$/.exec(key), g = m && d.games && d.games[m[2]];
+    var m = /^(minor|major|collector):(.+)$/.exec(key), g = m && d.games && d.games[m[2]];
     return (g && g[m[1]]) || null;
   }
   function tierOf(key) { return key === "grand" ? "grand" : key.split(":")[0]; }
   function label(key) { return TIERS[tierOf(key)] + " jackpot"; }
 
-  /* ═══════════════ GRAND and MAJOR: amounts ═══════════════ */
+  /* ═══════════════ GRAND, MAJOR and MINOR: amounts ═══════════════ */
   function gameUnits(node) { return !!G && node.getAttribute("data-jackpot-units") === "game"; }
   function money(node, sats) { return gameUnits(node) ? { num: G.value(sats), unit: G.unit() } : { num: U.bch(sats), unit: "tBCH" }; }
   // Number and unit in separate spans, so themes can style the number on its own.
@@ -113,106 +117,108 @@
     });
   }
 
-  /* ═══════════════ MINOR ═══════════════ */
-  // Two looks, both a level and never an amount:
-  //   - .minor-screen (the games): the machine's own screen beside the reels. Items (apples,
-  //     pearls, stars) fall in and settle into a pile of 15 spots: a pyramid of rows 5, 4, 3, 2,
-  //     1, or on phones a strip of 8 + 7 filled left to right (CSS picks the layout from the same
-  //     spot numbers). Shown: floor(fill% of 15), so it is never complete.
-  //   - anything else (the jackpots page): a coin pot whose coins rise.
-  var SPOTS = 15, ITEMS = { orchard: "🍎", cosmic: "⭐", deepsea: "" };   // deep sea: CSS pearls
+  /* ═══════════════ COLLECTOR: the shared fill meter ═══════════════ */
+  // On the machines (.collector-screen) the meter is a picture: items settle into a pile of 15 spots
+  // (a pyramid of rows 5, 4, 3, 2, 1, or on phones a strip of 8 + 7; CSS places them from the same
+  // spot numbers): leaves make the Apple Tree's crown, coins fill the Treasure Chest. The Fuel Tank
+  // fills like a tank. Shown: floor(filled / size of 15), so the pile is complete only when full.
+  // Elsewhere: a bar. Both with "filled / size".
+  var SPOTS = 15, ITEMS = { orchard: "🍃", deepsea: "🪙", cosmic: "" };   // cosmic: a tank, no pile
+  var NAMES = { "fruit-orchard": "Apple Tree", "deep-sea": "Treasure Chest", "cosmic-voyage": "Fuel Tank" };
   var SPOT = [];
   for (var r = 0; r < 5; r++) for (var c = 0; c < 5 - r; c++) SPOT.push({ pr: r, pc: c });
   SPOT.forEach(function (o, k) { o.sr = k % 2; o.sc = Math.floor(k / 2); });
-  function isScreen(node) { return node.classList.contains("minor-screen"); }
-  function themeOf(node) { var m = /\bmn-(orchard|deepsea|cosmic)\b/.exec(node.className); return m ? m[1] : "orchard"; }
+  function isScreen(node) { return node.classList.contains("collector-screen"); }
+  function themeOf(node) { var m = /\bcl-(orchard|deepsea|cosmic)\b/.exec(node.className); return m ? m[1] : "orchard"; }
+  function collName(node) { return node.getAttribute("data-collector-name") || NAMES[node.getAttribute("data-collector")] || "Collector"; }
 
-  function buildMinor(node) {
-    if (node._mn) return node._mn;
+  function buildCollector(node) {
+    if (node._cl) return node._cl;
     node.setAttribute("role", "meter");
     node.setAttribute("aria-valuemin", "0");
-    node.setAttribute("aria-valuemax", "100");
+    node.setAttribute("aria-label", collName(node) + ", shared by all players");
+    var cl = { count: node.querySelector(".cl-count") };
     if (isScreen(node)) {
-      node.setAttribute("aria-label", label(node.getAttribute("data-meter")));
-      node._mn = { pile: node.querySelector(".mn-pile"), item: ITEMS[themeOf(node)] };
-      return node._mn;
+      cl.item = ITEMS[themeOf(node)];
+      if (cl.item) cl.pile = node.querySelector(".cl-pile");
+      else cl.level = node.querySelector(".cl-level");
+    } else {
+      node.textContent = "";
+      node.classList.add("cl-bar");
+      var track = el("span", "cl-track");
+      cl.level = el("span", "cl-level");
+      track.appendChild(cl.level);
+      node.appendChild(track);
+      cl.count = el("span", "cl-count");
+      node.appendChild(cl.count);
     }
-    node.textContent = "";
-    node.classList.add("pot");
-    node.setAttribute("aria-label", label(node.getAttribute("data-meter")) + ", a coin pot");
-    var body = el("span", "pot-body"), coins = el("span", "pot-coins");
-    body.appendChild(coins);
-    node.appendChild(el("span", "pot-rim"));
-    node.appendChild(body);
-    var flash = el("span", "pot-won", "WON!");
-    flash.setAttribute("aria-hidden", "true");
-    node.appendChild(flash);
-    node._mn = { coins: coins };
-    return node._mn;
+    node._cl = cl;
+    return cl;
   }
-  // The screen's pile: add the missing items (falling in one after another) or take extra ones away.
-  function pileTo(node, count, animate) {
-    var mn = buildMinor(node), pile = mn.pile, have = pile.children.length;
+  // The pile: add the missing items (falling in one after another) or take extra ones away.
+  function pileTo(cl, count, animate) {
+    var pile = cl.pile, have = pile.children.length;
     for (var k = have; k < count; k++) {
-      var it = el("span", "mn-item" + (mn.item ? "" : " mn-pearl"), mn.item || null), o = SPOT[k];
+      var it = el("span", "cl-item", cl.item), o = SPOT[k];
       it.style.cssText = "--pr:" + o.pr + ";--pc:" + o.pc + ";--sr:" + o.sr + ";--sc:" + o.sc + ";";
-      if (animate && !reduce) { it.classList.add("mn-drop"); it.style.animationDelay = ((k - have) * 0.12) + "s"; }
+      if (animate && !reduce) { it.classList.add("cl-drop"); it.style.animationDelay = ((k - have) * 0.12) + "s"; }
       pile.appendChild(it);
     }
     while (pile.children.length > count) pile.removeChild(pile.lastChild);
   }
-  function paintMinor(node, key, s, animate) {
-    var mn = buildMinor(node);
-    if (mn.pile) pileTo(node, Math.min(SPOTS - 1, Math.floor(Math.max(0, s.fill) / 100 * SPOTS)), animate);
-    else mn.coins.style.height = Math.max(0, Math.min(100, s.fill)) + "%";
-    node.setAttribute("aria-valuenow", String(s.fill));
-    node.setAttribute("aria-valuetext", Math.floor(s.fill) + "% full");
-    node.title = label(key) + (mn.pile ? ": it fills up with every bet." : ": the pot fills with every bet.");
+  function paintCollector(node, filled, size, animate) {
+    var cl = buildCollector(node), f = Math.max(0, Math.min(size, filled)), share = size > 0 ? f / size : 0;
+    if (cl.pile) pileTo(cl, Math.min(SPOTS, Math.floor(share * SPOTS)), animate);
+    if (cl.level) cl.level.style.setProperty("--fill", (share * 100).toFixed(2) + "%");
+    if (cl.count) cl.count.textContent = f.toLocaleString("en-US") + " / " + size.toLocaleString("en-US");
+    node.setAttribute("aria-valuemax", String(size));
+    node.setAttribute("aria-valuenow", String(f));
+    node.setAttribute("aria-valuetext", f + " of " + size);
+    node.title = collName(node) + ": " + f + " of " + size + ". Shared by all players: the spin that fills it plays the reward.";
   }
-  // Won: everything bursts out, "WON!", then it starts again nearly empty.
-  function burstMinor(node) {
-    var mn = buildMinor(node), cls = mn.pile ? "mn-burst" : "pot-burst";
-    clearTimeout(node._mnWon);
-    if (mn.pile) {
-      if (!mn.pile.children.length) pileTo(node, 6, false);   // something to burst even when it was nearly empty
-      Array.prototype.forEach.call(mn.pile.children, function (it) {
-        it.classList.remove("mn-drop");
-        it.style.animationDelay = "";
-        it.style.setProperty("--dx", Math.round(Math.random() * 240 - 120) + "px");
-        it.style.setProperty("--dy", Math.round(-60 - Math.random() * 160) + "px");
-        it.style.setProperty("--rot", Math.round(Math.random() * 720 - 360) + "deg");
-      });
-    } else {
-      mn.coins.style.height = "100%";
-    }
-    node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);
-    node.setAttribute("aria-valuetext", "won, filling again from empty");
-    node._mnWon = setTimeout(function () {
-      node.classList.remove(cls);
-      if (mn.pile) pileTo(node, 0, false);
-      if (node._mnState) paintMinor(node, node.getAttribute("data-meter"), node._mnState, true);
-    }, reduce ? 900 : 2200);
+  // Full: everything glows, "FULL!"; with done, it then starts again empty (someone else's, or ours
+  // after the reward). Our own full meter stays lit while its reward plays (see collect).
+  function flashFull(node, then) {
+    clearTimeout(node._clFull);
+    node.classList.remove("cl-is-full"); void node.offsetWidth; node.classList.add("cl-is-full");
+    if (!then) return;
+    node._clFull = setTimeout(function () { node.classList.remove("cl-is-full"); then(); }, reduce ? 900 : 2200);
   }
-  function bursting(node) { return node.classList.contains("mn-burst") || node.classList.contains("pot-burst"); }
-  function renderMinors() {
-    document.querySelectorAll("[data-meter]").forEach(function (node) {
-      var key = node.getAttribute("data-meter"), s = stateOf(data, key);
-      buildMinor(node);
-      if (!s || typeof s.fill !== "number") return;
-      var old = node._mnState;
-      node._mnState = s;
-      if (old && s.cycle > old.cycle) {
-        if (node._mnOwn) { node._mnOwn = false; if (!bursting(node)) paintMinor(node, key, s, true); return; }   // already burst in the celebration
-        burstMinor(node); return;
+  function renderCollectors() {
+    document.querySelectorAll("[data-collector]").forEach(function (node) {
+      var key = "collector:" + node.getAttribute("data-collector"), s = stateOf(data, key);
+      buildCollector(node);
+      if (!s || typeof s.filled !== "number" || !s.size) return;
+      var old = node._clState;
+      node._clState = s;
+      if (old && s.cycle > old.cycle) {   // filled by someone (it played its reward): FULL!, then from empty
+        paintCollector(node, old.size, old.size, true);
+        flashFull(node, function () { if (node._cl.pile) pileTo(node._cl, 0, false); paintCollector(node, node._clState.filled, node._clState.size, true); });
+        return;
       }
-      if (bursting(node)) return;   // the burst ends on the newest level
-      if (old && s.fill > old.fill && !reduce && !isScreen(node)) { node.classList.remove("pot-grow"); void node.offsetWidth; node.classList.add("pot-grow"); }
-      paintMinor(node, key, s, !!old);
+      if (node.classList.contains("cl-is-full")) return;   // the FULL! ends on the newest state
+      paintCollector(node, s.filled, s.size, !!old);
     });
   }
-  // The player's own Minor win: burst it now (the celebration), not again when it is read.
-  function burst(key) {
-    document.querySelectorAll('[data-meter="' + key + '"]').forEach(function (node) { node._mnOwn = true; burstMinor(node); });
+  // The player's own spin: its collect symbols reached the meter (full: it stays lit for the reward).
+  function collect(gameId, filled, size, full) {
+    document.querySelectorAll('[data-collector="' + gameId + '"]').forEach(function (node) {
+      var old = node._clState || { cycle: 0 };
+      clearTimeout(node._clFull);
+      node._clState = { filled: full ? size : filled, size: size, cycle: old.cycle };
+      paintCollector(node, full ? size : filled, size, true);
+      if (full) flashFull(node);
+    });
+  }
+  // After a full meter's reward: it starts again empty (the next reading is the new cycle).
+  function collectorDone(gameId) {
+    document.querySelectorAll('[data-collector="' + gameId + '"]').forEach(function (node) {
+      var old = node._clState || { cycle: 0, size: 0 };
+      node.classList.remove("cl-is-full");
+      node._clState = { filled: 0, size: old.size, cycle: old.cycle + 1 };
+      if (node._cl && node._cl.pile) pileTo(node._cl, 0, false);
+      paintCollector(node, 0, old.size || 1, false);
+    });
   }
 
   /* ═══════════════ Recent wins (jackpots page) ═══════════════ */
@@ -254,7 +260,7 @@
       check.appendChild(b);
     } else {
       var note = el("span", "jpw-old", "Old jackpot");
-      note.title = "Won from the jackpot pools that came before the current jackpots: there is no seed to check.";
+      note.title = "Won from the first jackpot pools (before the meters): there is no seed to check.";
       check.appendChild(note);
     }
     tr.appendChild(check);
@@ -307,7 +313,7 @@
     });
   }
 
-  function render() { renderAmounts(); renderMinors(); renderWinners(); renderHashes(); }
+  function render() { renderAmounts(); renderCollectors(); renderWinners(); renderHashes(); }
 
   /* ═══════════════ Reading ═══════════════ */
   function refresh() {
@@ -344,7 +350,8 @@
     });
   });
 
-  window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release, burst: burst, get data() { return data; } };
+  window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release,
+                          collect: collect, collectorDone: collectorDone, get data() { return data; } };
   refresh();
   schedule();
 })();

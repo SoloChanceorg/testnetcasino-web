@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109s">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109u">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -61,9 +61,9 @@
         <ol class="fair-steps">
           <li>Before you play, the server picks a secret <b>server seed</b> and shows you its SHA-256 hash. It cannot change the seed later without the hash changing.</li>
           <li>You choose a <b>client seed</b>. Every spin also has a <b>nonce</b>: 0, 1, 2 and so on.</li>
-          <li>Every reel stop, multiplier, bonus and rounding comes from HMAC-SHA256(server seed, client seed:nonce), so neither side can steer a result alone.</li>
+          <li>Every reel stop, multiplier, bonus and rounding comes from HMAC-SHA256(server seed, client seed:nonce), so neither side can steer a result alone. So do the jackpots a spin wins, its collect symbols and, when it fills the collector, the reward it plays.</li>
           <li>When you rotate the seed, the old server seed is revealed. This page then replays your spins in your browser and checks every win.</li>
-          <li>The jackpots are fair in their own way: each jackpot's hidden target is fixed by a seed before it starts. See <a href="#jackpots">Jackpots</a> below.</li>
+          <li>What a jackpot pays is what it holds when it is won. Its head start after a win is fixed by a seed before the cycle starts. See <a href="#jackpots">Jackpots</a> below.</li>
         </ol>
       </section>
 
@@ -119,7 +119,7 @@
           <div><label class="auth-label" for="vf-game">Game</label>
             <select class="auth-input" id="vf-game"><option value="fruit-orchard">Fruit Orchard</option><option value="deep-sea">Deep Sea Treasure</option><option value="cosmic-voyage">Cosmic Voyage</option></select></div>
           <div><label class="auth-label" for="vf-version">Game version</label>
-            <select class="auth-input" id="vf-version"><option value="3">3 (since Nov 9, 2026)</option><option value="2">2 (Nov 8 to 9, 2026, old jackpot draws)</option><option value="1">1 (before Nov 8, 2026)</option></select></div>
+            <select class="auth-input" id="vf-version"><option value="4">4 (jackpots in the game, collectors)</option><option value="3">3 (Nov 9, 2026)</option><option value="2">2 (Nov 8 to 9, 2026, old jackpot draws)</option><option value="1">1 (before Nov 8, 2026)</option></select></div>
           <div><label class="auth-label" for="vf-bet">Bet (tSats, 1 to 1,000)</label>
             <input class="auth-input auth-mono" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
@@ -130,6 +130,10 @@
             <input class="auth-input auth-mono" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
           <div><label class="auth-label" for="vf-expect">Expected win in tSats (optional)</label>
             <input class="auth-input auth-mono" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
+          <div><label class="auth-label" for="vf-reward">Reward bet in tSats (version 4, only if the spin filled the collector)</label>
+            <input class="auth-input auth-mono" id="vf-reward" type="number" inputmode="numeric" min="1" max="1000" step="1" aria-describedby="vf-reward-hint">
+            <p class="auth-hint" id="vf-reward-hint">The <code>bet</code> of the spin's <code>collect</code> step. Leave it empty if the spin did not fill it.</p></div>
+          <div class="vf-check"><label><input type="checkbox" id="vf-nojp"> Jackpots were off for this spin (<code>"jackpots": false</code>)</label></div>
           <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="vf-submit">🔍 Replay spin</button></div>
         </form>
         <div class="vf-result" id="vf-result" role="status" aria-live="polite"></div>
@@ -137,16 +141,19 @@
 
       <section class="panel" id="jackpots" aria-labelledby="mt-title">
         <h2 class="panel-label" id="mt-title">💰 JACKPOTS</h2>
-        <p>The jackpots are a gift from the faucet, outside the games' RTP: every bet grows the machine's Minor and Major and the shared Grand with faucet money. Each one has a hidden target. The spin that reaches it wins everything it holds, and a new cycle starts with a new target.</p>
+        <p>The jackpots are part of every machine's 110% RTP: every bet adds 4% to the machine's Minor, 3% to its Major and 3% to the shared Grand. A spin wins them inside the game, by its own seeds: three draws after the free spins (Grand, Major, Minor, each a hit with a chance of bet / one-in), and the highest hit is won. The verifier above replays them too. What a win pays is what the jackpot holds at that moment.</p>
         <ol class="fair-steps">
-          <li>When a cycle starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
-          <li>Everything about the cycle comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives three numbers. The first picks the <b>target</b> between the tier's minimum and maximum (small targets more likely), the second a <b>display scale</b> between the target and the maximum (the Minor pot shows its coins against it), and the third the <b>head start</b> of a Major or Grand, below the tier's minimum, so it says nothing about the target. The Minor starts at zero.</li>
-          <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target, display scale and head start, and that the amount won is at least the target. While the jackpot was running only the hash was public, so the target was fixed when the cycle started and could not be changed afterwards.</li>
+          <li>After a win the next cycle starts with a <b>head start</b> from the faucet. When a cycle starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
+          <li>The head start comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives two numbers. The first picks a hidden <b>target</b> between the tier's minimum and maximum (small targets more likely), the second the <b>head start</b>, 25% to 75% of the target.</li>
+          <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target and head start, and that the amount won is at least the head start. While the jackpot was running only the hash was public, so the head start was fixed when the cycle started and could not be changed afterwards.</li>
         </ol>
+        <p class="auth-hint">Older jackpot wins (from the meters that paid when they reached their target) also published a <b>display scale</b>; their Verify uses those rules.</p>
         <p class="auth-hint">Every recent win on the <a href="jackpots.html#jackpot-winners">jackpots page</a> has a Verify button. Or check a seed yourself, with the range shown in that win's Verify details:</p>
         <form id="mt-form" class="vf-grid" novalidate>
           <div><label class="auth-label" for="mt-tier">Jackpot</label>
             <select class="auth-input" id="mt-tier"><option value="minor">Minor</option><option value="major">Major</option><option value="grand">Grand</option></select></div>
+          <div><label class="auth-label" for="mt-rules">Rules</label>
+            <select class="auth-input" id="mt-rules"><option value="current">Since Nov 9, 2026 (won in the game)</option><option value="old">Before (display scale)</option></select></div>
           <div class="mt-range">
             <div><label class="auth-label" for="mt-min">Minimum (tSats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1"></div>
             <div><label class="auth-label" for="mt-max">Maximum (tSats)</label><input class="auth-input auth-mono" id="mt-max" type="number" inputmode="numeric" min="0" step="1"></div>
@@ -188,14 +195,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109s"></script>
-  <script src="assets/js/api.js?v=20261109s"></script>
-  <script src="assets/js/units.js?v=20261109s"></script>
-  <script src="assets/js/faucet.js?v=20261109s"></script>
-  <script src="assets/js/auth.js?v=20261109s"></script>
-  <script src="assets/js/fairness-engine.js?v=20261109s"></script>
-  <script src="assets/js/fairness.js?v=20261109s"></script>
-  <script src="assets/js/fx.js?v=20261109s"></script>
-  <script src="assets/js/music.js?v=20261109s"></script>
+  <script src="assets/js/config.js?v=20261109u"></script>
+  <script src="assets/js/api.js?v=20261109u"></script>
+  <script src="assets/js/units.js?v=20261109u"></script>
+  <script src="assets/js/faucet.js?v=20261109u"></script>
+  <script src="assets/js/auth.js?v=20261109u"></script>
+  <script src="assets/js/fairness-engine.js?v=20261109u"></script>
+  <script src="assets/js/fairness.js?v=20261109u"></script>
+  <script src="assets/js/fx.js?v=20261109u"></script>
+  <script src="assets/js/music.js?v=20261109u"></script>
 </body>
 </html>
