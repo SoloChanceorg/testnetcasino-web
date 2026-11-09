@@ -128,7 +128,7 @@
           '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
-        '<p class="px-note">Press ' + esc(T.spin) + ' · or press <b>Space</b> key</p></section>' +
+        '</section>' +
       (window.TNC_Slot ? TNC_Slot.paytableSection(game) : '') +
       '<section class="panel" aria-labelledby="hist-title"><h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol></section>';
@@ -517,14 +517,17 @@
     var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 22;
     var deckRoot = new PIXI.Container(), deck = new PIXI.Container(); deck.x = OX;
     var Q = [CX0, FY, CX0 + DWF, FY, CX0 + DWF + FLARE, FY + DH, CX0 - FLARE, FY + DH];   // TL, TR, BR, BL
-    // The cabinet's base: the console's front edge, facing the player
-    L.panel.addChild(paint(W, 30, function (g) {
-      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 10, 20); g.lineTo(Q[6] + 10, 20); g.closePath();
-      g.fillStyle = grad(g, 0, 20, ["#2a1660", "#0b0522"]); g.fill();
+    // The cabinet's base: the console's front edge, facing the player, with the hint printed on it
+    var BASE_H = 28;
+    L.panel.addChild(paint(W, BASE_H + 10, function (g) {
+      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 10, BASE_H); g.lineTo(Q[6] + 10, BASE_H); g.closePath();
+      g.fillStyle = grad(g, 0, BASE_H, ["#2a1660", "#0b0522"]); g.fill();
       g.lineWidth = 3; g.strokeStyle = T.neon; g.shadowColor = T.neon; g.shadowBlur = 14;
-      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[6] + 10, 20); g.lineTo(Q[4] - 10, 20); g.lineTo(Q[4], 0); g.stroke();
+      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[6] + 10, BASE_H); g.lineTo(Q[4] - 10, BASE_H); g.lineTo(Q[4], 0); g.stroke();
       g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Q[6] + 4, 1.5); g.lineTo(Q[4] - 4, 1.5); g.stroke();
     })).position.set(0, Q[5] - 1);
+    var hint = txt("Press " + T.spin + " · or press Space key", { fontFamily: "Poppins, sans-serif", fontWeight: "600", fontSize: 13, fill: "#cbb8ff", letterSpacing: 0.5 });
+    hint.position.set(W / 2, Q[5] - 1 + BASE_H / 2 + 1); L.panel.addChild(hint);
     // The console surface (painted flat, seen in perspective): the cabinet's material, lit a little more
     // where it faces up, a crease of light along the fold, the outline down its sides and along the front.
     deckRoot.addChild(paint(DWF, DH, function (g, w, h) {
@@ -592,7 +595,7 @@
 
     // LAUNCH: a hexagonal key standing up from the console; it sinks when pressed.
     function hexPath(g, cx, cy, r) { g.beginPath(); for (var i = 0; i < 6; i++) { var a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); } g.closePath(); }
-    var LDEPTH = 21, LR = 86;
+    var LDEPTH = 18, LR = 74;
     var launch = new PIXI.Container(); launch.position.set(390, 130); deck.addChild(launch);
     var launchWell = paint(260, 260, function (g) {                // the socket in the console
       hexPath(g, 130, 130 + LDEPTH, LR + 14); g.fillStyle = "#07031a"; g.fill();
@@ -612,9 +615,9 @@
       g.save(); hexPath(g, 120, 120, LR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(120, 62, 70, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
     });
     launchCap.anchor.set(0.5); launchTop.addChild(launchCap);
-    var launchLabel = txt(T.spin, { fontSize: 30, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
-    launchLabel.y = -7;
-    var launchSub = txt("", { fontSize: 14, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 26;
+    var launchLabel = txt(T.spin, { fontSize: 26, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
+    launchLabel.y = -6;
+    var launchSub = txt("", { fontSize: 12, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 22;
     launchTop.addChild(launchLabel, launchSub);
     // The key's states, like the HTML machine's 3D buttons:
     //   idle: still, with a shine sweeping across the cap and a half press every 4.2 s (an invitation);
@@ -659,32 +662,59 @@
     function pressLaunch() { keyPressUntil = performance.now() + 120; }
     deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { press(); });
 
-    // THRUST: the bet ladder 1 ... 1,000; a lever in a slot sunk into the console, ▲ ▼ keys below.
+    // THRUST: the bet ladder 1 ... 1,000 as an aircraft throttle: a T-handle on a shaft rising from a gate
+    // slot sunk into the console, a detent notch at every step; ▲ ▼ keys below. Pulled back (low thrust) the
+    // handle leans toward the player, pushed forward it stands up over the slot.
+    var SLX = 93;   // the slot's centre line
     var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
-    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(63, 12); thr.addChild(thrHead);
-    var slot = recess(18, 196, 9); slot.position.set(72, 24); thr.addChild(slot);
-    var slotFill = paint(10, 190, function (g) { rr(g, 0, 0, 10, 190, 5); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.85; g.fill(); });
-    slotFill.position.set(80, 31); thr.addChild(slotFill);
+    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
+    var slot = recess(12, 200, 6); slot.position.set(SLX - 10, 22); thr.addChild(slot);
+    var slotFill = paint(6, 190, function (g) { rr(g, 0, 0, 6, 190, 3); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.9; g.fill(); });
+    slotFill.position.set(SLX - 3, 31); thr.addChild(slotFill);
+    var detents = new PIXI.Graphics();
+    LADDER.forEach(function (v, i) { var y = 214 - i * 20; detents.moveTo(SLX + 10, y).lineTo(SLX + 18, y).moveTo(SLX - 18, y).lineTo(SLX - 10, y); });
+    detents.stroke({ width: 2, color: 0x9a86e0, alpha: 0.7 }); thr.addChild(detents);
     var thrMarks = LADDER.map(function (v, i) {
       var y = 214 - i * 20, m = txt(String(v), { fontFamily: MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
-      m.anchor.set(1, 0.5); m.position.set(62, y); thr.addChild(m);
+      m.anchor.set(1, 0.5); m.position.set(SLX - 24, y); thr.addChild(m);
       deckHit(556 + 4, 12 + y - 10, 120, 20, null, function () { if (!busy) { sfx.chip(); setBet(v); } });
       return m;
     });
-    var thrKnob = keyArt(40, 18, 6, 8, ["#ffffff", "#c7b6ff"], ["#8a73d9", "#4b3a8a"]);
-    thrKnob.anchor.set(0.5, 0.42); thrKnob.x = 85; thr.addChild(thrKnob);
-    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(66, 252); thr.addChild(betVal);
+    // The lever: a collar in the slot, a shaft, and the T-handle (a ribbed grip with glowing end caps).
+    var thrKnob = new PIXI.Container(); thrKnob.x = SLX; thr.addChild(thrKnob);
+    var leverShadow = new PIXI.Graphics(), leverShaft = new PIXI.Graphics(); thrKnob.addChild(leverShadow, leverShaft);
+    var collar = paint(26, 14, function (g) { g.beginPath(); g.ellipse(13, 7, 11, 5.5, 0, 0, Math.PI * 2); g.fillStyle = grad(g, 2, 12, ["#cdbcff", "#4b3a8a"]); g.fill(); });
+    collar.anchor.set(0.5); thrKnob.addChild(collar);
+    var grip = paint(60, 30, function (g) {
+      g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 6; g.shadowOffsetY = 4;
+      rr(g, 7, 6, 46, 16, 8); g.fillStyle = grad(g, 6, 22, ["#f4efff", "#b9a6ff", "#5a3fb0"]); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
+      g.strokeStyle = "rgba(60,30,120,.45)"; g.lineWidth = 1.2;                                   // ribs
+      for (var x = 17; x <= 43; x += 4) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, 20); g.stroke(); }
+      [[7, "#ff4fd8"], [47, "#ff4fd8"]].forEach(function (c) {                                    // glowing end caps
+        rr(g, c[0], 6, 6, 16, 3); g.fillStyle = c[1]; g.shadowColor = c[1]; g.shadowBlur = 8; g.fill(); g.shadowBlur = 0;
+      });
+      g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, 8.5); g.lineTo(46, 8.5); g.stroke();   // highlight
+    });
+    grip.anchor.set(0.5, 0.47); thrKnob.addChild(grip);
+    function drawLever(i) {   // i: 0 (1 tSat, pulled back) .. 9 (1000, pushed forward)
+      var reach = 24 - 14 * (i / (LADDER.length - 1));   // how far the handle leans toward the player
+      leverShadow.clear().roundRect(-3, 2, 6, reach + 4, 3).fill({ color: 0x000000, alpha: 0.35 });
+      leverShaft.clear().roundRect(-3, 0, 6, reach, 3).fill(0xbfb3e6).roundRect(-3, 0, 2, reach, 1).fill({ color: 0xffffff, alpha: 0.6 });
+      grip.y = reach; grip.scale.y = 0.85 + 0.15 * (1 - i / (LADDER.length - 1));
+    }
+    drawLever(3);
+    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(70, 270); thr.addChild(betVal);
     function smallKey(label, x) {
-      var k = new PIXI.Container(); k.position.set(x, 252);
+      var k = new PIXI.Container(); k.position.set(x, 270);
       var art = keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); k.addChild(art);
       var top = new PIXI.Container(); var t = txt(label, { fontSize: 15, fill: "#fff" }); t.y = -1; top.addChild(t); k.addChild(top);
       k._sink = function () { sinkKey(function (v) { art.y = v; top.y = v; }, 5); };
       thr.addChild(k);
       return k;
     }
-    var betDown = smallKey("▼", 12), betUp = smallKey("▲", 120);
-    deckHit(556 - 6, 12 + 236, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
-    deckHit(556 + 102, 12 + 236, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
+    var betDown = smallKey("▼", 16), betUp = smallKey("▲", 124);
+    deckHit(556 - 2, 12 + 254, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
+    deckHit(556 + 106, 12 + 254, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
 
     // The console in perspective
     var deckRT = PIXI.RenderTexture.create({ width: DWF, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
@@ -728,7 +758,11 @@
       try { sessionStorage.setItem("tnc.bet." + id, String(bet)); } catch (e) {}
       var i = ladderIndex(bet);
       thrMarks.forEach(function (m, k) { m.style.fill = k === i ? "#ffffff" : "#8f86b8"; });
-      animate(R(220), (function (from) { return function (p) { thrKnob.y = from + (214 - i * 20 - from) * p; slotFill.height = Math.max(4, 190 - (thrKnob.y - 31)); slotFill.y = thrKnob.y; }; })(thrKnob.y || 214));
+      animate(R(220), (function (from, fromI) { return function (p) {
+        thrKnob.y = from + (214 - i * 20 - from) * p; drawLever(fromI + (i - fromI) * p);
+        slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y;
+      }; })(thrKnob.y || 214, thrKnob._i == null ? i : thrKnob._i));
+      thrKnob._i = i;
       betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
       updateControls();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
@@ -1446,7 +1480,7 @@
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 120, 12 + 252); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
+    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 124, 12 + 270); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
   }
 
   window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };
