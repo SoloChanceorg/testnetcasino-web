@@ -88,6 +88,16 @@
     return g;
   }
   function rr(x, px, py, w, h, r) { x.beginPath(); x.roundRect(px, py, w, h, r); }
+  // The inverse of the homography that maps the unit square to the quad q = [TL, TR, BR, BL] (x, y pairs,
+  // Heckbert): apply it to (x, y, 1) and divide by the third value to get (u, v) in 0..1.
+  function quadInverse(q) {
+    var x0 = q[0], y0 = q[1], x1 = q[2], y1 = q[3], x2 = q[4], y2 = q[5], x3 = q[6], y3 = q[7];
+    var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+    var det = dx1 * dy2 - dx2 * dy1, gg = det ? (dx3 * dy2 - dx2 * dy3) / det : 0, hh = det ? (dx1 * dy3 - dx3 * dy1) / det : 0;
+    var A = x1 - x0 + gg * x1, B = x3 - x0 + hh * x3, C = x0, D = y1 - y0 + gg * y1, E = y3 - y0 + hh * y3, F = y0, G = gg, Hh = hh, I = 1;
+    return [E * I - F * Hh, C * Hh - B * I, B * F - C * E, F * G - D * I, A * I - C * G, C * D - A * F, D * Hh - E * G, B * G - A * Hh, A * E - B * D];
+  }
+  function applyInverse(m, x, y) { var w = m[6] * x + m[7] * y + m[8]; return { u: (m[0] * x + m[1] * y + m[2]) / w, v: (m[3] * x + m[4] * y + m[5]) / w }; }
 
   /* ═══════════════ Build ═══════════════ */
   async function build(root, id, game) {
@@ -111,7 +121,7 @@
     /* --- Page: the stage for the canvas, then the parts that stay HTML --- */
     root.innerHTML =
       '<div class="px-stage" id="px-stage"><div class="px-machine" id="slot-machine" role="application" aria-label="' + esc(game.name) + ' slot machine. Press Space to spin and to stop the reels.">' +
-        '<div class="px-canvas" id="px-canvas"></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div></div>' +
+        '<div class="px-canvas" id="px-canvas"><i class="px-corner c0"></i><i class="px-corner c1"></i><i class="px-corner c2"></i><i class="px-corner c3"></i></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div></div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       '<section class="panel m-extras" aria-label="Credit unit and account"><div class="m-util">' +
         '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
@@ -141,12 +151,26 @@
     function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function fit() {
       var full = document.body.classList.contains("is-fullscreen");
-      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * W / H) : Math.min(hostEl.clientWidth || W, W);
+      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * W / H) : Math.min(stageEl.clientWidth || W, W);
       app.renderer.resize(w, Math.round(w * H / W));
       app.stage.scale.set(w / W);
     }
+    // The machine leans and tilts in CSS 3D, so the canvas is not a flat rectangle on screen. Four
+    // invisible markers sit on the canvas corners and move with it; a pointer is mapped back to the canvas
+    // through the projection their screen positions describe (exact under any lean or tilt).
+    // (The canvas box is exactly the canvas's size, and the markers sit on its corners in CSS.)
+    var corners = Array.prototype.slice.call(hostEl.querySelectorAll(".px-corner"));
+    var events = app.renderer.events;
+    events.mapPositionToPoint = function (point, x, y) {
+      var q = [];
+      corners.forEach(function (el) { var r = el.getBoundingClientRect(); q.push(r.left, r.top); });
+      var p = applyInverse(quadInverse(q), x, y);
+      point.x = p.u * app.screen.width;
+      point.y = p.v * app.screen.height;
+    };
     fit();
     window.addEventListener("resize", fit);
+    if (window.ResizeObserver) new ResizeObserver(function () { if (Math.abs(Math.min(stageEl.clientWidth, W) - app.screen.width) > 1 && !document.body.classList.contains("is-fullscreen")) fit(); }).observe(stageEl);
     var FS_ICON = {
       enter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
       exit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
@@ -490,7 +514,7 @@
     // cabinet's full width, its sides continuing the cabinet's, flaring a little toward the front edge.
     // DW × DH: the controls' area, drawn at OX inside the full console width DWF.
     // The console's side lines start exactly on the cabinet's (cabinet x 10, its outline 6 px in).
-    var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 8;
+    var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 22;
     var deckRoot = new PIXI.Container(), deck = new PIXI.Container(); deck.x = OX;
     var Q = [CX0, FY, CX0 + DWF, FY, CX0 + DWF + FLARE, FY + DH, CX0 - FLARE, FY + DH];   // TL, TR, BR, BL
     // The cabinet's base: the console's front edge, facing the player
@@ -568,7 +592,7 @@
 
     // LAUNCH: a hexagonal key standing up from the console; it sinks when pressed.
     function hexPath(g, cx, cy, r) { g.beginPath(); for (var i = 0; i < 6; i++) { var a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); } g.closePath(); }
-    var LDEPTH = 24, LR = 100;
+    var LDEPTH = 21, LR = 86;
     var launch = new PIXI.Container(); launch.position.set(390, 130); deck.addChild(launch);
     var launchWell = paint(260, 260, function (g) {                // the socket in the console
       hexPath(g, 130, 130 + LDEPTH, LR + 14); g.fillStyle = "#07031a"; g.fill();
@@ -588,9 +612,9 @@
       g.save(); hexPath(g, 120, 120, LR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(120, 62, 70, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
     });
     launchCap.anchor.set(0.5); launchTop.addChild(launchCap);
-    var launchLabel = txt(T.spin, { fontSize: 34, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
-    launchLabel.y = -8;
-    var launchSub = txt("", { fontSize: 15, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 30;
+    var launchLabel = txt(T.spin, { fontSize: 30, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
+    launchLabel.y = -7;
+    var launchSub = txt("", { fontSize: 14, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 26;
     launchTop.addChild(launchLabel, launchSub);
     // The key's states, like the HTML machine's 3D buttons:
     //   idle: still, with a shine sweeping across the cap and a half press every 4.2 s (an invitation);
@@ -642,14 +666,14 @@
     var slotFill = paint(10, 190, function (g) { rr(g, 0, 0, 10, 190, 5); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.85; g.fill(); });
     slotFill.position.set(80, 31); thr.addChild(slotFill);
     var thrMarks = LADDER.map(function (v, i) {
-      var y = 214 - i * 20, m = txt(v >= 1000 ? "1K" : String(v), { fontFamily: MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
+      var y = 214 - i * 20, m = txt(String(v), { fontFamily: MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
       m.anchor.set(1, 0.5); m.position.set(62, y); thr.addChild(m);
       deckHit(556 + 4, 12 + y - 10, 120, 20, null, function () { if (!busy) { sfx.chip(); setBet(v); } });
       return m;
     });
     var thrKnob = keyArt(40, 18, 6, 8, ["#ffffff", "#c7b6ff"], ["#8a73d9", "#4b3a8a"]);
     thrKnob.anchor.set(0.5, 0.42); thrKnob.x = 85; thr.addChild(thrKnob);
-    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(63, 252); thr.addChild(betVal);
+    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(66, 252); thr.addChild(betVal);
     function smallKey(label, x) {
       var k = new PIXI.Container(); k.position.set(x, 252);
       var art = keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); k.addChild(art);
@@ -658,9 +682,9 @@
       thr.addChild(k);
       return k;
     }
-    var betDown = smallKey("▼", 20), betUp = smallKey("▲", 106);
-    deckHit(556 + 2, 12 + 236, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
-    deckHit(556 + 88, 12 + 236, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
+    var betDown = smallKey("▼", 12), betUp = smallKey("▲", 120);
+    deckHit(556 - 6, 12 + 236, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
+    deckHit(556 + 102, 12 + 236, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
 
     // The console in perspective
     var deckRT = PIXI.RenderTexture.create({ width: DWF, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
@@ -669,18 +693,8 @@
     L.panel.addChild(deckMesh);
     app.ticker.add(function () { app.renderer.render({ container: deckRoot, target: deckRT, clear: true }); });
     // Square -> quad homography (Heckbert), inverted to map a tap on the console back to the flat deck.
-    var HM = (function (q) {
-      var x0 = q[0], y0 = q[1], x1 = q[2], y1 = q[3], x2 = q[4], y2 = q[5], x3 = q[6], y3 = q[7];
-      var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
-      var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
-      var m = [x1 - x0 + gg * x1, x3 - x0 + hh * x3, x0, y1 - y0 + gg * y1, y3 - y0 + hh * y3, y0, gg, hh, 1];
-      var A = m[0], B = m[1], C = m[2], D = m[3], E = m[4], F = m[5], G = m[6], Hh = m[7], I = m[8];
-      return [E * I - F * Hh, C * Hh - B * I, B * F - C * E, F * G - D * I, A * I - C * G, C * D - A * F, D * Hh - E * G, B * G - A * Hh, A * E - B * D];
-    }(Q));
-    function toDeck(x, y) {
-      var u = HM[0] * x + HM[1] * y + HM[2], v = HM[3] * x + HM[4] * y + HM[5], w = HM[6] * x + HM[7] * y + HM[8];
-      return { x: u / w * DWF - OX, y: v / w * DH };
-    }
+    var HM = quadInverse(Q);
+    function toDeck(x, y) { var p = applyInverse(HM, x, y); return { x: p.u * DWF - OX, y: p.v * DH }; }
     function hitAt(e) {
       var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
       for (var i = 0; i < deckHits.length; i++) {
@@ -715,7 +729,7 @@
       var i = ladderIndex(bet);
       thrMarks.forEach(function (m, k) { m.style.fill = k === i ? "#ffffff" : "#8f86b8"; });
       animate(R(220), (function (from) { return function (p) { thrKnob.y = from + (214 - i * 20 - from) * p; slotFill.height = Math.max(4, 190 - (thrKnob.y - 31)); slotFill.y = thrKnob.y; }; })(thrKnob.y || 214));
-      betVal.text = fmt(bet);
+      betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
       updateControls();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
     }
@@ -1432,7 +1446,7 @@
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 106, 12 + 252); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
+    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 120, 12 + 252); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
   }
 
   window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };

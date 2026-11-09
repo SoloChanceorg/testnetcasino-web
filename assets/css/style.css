@@ -2312,8 +2312,10 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 /* ── The PixiJS machine (preview, ?pixi=1): one canvas in a 3D stage, so the whole machine can tilt ── */
 .px-stage { position: relative; perspective: 1400px; perspective-origin: 50% 30%; margin: 0 auto 18px; max-width: 760px; }
 .px-machine { position: relative; transform-style: preserve-3d; transform-origin: 50% 100%; rotate: x 4deg; }   /* leans back a little, at rest */
-.px-canvas { width: 100%; }
-.px-canvas canvas { display: block; margin: 0 auto; max-width: 100%; touch-action: manipulation; }
+.px-canvas { position: relative; width: max-content; max-width: 100%; margin: 0 auto; }   /* exactly the canvas */
+.px-corner { position: absolute; width: 0; height: 0; pointer-events: none; }   /* the canvas corners, for pointer mapping */
+.px-corner.c0 { left: 0; top: 0; } .px-corner.c1 { right: 0; top: 0; } .px-corner.c2 { right: 0; bottom: 0; } .px-corner.c3 { left: 0; bottom: 0; }
+.px-canvas canvas { display: block; touch-action: manipulation; }
 .px-note { margin: 10px 0 0; font-size: .82rem; opacity: .8; }
 .px-fs {
   position: absolute; top: 16.4%; right: 4.6%; z-index: 5; width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer;
@@ -2322,7 +2324,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .px-fs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .px-fs:hover { background: rgba(46,197,255,.2); }
 body.is-fullscreen .px-stage { max-width: none; margin: 0; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
-body.is-fullscreen .px-machine, body.is-fullscreen .px-canvas { width: auto; }
+body.is-fullscreen .px-machine { width: auto; }
 @media (max-width: 600px) { .px-fs { width: 30px; height: 30px; border-radius: 8px; } .px-fs svg { width: 17px; height: 17px; } }
 @keyframes px-tilt-big { 0%, 100% { transform: none; } 20% { transform: rotateX(6deg) scale(1.01); } 45% { transform: rotateX(-3deg); } 70% { transform: rotateX(1.5deg); } }
 @keyframes px-tilt-minor { 0%, 100% { transform: none; } 15% { transform: rotateX(10deg) rotateY(-6deg) scale(1.02); } 35% { transform: rotateX(-5deg) rotateY(5deg); } 55% { transform: rotateX(3deg) rotateY(-2deg); } 75% { transform: rotateX(-1deg) rotateY(1deg); } }
