@@ -195,7 +195,8 @@
   /* ═══════════════ Balance history ═══════════════ */
   var KIND = {
     signup_bonus: "🎉 Sign-up bonus", daily_bonus: "🎁 Daily bonus", spin: "🎰 Spin",
-    withdrawal: "📤 Withdrawal", withdrawal_reversal: "↩️ Withdrawal returned", admin_adjustment: "🛠️ Adjustment"
+    withdrawal: "📤 Withdrawal", withdrawal_reversal: "↩️ Withdrawal returned", admin_adjustment: "🛠️ Adjustment",
+    roulette_bet: "🎡 Roulette bet", roulette_refund: "↩️ Roulette chips back", roulette_win: "🎡 Roulette win"
   };
   var ledgerCursor = null;
   function loadLedger(fresh) {

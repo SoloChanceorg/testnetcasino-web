@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110b">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110d">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -45,6 +45,7 @@
       <a class="chip-link" href="games/fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
       <a class="chip-link" href="games/deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
       <a class="chip-link" href="games/cosmic-voyage.html"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
+      <a class="chip-link" href="games/roulette.html"><span class="chip-emoji" aria-hidden="true">🎡</span> Roulette</a>
       <a class="chip-link" href="fairness.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
       <a class="chip-link" href="leaderboards.html"><span class="chip-emoji" aria-hidden="true">🏆</span> Leaderboards</a>
       <a class="chip-link" href="jackpots.html"><span class="chip-emoji" aria-hidden="true">💰</span> Jackpots</a>
@@ -63,6 +64,7 @@
           <li>You choose a <b>client seed</b>. Every spin also has a <b>nonce</b>: 0, 1, 2 and so on.</li>
           <li>Every reel stop, multiplier, bonus and rounding comes from HMAC-SHA256(server seed, client seed:nonce), so neither side can steer a result alone. So do the jackpots a spin wins, its collect symbols and, when it fills the collector, the reward it plays.</li>
           <li>When you rotate the seed, the old server seed is revealed. This page then replays your spins in your browser and checks every win.</li>
+          <li>Roulette rounds have their own seed per round, published as a hash when betting opens. See <a href="#roulette">Roulette</a> below.</li>
           <li>What a jackpot pays is what it holds when it is won. Its head start after a win is fixed by a seed before the cycle starts. See <a href="#jackpots">Jackpots</a> below.</li>
         </ol>
       </section>
@@ -168,6 +170,25 @@
         </form>
         <div class="vf-result" id="mt-result" role="status" aria-live="polite"></div>
       </section>
+
+      <section class="panel" id="roulette" aria-labelledby="rl-title">
+        <h2 class="panel-label" id="rl-title">🎡 ROULETTE</h2>
+        <p>Every roulette round has its own secret seed. Its SHA-256 hash is published when betting opens, and the seed is revealed at the result. The seed alone fixes the winning number, the length of the spin and the rounding of every payout: the stream above with client seed <code>roulette</code> and the round id as nonce gives the number (<code>randInt(37)</code>), the spin (<code>28 + randInt(5)</code> seconds), then for every chip that covers the number, in bet order, the extra tSat of its fraction. A bet on <i>n</i> numbers pays <code>stake × 37 / n</code> (RTP 100%).</p>
+        <p class="auth-hint">Load a round from the table by its number, or enter a seed, a round id and the round's chips yourself.</p>
+        <form id="rl-form" class="vf-grid" novalidate>
+          <div><label class="auth-label" for="rl-id">Round</label>
+            <input class="auth-input auth-mono" id="rl-id" type="number" inputmode="numeric" min="1" step="1"></div>
+          <div class="rl-load"><button type="button" class="btn-gold" id="rl-load">Load this round</button></div>
+          <div class="vf-wide"><label class="auth-label" for="rl-seed">Seed (revealed at the result, 64 hex characters)</label>
+            <input class="auth-input auth-mono" id="rl-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+          <div class="vf-wide"><label class="auth-label" for="rl-hash">Seed hash published when betting opened (optional)</label>
+            <input class="auth-input auth-mono" id="rl-hash" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+          <div class="vf-wide"><label class="auth-label" for="rl-bets">Chips in bet order (JSON: [{"type", "numbers", "amount", "payout"}]; optional)</label>
+            <textarea class="auth-input auth-mono rl-bets" id="rl-bets" rows="4" spellcheck="false"></textarea></div>
+          <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="rl-submit">🔍 Check the round</button></div>
+        </form>
+        <div class="vf-result" id="rl-result" role="status" aria-live="polite"></div>
+      </section>
     </main>
 
     <!-- site:footer -->
@@ -195,14 +216,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110b"></script>
-  <script src="assets/js/api.js?v=20261110b"></script>
-  <script src="assets/js/units.js?v=20261110b"></script>
-  <script src="assets/js/faucet.js?v=20261110b"></script>
-  <script src="assets/js/auth.js?v=20261110b"></script>
-  <script src="assets/js/fairness-engine.js?v=20261110b"></script>
-  <script src="assets/js/fairness.js?v=20261110b"></script>
-  <script src="assets/js/fx.js?v=20261110b"></script>
-  <script src="assets/js/music.js?v=20261110b"></script>
+  <script src="assets/js/config.js?v=20261110d"></script>
+  <script src="assets/js/api.js?v=20261110d"></script>
+  <script src="assets/js/units.js?v=20261110d"></script>
+  <script src="assets/js/faucet.js?v=20261110d"></script>
+  <script src="assets/js/auth.js?v=20261110d"></script>
+  <script src="assets/js/fairness-engine.js?v=20261110d"></script>
+  <script src="assets/js/fairness.js?v=20261110d"></script>
+  <script src="assets/js/fx.js?v=20261110d"></script>
+  <script src="assets/js/music.js?v=20261110d"></script>
 </body>
 </html>

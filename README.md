@@ -219,6 +219,42 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
   (back to 3 whenever a pearl lands) and the total. Then the meter starts again empty. `totalWin` includes the reward.
 - **Jackpots page**: each game's collector as a bar with "filled / size".
 
+## Roulette
+
+`games/roulette.html` (`assets/js/roulette.js`, backend decision D44): **one live table for everyone**, a European single-zero
+wheel at **RTP 100%** (its own RTP; the slots stay at 110%). A round every real minute while someone is at the table:
+`:00` to `:20` betting, then a 28 to 32 s spin, then the result until the next `:00`.
+
+- **Live over a WebSocket** (`wss://api.testnetcasino.com/roulette/ws`, the session cookie is sent by the browser; `api.js`
+  `rouletteSocketUrl()`): the first message is `table`, then `round`, `bets`, `cleared`, `spin`, `result`, `settled` (to the
+  player only), `joined`, `left`, `chat`, `pong`, `error`. Pinged every 30 s, reopened after a drop with a growing wait (the
+  server keeps the place for 10 s). Every countdown runs on the server's clock (`serverTime`). Signed-out visitors see the
+  table from `GET /roulette/state` (every 10 s) with a "Sign in to play" button.
+- **Chips** go through `POST /roulette/bets` (taps close together in one request, up to 50 chips, each with its own
+  `requestId`) and **Clear** through `POST /roulette/bets/clear`; **Repeat** places your chips of the last round again.
+  Chips of 1 to 1,000 tSats, at most 10,000 a round (checked before sending too). A player who joins during a round sees "You
+  joined mid-round: you can bet from the next round" with a countdown.
+- **The wheel** turns all the time. When the `spin` arrives the number is known, but it is never shown as text before
+  `resultAt`: the ball follows a closed-form path relative to the wheel (many turns against it, slowing, dropping from the
+  rim into the pockets with a few bounces) that ends exactly in the number's pocket at `resultAt`, so it is right even for a
+  player who opens the page halfway through a spin. Then the number lights up on the felt and in its pocket, lost chips
+  fade, winning chips pulse, and the player's own win or loss gets a banner until the next round.
+- **The felt** is drawn in PixiJS with every bet as a hit zone, worked out from where the pointer is: inside bets
+  (straight, split, street, trio, corner, first four, line) on the numbers, their lines and edges; outside bets (dozens,
+  columns, red/black, odd/even, low/high) around them. Everyone's chips are on it: a stack per player and spot, yours on top
+  with a gold ring, other players' with their colour and a short label. Two layouts: wide screens get the wheel beside a
+  horizontal felt; narrower ones (under 860 px) the wheel above a vertical felt (numbers running down, outside bets on the
+  left) and a bigger status bar.
+- **HTML around the canvas:** the players and the chat (text only, never HTML; 200 characters, one message every 2 s, the
+  server's `chat_too_fast` / `invalid_chat` shown under it; chat is not kept, it starts when you join), this round's chips
+  and results per player, **previous rounds** (`GET /roulette/rounds`) with **Details** (`GET /roulette/rounds/{id}`): every
+  chip with its payout and an in-browser check of the round (seed hash, number, spin length, every payout), and the rules
+  with the payouts (37 / n: straight 37×, red 2.06×, ...).
+- **Fairness:** `TNC_Fair.roulette(seed, roundId, bets)` (FAIRNESS.md section 9; checked against the backend's roulette
+  vectors by `tools/verify-vectors.mjs`), and a 🎡 Roulette section on the fairness page: load a round by number (or
+  enter a seed, round id and chips) to recompute everything. `fairness.html#roulette-<id>` loads a round directly.
+- The ledger shows `roulette_bet`, `roulette_refund` and `roulette_win` on the account page.
+
 ## PixiJS machine
 
 Cosmic Voyage plays on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`, MIT, kept in the repo
@@ -360,7 +396,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110b`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110d`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

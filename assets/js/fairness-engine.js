@@ -18,6 +18,7 @@
  *     the jackpot draws (skipped when the spin said "jackpots": false), the collect
  *     symbols, and, when the spin filled the collector, its reward at the collect
  *     step's bet. configFor() rebuilds an older version from the current config;
+ *   - roulette (FAIRNESS.md section 9): roulette() derives a round's number, spin length and payouts;
  *   - jackpots (FAIRNESS.md section 8): meter() derives a cycle's target and head
  *     start from its revealed seed (and the display scale of the D40 / D41 cycles);
  *     verifyMeterWin() checks a win.
@@ -521,8 +522,55 @@
     });
   }
 
+  /* ═══════════════ Roulette (FAIRNESS.md section 9) ═══════════════ */
+  /**
+   * A roulette round from its revealed seed: the stream of section 2 with clientSeed "roulette" and
+   * nonce = round id gives the number (randInt(37)), the spin's length (28 + randInt(5)), then, for
+   * every chip in bet id order that covers the number, the rounding of its payout (stake × 37 / n,
+   * plus 1 sat when randInt(n) < the remainder). bets: [{ amount, numbers }] (chips taken back are not
+   * included). Resolves to { seedHash, number, spinSeconds, payouts } (0 for a chip that lost).
+   */
+  // The numbers a chip covers: its `numbers`, or for an outside bet (red, dozen2, column1, ...) by its type.
+  var R_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+  function rouletteCovers(chip) {
+    if (chip.numbers && chip.numbers.length) return chip.numbers;
+    var all = []; for (var i = 1; i <= 36; i++) all.push(i);
+    var t = chip.type, m;
+    if (t === "red") return R_RED.slice();
+    if (t === "black") return all.filter(function (n) { return R_RED.indexOf(n) === -1; });
+    if (t === "odd") return all.filter(function (n) { return n % 2; });
+    if (t === "even") return all.filter(function (n) { return !(n % 2); });
+    if (t === "low") return all.slice(0, 18);
+    if (t === "high") return all.slice(18);
+    if ((m = /^dozen([123])$/.exec(t))) return all.slice((m[1] - 1) * 12, m[1] * 12);
+    if ((m = /^column([123])$/.exec(t))) return all.filter(function (n) { return (n - 1) % 3 === m[1] - 1; });
+    return [];
+  }
+  function roulette(seedHex, roundId, bets) {
+    bets = bets || [];
+    var blocks = 4;
+    function attempt() {
+      return makeStream(seedHex, "roulette", roundId, blocks).then(function (st) {
+        try {
+          var number = st.randInt(37), spinSeconds = 28 + st.randInt(5);
+          var payouts = bets.map(function (b) {
+            var nums = rouletteCovers(b);
+            if (nums.indexOf(number) === -1) return 0;
+            var n = BigInt(nums.length), exact = BigInt(b.amount) * 37n, whole = exact / n, rem = exact % n;
+            return Number(whole) + (rem > 0n && BigInt(st.randInt(Number(n))) < rem ? 1 : 0);
+          });
+          return { number: number, spinSeconds: spinSeconds, payouts: payouts };
+        } catch (e) {
+          if (e === NEED_MORE && blocks < 4096) { blocks *= 4; return attempt(); }
+          throw e;
+        }
+      });
+    }
+    return Promise.all([attempt(), sha256Hex(seedHex)]).then(function (r) { r[0].seedHash = r[1]; return r[0]; });
+  }
+
   var api = { sha256Hex: sha256Hex, makeStream: makeStream, play: play, replay: replay,
-              configFor: configFor, meter: meter, verifyMeterWin: verifyMeterWin };
+              configFor: configFor, meter: meter, verifyMeterWin: verifyMeterWin, roulette: roulette, rouletteCovers: rouletteCovers };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TNC_Fair = api;
 })(typeof window !== "undefined" ? window : globalThis);

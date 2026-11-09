@@ -31,10 +31,11 @@ const FIX = path.join(HERE, "fixtures");
 const GAMES = ["fruit-orchard", "deep-sea", "cosmic-voyage"];
 const HTML_GAMES = ["fruit-orchard", "deep-sea"];   // Cosmic Voyage plays on the PixiJS machine (its own tests below)
 const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "jackpots.html", "withdrawals.html",
-  ...GAMES.map((g) => `games/${g}.html`)];
+  ...GAMES.map((g) => `games/${g}.html`), "games/roulette.html"];
 const CONFIGS = Object.fromEntries(GAMES.map((g) => [g, fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")]));
 const SPINS = JSON.parse(fs.readFileSync(path.join(FIX, "spins.json"), "utf8"));
 const METERS = JSON.parse(fs.readFileSync(path.join(FIX, "meters.json"), "utf8"));   // backend meter vectors
+const ROULETTE = JSON.parse(fs.readFileSync(path.join(FIX, "roulette.json"), "utf8"));   // backend roulette vectors
 const ADDR = "bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy";
 
 if (typeof WebSocket === "undefined") { console.error("Needs Node 22 or newer (built-in WebSocket)."); process.exit(2); }
@@ -67,7 +68,7 @@ const COLLECTOR = { "fruit-orchard": { filled: 57, size: 186 }, "deep-sea": { fi
 function resetApi() {
   Object.assign(api, {
     user: null, balance: 50000, bonus: { available: false, amount: 1000, nextClaimAt: new Date(Date.now() + 3600e3).toISOString() },
-    spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0,
+    spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0, rt: { chips: [], nextId: 1 },
     history: [],
     jackpots: { grand: { amount: 121994, cycle: 3, seedHash: "a".repeat(64) },
       games: Object.fromEntries(GAMES.map((g, i) => [g, { minor: { amount: 2310 + i, cycle: 12, seedHash: "b".repeat(64) },
@@ -81,6 +82,27 @@ function handle(method, url, body) {
   const p = url.pathname;
   const cfg = /^\/games\/([\w-]+)\/config$/.exec(p);
   if (cfg && CONFIGS[cfg[1]]) return [200, CONFIGS[cfg[1]]];
+  // Roulette (D44): the REST side; the WebSocket is a fake in the page (see FAKE_WS), driven by the tests.
+  if (p === "/roulette/state") return [200, { type: "table", serverTime: new Date().toISOString(), players: [], bets: [] }];
+  if (p === "/roulette/bets" && method === "POST") {
+    const b = JSON.parse(body), rt = api.rt;
+    for (const x of b.bets) rt.chips.push({ id: rt.nextId++, player: "bchtest:qphp...hdxy", type: x.type, numbers: x.numbers || null, amount: x.amount });
+    const total = rt.chips.reduce((a, c) => a + c.amount, 0); api.balance -= b.bets.reduce((a, c) => a + c.amount, 0);
+    return [200, { roundId: b.roundId, bets: rt.chips, total, balance: api.balance }];
+  }
+  if (p === "/roulette/bets/clear" && method === "POST") {
+    api.balance += api.rt.chips.reduce((a, c) => a + c.amount, 0); api.rt.chips = [];
+    return [200, { roundId: JSON.parse(body).roundId, bets: [], total: 0, balance: api.balance }];
+  }
+  if (p === "/roulette/rounds") return [200, { items: ROULETTE.slice(0, 5).map((v, i) => ({ id: v.roundId, startsAt: new Date(Date.now() - (i + 1) * 60000).toISOString(),
+    status: "settled", number: v.number, spinSeconds: v.spinSeconds, seedHash: v.seedHash, seed: v.seed })), nextCursor: null }];
+  const rr = /^\/roulette\/rounds\/(\d+)$/.exec(p);
+  if (rr) {
+    const v = ROULETTE.find((x) => x.roundId === +rr[1]);
+    if (!v) return [404, { error: "round_not_found", message: "No such round." }];
+    return [200, { round: { id: v.roundId, status: "settled", number: v.number, spinSeconds: v.spinSeconds, seedHash: v.seedHash, seed: v.seed },
+      bets: v.bets.map((b, i) => ({ id: i + 1, player: "Passkey 3f9a2c", type: b.type, numbers: b.numbers, amount: b.amount, payout: v.payouts[i] })) }];
+  }
   switch (p) {
     case "/faucet": return [200, { wallet: 111044000000, house: 111043000000, users: 97981, pendingWithdrawals: 0,
       players: { allTime: 18, withBalance: 13, last24h: 14, last30d: 17 }, updatedAt: new Date().toISOString() }];
@@ -166,6 +188,19 @@ async function ev(expr) {
 async function until(expr, ms = 8000) { const t = Date.now(); while (Date.now() - t < ms) { if (await ev(expr)) return true; await sleep(120); } return false; }
 await send("Runtime.enable"); await send("Page.enable");
 await send("Fetch.enable", { patterns: [{ urlPattern: "https://api.testnetcasino.com/*" }] });
+// The roulette WebSocket cannot be intercepted like fetch: every page gets a fake one, driven by the tests
+// with __emit(message); what the page sends is in __wsLog.
+await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+  window.__wsLog = [];
+  (function () {
+    var Real = window.WebSocket;
+    function FakeWS(url) { var me = this; this.url = url; this.readyState = 0; window.__wsServer = this;
+      setTimeout(function () { me.readyState = 1; if (me.onopen) me.onopen({}); }, 30); }
+    FakeWS.prototype.send = function (d) { window.__wsLog.push(JSON.parse(d)); };
+    FakeWS.prototype.close = function () { this.readyState = 3; if (this.onclose) this.onclose({}); };
+    window.WebSocket = function (url) { return /roulette\\/ws/.test(url) ? new FakeWS(url) : new Real(url); };
+    window.__emit = function (m) { if (window.__wsServer && window.__wsServer.onmessage) window.__wsServer.onmessage({ data: JSON.stringify(m) }); };
+  })();` });
 
 async function open(page, width, opts = {}) {
   await send("Emulation.setDeviceMetricsOverride", { width, height: opts.height || 900, deviceScaleFactor: 1, mobile: width < 600 });
@@ -511,6 +546,67 @@ try {
       page && pass && fail && old && empty, `page ${!!page}, verify ${pass}, tampered ${fail}, d40 ${old}, empty ${!!empty}`);
   }
 
+  /* ═══ 4c. Roulette (D44): one live table over the WebSocket ═══ */
+  for (const width of [1280, 390]) {
+    resetApi(); signIn(50000);
+    await open("games/roulette.html", width, { height: width < 600 ? 860 : 1000 });
+    const problems = [];
+    if (!(await until(`typeof TNC_RouletteState === "function" && TNC_RouletteState().connected`, 20000))) { check(`roulette (${width}px): connects`, false); continue; }
+    const iso = (ms) => new Date(Date.now() + ms).toISOString();
+    const round = { id: 801, startsAt: iso(-3000), bettingEndsAt: iso(15000), seedHash: "b".repeat(64), status: "betting", nextRoundAt: iso(57000) };
+    await ev(`__emit(${JSON.stringify({ type: "table", serverTime: new Date().toISOString(), round, nextRoundAt: round.nextRoundAt, players: ["bchtest:qphp...hdxy", "Passkey 3f9a2c"],
+      bets: [{ id: 9001, player: "Passkey 3f9a2c", type: "red", numbers: null, amount: 100 }], canBet: true, you: "bchtest:qphp...hdxy" })}); 0`);
+    await sleep(300);
+    await ev(`scrollTo(0, document.getElementById("rt-stage").getBoundingClientRect().top + scrollY - 10)`);
+    // Real clicks on the felt: every kind of bet lands as the right type and numbers.
+    const want = [["straight", [17]], ["split", [17, 20]], ["split", [17, 18]], ["corner", [17, 18, 20, 21]], ["street", [16, 17, 18]], ["line", [13, 14, 15, 16, 17, 18]],
+      ["trio", [0, 1, 2]], ["first-four", [0, 1, 2, 3]], ["straight", [0]], ["dozen2"], ["column3"], ["red"], ["odd"], ["high"]];
+    for (const [type, numbers] of want) {
+      const pt = await ev(`(() => { const c = document.querySelector("#rt-canvas canvas").getBoundingClientRect(), s = TNC_RouletteState().spotPoint(${JSON.stringify(type)}, ${JSON.stringify(numbers || null)}); return { x: c.left + s.x, y: c.top + s.y }; })()`);
+      for (const t of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: pt.x, y: pt.y, button: "left", clickCount: 1 });
+      await sleep(60);
+    }
+    await until(`TNC_RouletteState().pending === 0 && TNC_RouletteState().myTotal > 0`, 4000);
+    const placed = api.rt.chips.map((c) => c.type + (c.numbers ? ":" + c.numbers.join("-") : ""));
+    const expected = want.map(([t, n]) => t + (n ? ":" + n.join("-") : ""));
+    if (JSON.stringify(placed) !== JSON.stringify(expected)) problems.push("bets: " + JSON.stringify(placed));
+    const st1 = await ev(`TNC_RouletteState()`);
+    if (st1.myTotal !== 140 || st1.chips !== 15) problems.push(`table shows ${st1.chips} chips, my total ${st1.myTotal}`);
+    // Chat is text, never HTML; joined lines; what we send goes out on the socket.
+    await ev(`__emit(${JSON.stringify({ type: "chat", player: "Passkey 3f9a2c", text: "<img src=x onerror=alert(1)><b>hi</b>", at: new Date().toISOString() })}); __emit({ type: "joined", player: "Passkey 0c0ffe" });
+      document.getElementById("rt-text").value = "good luck"; document.getElementById("rt-say").requestSubmit(); 0`);
+    const chat = await ev(`({ html: document.querySelectorAll("#rt-chat img, #rt-chat b").length, text: document.getElementById("rt-chat").textContent, sent: window.__wsLog })`);
+    if (chat.html || !/<b>hi<\/b>/.test(chat.text) || !/Passkey 0c0ffe joined/.test(chat.text) || !chat.sent.some((m) => m.type === "chat" && m.text === "good luck")) problems.push("chat: " + JSON.stringify(chat).slice(0, 200));
+    // The spin: the number is known to the page but never shown before resultAt; then the result and our win.
+    const spun = { ...round, status: "spinning", bettingEndsAt: iso(0), number: 17, spinSeconds: 4, resultAt: iso(4000) };
+    await ev(`__emit(${JSON.stringify({ type: "spin", serverTime: new Date().toISOString(), round: spun })}); 0`);
+    await sleep(1500);
+    const during = await ev(`(() => { const s = TNC_RouletteState(); return { s: s.status + " " + s.sub, rev: s.revealed, page: document.getElementById("app").innerText }; })()`);
+    if (during.rev || /\b17 (BLACK|black)\b/.test(during.s + during.page)) problems.push("number shown during the spin: " + during.s);
+    await ev(`__emit(${JSON.stringify({ type: "result", round: { ...spun, status: "settled", seed: "c".repeat(64) }, results: [{ player: "bchtest:qphp...hdxy", bet: 140, win: 370 }, { player: "Passkey 3f9a2c", bet: 100, win: 0 }] })});
+      __emit({ type: "settled", roundId: 801, bet: 140, win: 370, balance: 50230 }); 0`);
+    const after = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "17 BLACK" && /YOU WIN! \| \+370 tSats/.test(s.banner) && s.recent[0] === 17; })()`, 6000);
+    if (!after) problems.push("result: " + JSON.stringify(await ev(`TNC_RouletteState()`)).slice(0, 200));
+    const res = await ev(`document.getElementById("rt-results").textContent`);
+    if (!/\+230 tSats/.test(res) || !/−100 tSats/.test(res)) problems.push("results panel: " + res);
+    // The next round clears the felt; joined mid-round: no bets until the next one.
+    await ev(`__emit(${JSON.stringify({ type: "round", round: { id: 802, startsAt: iso(0), bettingEndsAt: iso(20000), seedHash: "d".repeat(64), status: "betting", nextRoundAt: iso(60000) } })}); 0`);
+    const next = await ev(`TNC_RouletteState()`);
+    if (next.chips !== 0 || next.revealed || !/PLACE YOUR BETS/.test(next.status)) problems.push("next round: " + JSON.stringify(next).slice(0, 160));
+    await ev(`__emit(${JSON.stringify({ type: "table", serverTime: new Date().toISOString(), round: { id: 803, startsAt: iso(-25000), bettingEndsAt: iso(-5000), seedHash: "e".repeat(64), status: "spinning", number: 5, spinSeconds: 30, resultAt: iso(25000), nextRoundAt: iso(35000) }, nextRoundAt: iso(35000), players: ["bchtest:qphp...hdxy"], bets: [], canBet: false, you: "bchtest:qphp...hdxy" })}); 0`);
+    const mid = await ev(`TNC_RouletteState()`);
+    if (mid.canBet || !/next round · 0:3\d/.test(mid.sub)) problems.push("mid-round join: " + JSON.stringify({ s: mid.status, sub: mid.sub }));
+    // Previous rounds: Details checks a real round (backend vector) in the browser.
+    if (width === 1280) {
+      await until(`document.querySelectorAll("#rt-rounds tr").length === 5`, 4000);
+      await ev(`document.querySelector("#rt-rounds .rt-verify").click()`);
+      const fair = await until(`/This round is fair/.test((document.querySelector("#rt-rounds tr.rt-detail") || {}).textContent || "") && document.querySelectorAll("#rt-rounds tr.rt-detail .jpw-checks .is-ok").length === 4`, 8000);
+      if (!fair) problems.push("round details: " + ((await ev(`(document.querySelector("#rt-rounds tr.rt-detail") || {}).textContent || ""`)) || "").slice(0, 200));
+    }
+    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    check(`roulette (${width}px): bets on the felt, chat as text, the number hidden until resultAt, result and win, next round, mid-round join${width === 1280 ? ", round details verified" : ""}`, !problems.length, problems.join("; "));
+  }
+
   /* ═══ 5. Withdrawals page: whole list and total ═══ */
   resetApi();
   api.payouts = [1000, 2500, 107, 99999].map((a, i) => ({ sentAt: new Date(Date.now() - i * 3600e3).toISOString(), address: ADDR, amount: a, txid: String(i).repeat(64) }));
@@ -566,6 +662,12 @@ try {
     return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tSats") && !/Display scale/.test(t)
       && t.includes("Head start${mv.startSats.toLocaleString("en-US")} tSats") && t.includes("${mv.seedHash}"); })()`, 5000);
   check("fairness: the jackpot checker derives seed hash, target and head start from a seed", meterOk);
+  const rv0 = ROULETTE[0];
+  await ev(`document.getElementById("rl-id").value = ${rv0.roundId}; document.getElementById("rl-load").click(); 0`);
+  const rlOk = await until(`(() => { const t = document.getElementById("rl-result").textContent;
+    return /every check passed/.test(t) && t.includes("Round ${rv0.roundId}: ${rv0.number}") && (t.match(/✓ Passed/g) || []).length === 4; })()`, 8000);
+  check("fairness: the roulette check loads a round and recomputes its number, spin and every payout (backend vector)", rlOk,
+    rlOk ? "" : (await ev(`document.getElementById("rl-result").textContent`)).slice(0, 200));
 
   // Your spins: GET /spins has no steps, so the page finds a reward's bet itself; a jackpot must match jackpotWin.
   resetApi(); signIn();

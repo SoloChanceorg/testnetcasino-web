@@ -2337,3 +2337,57 @@ body.is-fullscreen .px-machine { width: auto; }
 @media (prefers-reduced-motion: reduce) {
   .px-tilt-big, .px-tilt-minor, .px-tilt-major, .px-tilt-grand { animation-duration: .6s; }
 }
+
+/* ═══════════════════════ 🎡 Roulette (D44): one live table ═══════════════════════ */
+.acct-more[hidden] { display: none; }
+.rt-stage { position: relative; margin: 0 auto 18px; }
+.rt-canvas { width: max-content; max-width: 100%; margin: 0 auto; }
+.rt-canvas canvas { display: block; touch-action: manipulation; }
+.rt-lock {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; text-align: center; padding: 18px 22px;
+  border-radius: 16px; background: rgba(4,24,14,.9); border: 2px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.6);
+}
+.rt-lock p { margin: 10px 0 0; font-size: .86rem; color: var(--muted); }
+.rt-panels { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.rt-panels > .panel { margin: 0; }
+.rt-players { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rt-players li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 999px; background: rgba(0,0,0,.35); font-size: .78rem; }
+.rt-players li.is-me { border: 1px solid var(--gold); }
+.rt-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.rt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+.rt-bet { font-family: "SF Mono", ui-monospace, Menlo, monospace; color: var(--gold-light); }
+.rt-chat {
+  list-style: none; margin: 0; padding: 8px 10px; height: 260px; overflow-y: auto; border-radius: 10px; background: rgba(0,0,0,.35);
+  display: flex; flex-direction: column; gap: 4px; font-size: .86rem; overscroll-behavior: contain;
+}
+.rt-chat .rt-msg { display: flex; gap: 6px; align-items: baseline; word-break: break-word; }
+.rt-chat .rt-at { flex: none; font-size: .7rem; color: var(--muted); font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+.rt-chat .rt-who { flex: none; font-weight: 700; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-chat .rt-who::after { content: ":"; color: var(--muted); }
+.rt-chat .rt-text { min-width: 0; }
+.rt-chat .is-me .rt-text { color: var(--gold-light); }
+.rt-sys { color: var(--muted); font-style: italic; font-size: .8rem; list-style: none; }
+.rt-say { display: flex; gap: 8px; margin-top: 10px; }
+.rt-say .auth-input { flex: 1; min-width: 0; }
+.rt-round-head { margin: 0 0 8px; font-weight: 700; color: var(--gold-light); }
+.rt-res { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rt-res li { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: rgba(0,0,0,.3); font-size: .84rem; }
+.rt-res li.is-me { border: 1px solid var(--gold); }
+.rt-res .rt-name { flex: 1; min-width: 0; }
+.rt-amt { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-weight: 700; }
+.rt-amt.is-win { color: var(--lcd-green); }
+.rt-amt.is-loss { color: #ff9aa5; }
+.rt-ball { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 4px; border-radius: 999px; font: 700 .82rem var(--sign); color: #fff; border: 2px solid rgba(255,255,255,.6); }
+.rt-ball.rt-red { background: #c0182c; } .rt-ball.rt-black { background: #151515; } .rt-ball.rt-green { background: #0c8a3e; }
+.rt-detail td { white-space: normal; }
+.rt-detail .seed-list dd { overflow-wrap: anywhere; font-size: .78rem; }
+.rt-chips td { white-space: nowrap; }
+.rt-check { margin-top: 10px; }
+.rt-pay td { white-space: normal; }
+@media (max-width: 860px) {
+  .rt-panels { grid-template-columns: minmax(0, 1fr); }
+  .rt-chat { height: 220px; }
+}
+
+.rl-load { align-self: end; }
+.rl-bets { min-height: 90px; resize: vertical; font-size: .8rem; }

@@ -349,6 +349,73 @@
     }).then(function () { busy(btn, false); });
   });
 
+  /* ═══════════════ Roulette: check a round ═══════════════ */
+  var RL_TYPES = { straight: "Straight", split: "Split", street: "Street", trio: "Trio", corner: "Corner", "first-four": "First four", line: "Line",
+    red: "Red", black: "Black", odd: "Odd", even: "Even", low: "1 to 18", high: "19 to 36", dozen1: "1st 12", dozen2: "2nd 12", dozen3: "3rd 12",
+    column1: "Column 1", column2: "Column 2", column3: "Column 3" };
+  function rlColor(n) { return n === 0 ? "green" : [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].indexOf(n) !== -1 ? "red" : "black"; }
+  $("rl-load").addEventListener("click", function () {
+    var id = parseInt($("rl-id").value, 10), out = $("rl-result"), btn = this;
+    out.textContent = ""; out.className = "vf-result";
+    if (!(id >= 1)) { out.className = "vf-result is-bad"; out.textContent = "Enter a round number."; return; }
+    busy(btn, true, "Loading...");
+    api.rouletteRound(id).then(function (r) {
+      busy(btn, false);
+      if (r.status !== 200 || !r.data || !r.data.round) { out.className = "vf-result is-bad"; out.textContent = api.errorText(r, "That round could not be loaded."); return; }
+      var rd = r.data.round;
+      $("rl-seed").value = rd.seed || ""; $("rl-hash").value = rd.seedHash || "";
+      $("rl-bets").value = JSON.stringify((r.data.bets || []).map(function (c) { var b = { type: c.type, amount: c.amount }; if (c.numbers && c.numbers.length) b.numbers = c.numbers; if (c.payout != null) b.payout = c.payout; return b; }));
+      $("rl-form")._round = rd;
+      if (!rd.seed) { out.textContent = "The seed of round " + id + " is not revealed yet: it is published at the result."; return; }
+      $("rl-form").requestSubmit();
+    });
+  });
+  $("rl-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var out = $("rl-result"), btn = $("rl-submit");
+    var id = parseInt($("rl-id").value, 10), seedHex = $("rl-seed").value.trim().toLowerCase(), hash = $("rl-hash").value.trim().toLowerCase(), bets = [];
+    out.textContent = ""; out.className = "vf-result";
+    if ($("rl-bets").value.trim()) { try { bets = JSON.parse($("rl-bets").value); if (!Array.isArray(bets)) throw 0; } catch (x) { out.className = "vf-result is-bad"; out.textContent = "The chips must be a JSON list."; return; } }
+    var problem = !(id >= 1) ? "Enter the round number." : !/^[0-9a-f]{64}$/.test(seedHex) ? "The seed must be 64 hex characters."
+      : hash && !/^[0-9a-f]{64}$/.test(hash) ? "The seed hash must be 64 hex characters." : "";
+    if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
+    var rd = $("rl-form")._round && $("rl-form")._round.id === id ? $("rl-form")._round : null;
+    busy(btn, true, "Checking...");
+    Fair.roulette(seedHex, id, bets.map(function (c) { return { amount: c.amount, numbers: Fair.rouletteCovers(c) }; })).then(function (d) {
+      var checks = [];
+      if (hash) checks.push([d.seedHash === hash, "SHA-256 of the seed equals the published seed hash"]);
+      if (rd && rd.number != null) checks.push([d.number === rd.number, "The seed gives the number the table showed (" + rd.number + ")"]);
+      if (rd && rd.spinSeconds != null) checks.push([d.spinSeconds === rd.spinSeconds, "The seed gives the spin's length (" + rd.spinSeconds + " s)"]);
+      var paid = bets.filter(function (c) { return c.payout != null; });
+      if (paid.length) checks.push([bets.every(function (c, i) { return c.payout == null || c.payout === d.payouts[i]; }), "Every payout matches (" + paid.length + " chip" + (paid.length === 1 ? "" : "s") + ")"]);
+      var bad = checks.some(function (c) { return !c[0]; });
+      out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
+      out.appendChild(el("p", "rv-title", "Round " + id + ": " + d.number + " " + rlColor(d.number) + ", a " + d.spinSeconds + " s spin" +
+        (checks.length ? (bad ? " ✗ something does not match" : " ✓ every check passed") : "")));
+      var dl = el("dl", "seed-list");
+      [["Seed hash (SHA-256)", d.seedHash], ["Number", String(d.number)], ["Spin", d.spinSeconds + " s"]].forEach(function (p) {
+        var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
+      });
+      out.appendChild(dl);
+      if (checks.length) {
+        var ul = el("ul", "vf-steps");
+        checks.forEach(function (c) { ul.appendChild(el("li", c[0] ? "is-ok" : "is-bad", (c[0] ? "✓ Passed: " : "✗ Failed: ") + c[1] + ".")); });
+        out.appendChild(ul);
+      }
+      if (bets.length) {
+        var ul2 = el("ul", "vf-steps");
+        bets.forEach(function (c, i) {
+          var name = (RL_TYPES[c.type] || c.type) + (c.numbers && c.numbers.length ? " " + c.numbers.join("-") : "");
+          ul2.appendChild(el("li", "", name + ", " + fmt(c.amount) + " tSats: " + (d.payouts[i] ? "pays " + fmt(d.payouts[i]) + " tSats" : "loses") +
+            (c.payout != null && c.payout !== d.payouts[i] ? " (the table paid " + fmt(c.payout) + ")" : "")));
+        });
+        out.appendChild(ul2);
+      }
+    }).catch(function (err) { out.className = "vf-result is-bad"; out.textContent = err && err.message || "Could not check this round."; })
+      .then(function () { busy(btn, false); });
+  });
+  if (/^#roulette-(\d+)$/.test(location.hash)) { $("rl-id").value = location.hash.slice(10); setTimeout(function () { $("rl-load").click(); }, 0); }
+
   /* ═══════════════ Start ═══════════════ */
   var loaded = false;
   function render(user) {

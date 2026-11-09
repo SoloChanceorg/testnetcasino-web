@@ -98,5 +98,13 @@ for (const m of doc.meters || []) {
     failed++; console.log("METER MISMATCH", m.seed.slice(0, 12), JSON.stringify(got));
   }
 }
+for (const r of doc.roulette || []) {
+  checked++;
+  const got = await Fair.roulette(r.seed, r.roundId, r.bets);
+  if (!same({ seedHash: got.seedHash, number: got.number, spinSeconds: got.spinSeconds, payouts: got.payouts },
+             { seedHash: r.seedHash, number: r.number, spinSeconds: r.spinSeconds, payouts: r.payouts })) {
+    failed++; console.log("ROULETTE MISMATCH round", r.roundId, JSON.stringify(got));
+  }
+}
 console.log(`${checked - failed}/${checked} vectors verified` + (failed ? `, ${failed} FAILED` : ""));
 process.exit(failed ? 1 : 0);

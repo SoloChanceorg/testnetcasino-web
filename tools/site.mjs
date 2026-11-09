@@ -33,7 +33,8 @@ const PAGES = [
   { file: "withdrawals.html", id: "withdrawals", warning: "site", header: true },
   { file: "games/fruit-orchard.html", id: "fruit-orchard", warning: "game", header: true },
   { file: "games/deep-sea.html", id: "deep-sea", warning: "game", header: true },
-  { file: "games/cosmic-voyage.html", id: "cosmic-voyage", warning: "game", header: true }
+  { file: "games/cosmic-voyage.html", id: "cosmic-voyage", warning: "game", header: true },
+  { file: "games/roulette.html", id: "roulette", warning: "game", header: true }
 ];
 
 // Nav chips, in order. `to` is the target relative to the site root.
@@ -42,6 +43,7 @@ const NAV = [
   { id: "fruit-orchard", to: "games/fruit-orchard.html", emoji: "🍒", label: "Fruit Orchard" },
   { id: "deep-sea", to: "games/deep-sea.html", emoji: "🐚", label: "Deep Sea" },
   { id: "cosmic-voyage", to: "games/cosmic-voyage.html", emoji: "🚀", label: "Cosmic Voyage" },
+  { id: "roulette", to: "games/roulette.html", emoji: "🎡", label: "Roulette" },
   { id: "fairness", to: "fairness.html", emoji: "⚖️", label: "Fairness" },
   { id: "leaderboards", to: "leaderboards.html", emoji: "🏆", label: "Leaderboards" },
   { id: "jackpots", to: "jackpots.html", emoji: "💰", label: "Jackpots" },

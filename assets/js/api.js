@@ -39,7 +39,12 @@
     fairnessRotate: "/fairness/rotate",
     spins: "/spins",
     ledger: "/ledger",
-    withdrawals: "/withdrawals"
+    withdrawals: "/withdrawals",
+    rouletteState: "/roulette/state",
+    rouletteBets: "/roulette/bets",
+    rouletteClear: "/roulette/bets/clear",
+    rouletteRounds: "/roulette/rounds",   // + "/" + id for one round
+    rouletteSocket: "/roulette/ws"
   };
 
   function request(method, path, body, opts) {
@@ -117,6 +122,16 @@
     spin: function (gameId, bet, requestId) { return post(PATHS.spins, { gameId: gameId, bet: bet, requestId: requestId }); },
     spinHistory: function (cursor) { return get(withCursor(PATHS.spins, cursor)); },
     ledger: function (cursor) { return get(withCursor(PATHS.ledger, cursor)); },
+
+    /* Roulette (D44): one global table; live updates over the WebSocket at rouletteSocketUrl() */
+    // The table as the "table" message: with the session also canBet and you.
+    rouletteState: function () { return get(PATHS.rouletteState); },
+    // bets: [{ type, numbers?, amount }]; requestId: unique per placement (repeating it places nothing more).
+    rouletteBet: function (roundId, requestId, bets) { return post(PATHS.rouletteBets, { roundId: roundId, requestId: requestId, bets: bets }); },
+    rouletteClear: function (roundId) { return post(PATHS.rouletteClear, { roundId: roundId }); },
+    rouletteRounds: function (cursor) { return get(withCursor(PATHS.rouletteRounds, cursor), { public: true }); },
+    rouletteRound: function (id) { return get(PATHS.rouletteRounds + "/" + encodeURIComponent(id), { public: true }); },
+    rouletteSocketUrl: function () { return BASE.replace(/^http/, "ws") + PATHS.rouletteSocket; },
 
     /* Withdrawals */
     // address: any Bitcoin Cash Testnet4 address; omitted = the account's default (wallet: sign-in address).
