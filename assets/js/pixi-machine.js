@@ -25,7 +25,7 @@
 
   var PIXI = window.PIXI;
   var W = 760, H = 1080;                 // the machine's own coordinates; scaled to the page
-  var CW = 100, CH = 100, GAP = 4;       // one reel cell
+  var CW = 100, CH = 100, GAP = 6;       // one reel cell; GAP: the metal divider between two reels
   var RX = 46, RY = 300;                 // top left of the reels
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   var SIGN = '"Bungee", "Poppins", sans-serif', MONO = '"SF Mono", ui-monospace, Menlo, Consolas, monospace';
@@ -281,24 +281,27 @@
     var TX = RX + RW + 26, TW = W - 20 - TX - 6, TY = RY - 12, TH = RH + 24;
     var tank = new PIXI.Container(); tank.position.set(TX, TY); L.cabinet.addChild(tank);
 
-    /* ═══ Symbols (one texture per symbol: a card with its emoji) ═══ */
+    /* ═══ Symbols: printed straight on the reel strip (no card); specials keep a glow and their ribbon ═══ */
+    var GLOWS = { wild: "rgba(255,190,70,.75)", scatter: "rgba(245,197,66,.45)", bonus: "rgba(90,220,120,.4)" };
     var SYMTEX = syms.map(function (s, i) {
       var kind = s.kind;
       return texOf(CW, CH, function (g, w, h) {
-        rr(g, 3, 3, w - 6, h - 6, 12);
-        g.fillStyle = grad(g, 0, h, kind === "wild" ? ["#fff4d6", "#ffd166"] : kind ? ["#fff8ec", "#efe2ff"] : T.card); g.fill();
-        if (kind) { g.lineWidth = 3; g.strokeStyle = kind === "wild" ? "#f7931a" : kind === "scatter" ? "#f5c542" : "#7dff8a"; g.stroke(); }
-        g.font = "56px " + EMOJI; g.textAlign = "center"; g.textBaseline = "middle";
-        g.shadowColor = "rgba(0,0,0,.25)"; g.shadowBlur = 4; g.shadowOffsetY = 2;
-        g.fillText(s.emoji, w / 2, h / 2 + (kind ? -6 : 2));
+        if (kind) {
+          var rg = g.createRadialGradient(w / 2, h / 2 - 6, 4, w / 2, h / 2 - 6, w * 0.5);
+          rg.addColorStop(0, GLOWS[kind]); rg.addColorStop(1, "rgba(255,255,255,0)");
+          g.fillStyle = rg; g.fillRect(0, 0, w, h);
+        }
+        g.font = "58px " + EMOJI; g.textAlign = "center"; g.textBaseline = "middle";
+        g.shadowColor = "rgba(40,20,90,.3)"; g.shadowBlur = 5; g.shadowOffsetY = 3;
+        g.fillText(s.emoji, w / 2, h / 2 + (kind ? -7 : 1));
         if (kind) {
           g.shadowBlur = 0; g.shadowOffsetY = 0;
           var label = kind.toUpperCase();
           g.font = "700 12px " + SIGN.split(",")[0];
           var lw = g.measureText(label).width + 14;
-          rr(g, (w - lw) / 2, h - 24, lw, 16, 5);
+          rr(g, (w - lw) / 2, h - 23, lw, 16, 5);
           g.fillStyle = kind === "wild" ? "#d7263d" : kind === "scatter" ? "#f5c542" : "#2ea84a"; g.fill();
-          g.fillStyle = kind === "scatter" ? "#2a1c02" : "#fff"; g.fillText(label, w / 2, h - 15.5);
+          g.fillStyle = kind === "scatter" ? "#2a1c02" : "#fff"; g.fillText(label, w / 2, h - 14.5);
         }
       });
     });
@@ -373,8 +376,31 @@
         self.blur.strengthY = 0; self.setStatic(col);
       });
     };
+    // Each reel: a light strip (under the symbols), drum shading over it, metal dividers between the reels.
+    var stripTex = texOf(CW, RH, function (g, w, h) {
+      var lg = g.createLinearGradient(0, 0, w, 0);
+      lg.addColorStop(0, "#c9bfec"); lg.addColorStop(0.18, "#ece7fb"); lg.addColorStop(0.5, "#fbfaff"); lg.addColorStop(0.82, "#ece7fb"); lg.addColorStop(1, "#c9bfec");
+      g.fillStyle = lg; g.fillRect(0, 0, w, h);
+    });
+    var drumTex = texOf(CW, RH, function (g, w, h) {
+      var vg = g.createLinearGradient(0, 0, 0, h);
+      vg.addColorStop(0, "rgba(18,6,48,.62)"); vg.addColorStop(0.2, "rgba(18,6,48,0)"); vg.addColorStop(0.46, "rgba(255,255,255,.10)");
+      vg.addColorStop(0.54, "rgba(255,255,255,.10)"); vg.addColorStop(0.8, "rgba(18,6,48,0)"); vg.addColorStop(1, "rgba(18,6,48,.62)");
+      g.fillStyle = vg; g.fillRect(0, 0, w, h);
+    });
+    for (var sb = 0; sb < REELS; sb++) { var strip = new PIXI.Sprite(stripTex); strip.position.set(RX + sb * (CW + GAP), RY); reelsBox.addChild(strip); }
     var reels = [];
     for (var ri = 0; ri < REELS; ri++) reels.push(new Reel(ri));
+    for (var sd = 0; sd < REELS; sd++) { var drum = new PIXI.Sprite(drumTex); drum.position.set(RX + sd * (CW + GAP), RY); reelsBox.addChild(drum); }
+    var dividerTex = texOf(GAP + 4, RH, function (g, w, h) {
+      var lg = g.createLinearGradient(0, 0, w, 0);
+      lg.addColorStop(0, "#1a0b3d"); lg.addColorStop(0.35, "#b9a6ff"); lg.addColorStop(0.5, "#f3eeff"); lg.addColorStop(0.65, "#8a73d9"); lg.addColorStop(1, "#1a0b3d");
+      g.fillStyle = lg; g.fillRect(0, 0, w, h);
+      var vg = g.createLinearGradient(0, 0, 0, h);
+      vg.addColorStop(0, "rgba(0,0,0,.5)"); vg.addColorStop(0.25, "rgba(0,0,0,0)"); vg.addColorStop(0.75, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)");
+      g.fillStyle = vg; g.fillRect(0, 0, w, h);
+    });
+    for (var dv = 1; dv < REELS; dv++) { var div = new PIXI.Sprite(dividerTex); div.position.set(RX + dv * (CW + GAP) - GAP - 2, RY); L.reels.addChild(div); }
     app.ticker.add(function (tk) { var dt = Math.min(50, tk.deltaMS); reels.forEach(function (r) { r.tick(dt); }); });   // speed: px per ms
     function cellXY(c, r) { return { x: RX + c * (CW + GAP) + CW / 2, y: RY + r * CH + CH / 2 }; }
     for (var gc = 0; gc < REELS; gc++) { var col0 = []; for (var gr = 0; gr < ROWS; gr++) col0.push(pickers[gc]()); grid.push(col0); reels[gc].setStatic(col0); }
@@ -544,16 +570,47 @@
     launchLabel.y = -8;
     var launchSub = txt("", { fontSize: 15, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 30;
     launchTop.addChild(launchLabel, launchSub);
-    var launchPulse = 0, launchDown = 0;
+    // The key's states, like the HTML machine's 3D buttons:
+    //   idle: still, with a shine sweeping across the cap and a half press every 4.2 s (an invitation);
+    //   pressed (spin or STOP, by click, tap or Space): sinks fully, then springs back;
+    //   while the spin plays: stays half pressed and glows;
+    //   off (the bet is more than the balance): still and grey.
+    // The cap follows a spring toward its target depth, so every change overshoots a little and settles.
+    // A sprite (alpha) mask: the console is drawn into a texture without a stencil, where shape masks fail.
+    var capMask = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 3); g.fillStyle = "#fff"; g.fill(); });
+    capMask.anchor.set(0.5); launchTop.addChild(capMask);
+    var capShine = new PIXI.Graphics().poly([-14, -LR - 20, 22, -LR - 20, 14, LR + 20, -22, LR + 20]).fill({ color: 0xffffff, alpha: 0.55 });
+    capShine.mask = capMask; launchTop.addChildAt(capShine, launchTop.getChildIndex(launchLabel));
+    var capGlow = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 2); g.fillStyle = "#ffffff"; g.fill(); });
+    capGlow.anchor.set(0.5); capGlow.blendMode = "add"; capGlow.alpha = 0; launchTop.addChildAt(capGlow, 1);
+    var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0;
     app.ticker.add(function (tk) {
-      launchPulse += tk.deltaMS / 600;
-      launchTop.y = launchDown;
-      launchWell.alpha = launch._off ? 0.5 : 0.75 + Math.sin(launchPulse) * 0.25;
+      var dt = Math.min(40, tk.deltaMS), now = performance.now();
+      keyT += dt;
+      var off = !!launch._off && !busy, target;
+      if (now < keyPressUntil) target = LDEPTH - 2;               // pressed: all the way down
+      else if (busy) target = LDEPTH * 0.55;                       // the spin plays: half pressed
+      else if (off || reduce) target = 0;
+      else {                                                       // idle: a half press now and then
+        var p = (keyT % 4200) / 4200;
+        target = p < 0.7 ? 0 : p < 0.78 ? LDEPTH * 0.5 * (p - 0.7) / 0.08 : p < 0.86 ? LDEPTH * 0.5 * (1 - (p - 0.78) / 0.08) : 0;
+      }
+      keyV += ((target - keyX) * 0.0009 - keyV * 0.032) * dt;     // spring (about 15% overshoot)
+      keyX += keyV * dt;
+      launchTop.y = keyX;
+      // glow while the spin plays, grey when off, shine sweep when idle
+      capGlow.alpha = busy && !reduce ? 0.10 + 0.12 * (0.5 + 0.5 * Math.sin(keyT / 140)) : busy ? 0.12 : 0;
+      launchTop.tint = off ? 0x8c8c99 : 0xffffff;
+      launch.alpha = off ? 0.8 : 1;
+      launchWell.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(keyT / 140) : 0.75 + Math.sin(keyT / 600) * 0.25;
+      var sp = (keyT % 3600) / 3600;
+      capShine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
+      capShine.x = -LR * 1.4 + LR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
     });
-    function sinkKey(set, depth) {   // press: down, then back up
+    function sinkKey(set, depth) {   // a small key: down, then back up
       return animate(R(90), function (p) { set(depth * p); }, ease.out).then(function () { return animate(R(160), function (p) { set(depth * (1 - p)); }, ease.out); });
     }
-    function pressLaunch() { sinkKey(function (v) { launchDown = v; }, LDEPTH * 0.7); }
+    function pressLaunch() { keyPressUntil = performance.now() + 120; }
     deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { press(); });
 
     // THRUST: the bet ladder 1 ... 1,000; a lever in a slot sunk into the console, ▲ ▼ keys below.
@@ -651,7 +708,7 @@
     var authKnown = !Auth;
     function updateControls() {
       var out = authKnown && !signedIn(), canStop = busy && reelsTurning && !stopReq;
-      setOff(launch, (busy && !canStop) || (!busy && cantAfford()));
+      launch._off = (busy && !canStop) || (!busy && cantAfford());   // its look follows in the key's ticker
       launchSub.text = canStop ? "STOP" : busy ? (feature ? "FREE SPINS" : "GOOD LUCK") : out ? "SIGN IN" : "BET " + fmt(bet);
       [betUp, betDown].forEach(function (b) { setOff(b, busy); });
       thrMarks.forEach(function (m) { m.alpha = busy ? 0.55 : 1; });
@@ -740,7 +797,7 @@
           if (s && hits.indexOf(s) === -1) {
             hits.push(s);
             var p = cellXY(rc[0], rc[1]);
-            hitFrames.roundRect(p.x - CW / 2 + 3, p.y - CH / 2 + 3, CW - 6, CH - 6, 12).stroke({ width: 4, color: 0xffd166 });
+            hitFrames.roundRect(p.x - CW / 2 + 4, p.y - CH / 2 + 4, CW - 8, CH - 8, 10).stroke({ width: 4, color: 0xffd166 });
           }
         });
       });
@@ -763,6 +820,8 @@
       fixedLayer.removeChildren();
       keys.forEach(function (k) {
         var p = k.split(","), xy = cellXY(+p[0], +p[1]), s = new PIXI.Sprite(SYMTEX[K.wild]);
+        // a lit patch of strip under it, so the locked wild covers the symbols turning beneath
+        fixedLayer.addChild(new PIXI.Graphics().rect(xy.x - CW / 2, xy.y - CH / 2, CW, CH).fill(0xfff4d6));
         s.anchor.set(0.5); s.position.set(xy.x, xy.y); fixedLayer.addChild(s);
         var glow = new PIXI.Graphics().roundRect(xy.x - CW / 2 + 2, xy.y - CH / 2 + 2, CW - 4, CH - 4, 12).stroke({ width: 4, color: 0xffd166 });
         fixedLayer.addChild(glow);
@@ -920,7 +979,7 @@
     }
     function requestStop() {
       if (!reelsTurning || stopReq) return;
-      stopReq = true; sfx.press();
+      stopReq = true; sfx.press(); pressLaunch();
       if (stopWake) stopWake();
       updateControls();
     }
@@ -1351,7 +1410,7 @@
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 106, 12 + 252); return { launchAt: lp, betUpAt: up, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
+    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 106, 12 + 252); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
   }
 
   window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };
