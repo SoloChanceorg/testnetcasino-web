@@ -7,8 +7,8 @@
  *   Verify       replays any spin in the browser with fairness-engine.js and the
  *                game config from GET /games/{id}/config (version 3; older spins are
  *                replayed with TNC_Fair.configFor). Nothing is sent anywhere.
- *   Meters       checks a jackpot meter seed: seed hash, target and display scale
- *                (FAIRNESS.md section 8).
+ *   Jackpots     checks a jackpot seed: seed hash, target, display scale and head
+ *                start (FAIRNESS.md section 8).
  *
  * Depends on: api.js, auth.js, fairness-engine.js.
  */
@@ -276,7 +276,7 @@
     out.appendChild(ul);
   }
 
-  /* ═══════════════ Jackpot meters: check a seed ═══════════════ */
+  /* ═══════════════ Jackpots: check a seed ═══════════════ */
   var RANGES = { minor: [500, 50000], major: [5000, 500000], grand: [100000, 10000000] };
   $("mt-tier").addEventListener("change", function () {
     var r = RANGES[this.value];
@@ -309,7 +309,9 @@
       out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
       out.appendChild(el("p", "rv-title", checks.length ? (bad ? "✗ Something does not match." : "✓ Every check passed.") : "Derived from the seed:"));
       var dl = el("dl", "seed-list");
-      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"], ["Display scale", fmt(d.displayScale) + " tSats"]].forEach(function (p) {
+      var tier = $("mt-tier").value;
+      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"], ["Display scale", fmt(d.displayScale) + " tSats"],
+       ["Head start", tier === "minor" ? "0 tSats (a Minor starts empty)" : fmt(d.startSats) + " tSats" + (tier === "custom" ? " (Major and Grand; a Minor starts at 0)" : "")]].forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       out.appendChild(dl);
@@ -318,8 +320,8 @@
         checks.forEach(function (c) { ul.appendChild(el("li", c[0] ? "is-ok" : "is-bad", (c[0] ? "✓ Passed: " : "✗ Failed: ") + c[1] + ".")); });
         out.appendChild(ul);
       }
-      out.appendChild(el("p", "auth-hint", "The meter showed its amount against the display scale, so the win came at " +
-        (Math.floor(d.target / d.displayScale * 1000) / 10).toFixed(1) + "% of the meter or later, always before it was full."));
+      if (tier !== "major" && tier !== "grand") out.appendChild(el("p", "auth-hint", "A Minor pot shows its coins against the display scale, so this one paid out at " +
+        (Math.floor(d.target / d.displayScale * 1000) / 10).toFixed(1) + "% full or later, always before it was full."));
     }).catch(function (err) {
       out.className = "vf-result is-bad";
       out.textContent = err && err.message || "Could not check this seed.";

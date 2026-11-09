@@ -1,30 +1,35 @@
 /*
- * TestnetCasino.com: jackpot meters (lobby, games and the jackpots page).
+ * TestnetCasino.com: jackpot displays (lobby, games and the jackpots page).
  *
- * GET /jackpots (public): { grand: { fill, cycle, seedHash },
- *   games: { gameId: { minor: { fill, cycle, seedHash }, major: { ... } } },
- *   recentWins: [ { pool, tier, gameId, player, amount, wonAt,
- *                   cycle, seed, seedHash, minSats, maxSats, target, displayScale } ], updatedAt }
+ * GET /jackpots (public, D40 + D41):
+ *   { grand: { amount, maxAmount, cycle, seedHash },
+ *     games: { gameId: { major: { amount, maxAmount, cycle, seedHash }, minor: { fill, cycle, seedHash } } },
+ *     recentWins: [ { pool, tier, gameId, player, amount, wonAt,
+ *                     cycle, seed, seedHash, minSats, maxSats, target, displayScale, startSats } ], updatedAt }
  *
- * The jackpots are meters (D40), a gift from the faucet on top of the games' RTP: every bet
- * fills the game's Minor and Major and the shared Grand, and each meter pays out at a hidden
- * target, always before it is full. Only the fill level is public: `fill` is a percentage
- * (0 to 99.9). Amounts are never shown for a running meter, and the fill is never predicted.
+ * The jackpots are a gift from the faucet, on top of the games' RTP. Every bet grows the game's
+ * Minor and Major and the shared Grand; each is won at a hidden target, before its limit.
  *
- * Every element with data-meter="grand", "major:<gameId>" or "minor:<gameId>" becomes a
- * filling tube (role="meter") that moves smoothly to each new level. When a meter's `cycle`
- * goes up between two readings, someone won it: the tube fills to the top, shows "WON!", and
- * then drops to its new (low) level.
+ *   - GRAND and MAJOR are prize amounts: every [data-jackpot="grand" | "major:<gameId>"] shows
+ *     `amount`, counting up smoothly to each new reading. Units: data-jackpot-units="bch8" is
+ *     tBCH with 8 decimals (lobby, jackpots page); "game" follows the machine's tSats / tBCH
+ *     switch. [data-jackpot-max="..."] shows "Must hit by <maxAmount>" in the same units.
+ *   - MINOR is a coin pot that fills up, never an amount: every [data-meter="minor:<gameId>"]
+ *     becomes a pot (role="meter") whose coins rise to `fill`%.
+ *   - When a `cycle` goes up between two readings, someone won it: a short "WON!" (the pot
+ *     bursts), then the new state (a smaller amount, or a nearly empty pot).
+ * Values are only ever what the server sent: nothing is predicted between readings.
  *
- * Reads the meters when the page opens, every 12 s while the tab is visible, and on refresh().
- * The game page calls hold() while a spin plays, so a meter never gives away a win before the
- * reels have stopped, and release() when it ends (which reads the meters at once).
+ * Reads GET /jackpots when the page opens, every 12 s while the tab is visible, and on
+ * refresh(). The game page calls hold() while a spin plays, so a display never gives away a
+ * win before the reels stop, and release() when it ends (which reads them again at once).
+ * burst(key) bursts a pot (the player's own Minor win).
  *
- * On the jackpots page, the table body with id "jp-wins-body" gets the recent wins, each with
- * a "Verify" button (wins with a seed; checked in the browser by fairness-engine.js).
+ * On the jackpots page: the recent wins (#jp-wins-body) with a Verify button for wins with a
+ * seed (checked in the browser by fairness-engine.js), and the seed hashes now (#jp-hashes).
  *
  * Depends on: api.js, units.js; fairness-engine.js for the Verify buttons.
- * Exposed as window.TNC_Jackpots { refresh, render, hold, release, data }.
+ * Exposed as window.TNC_Jackpots { refresh, render, hold, release, burst, data }.
  */
 (function () {
   "use strict";
@@ -35,76 +40,139 @@
   var POLL_MS = 12000;
   var GAMES = { "fruit-orchard": "Fruit Orchard", "deep-sea": "Deep Sea Treasure", "cosmic-voyage": "Cosmic Voyage" };
   var TIERS = { grand: "Grand", major: "Major", minor: "Minor" };
-  var ICONS = { grand: "🏆", major: "⭐", minor: "✨" };
+  var ICONS = { grand: "🏆", major: "⭐", minor: "🪙" };
+  var G = U.game;
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var data = null, timer = null, loading = false, held = 0;
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
-  // "grand", "major:deep-sea", "minor:deep-sea" -> { fill, cycle, seedHash } or null
-  function meterOf(d, key) {
+  // "grand", "major:deep-sea", "minor:deep-sea" -> that jackpot's state, or null
+  function stateOf(d, key) {
     if (!d) return null;
-    if (key === "grand") return d.grand && typeof d.grand.fill === "number" ? d.grand : null;
+    if (key === "grand") return d.grand || null;
     var m = /^(minor|major):(.+)$/.exec(key), g = m && d.games && d.games[m[2]];
-    return g && g[m[1]] && typeof g[m[1]].fill === "number" ? g[m[1]] : null;
+    return (g && g[m[1]]) || null;
   }
   function tierOf(key) { return key === "grand" ? "grand" : key.split(":")[0]; }
   function label(key) { return TIERS[tierOf(key)] + " jackpot"; }
-  function pct(fill) { return (Math.floor(Math.max(0, Math.min(99.9, fill)) * 10) / 10).toFixed(1) + "%"; }
 
-  /* ═══════════════ Meters ═══════════════ */
-  function build(node) {
-    if (node._mt) return node._mt;
+  /* ═══════════════ GRAND and MAJOR: amounts ═══════════════ */
+  function gameUnits(node) { return !!G && node.getAttribute("data-jackpot-units") === "game"; }
+  function money(node, sats) { return gameUnits(node) ? { num: G.value(sats), unit: G.unit() } : { num: U.bch(sats), unit: "tBCH" }; }
+  // Number and unit in separate spans, so themes can style the number on its own.
+  function paintAmount(node, sats) {
+    var num = node.querySelector(".jp-num"), unit = node.querySelector(".jp-unit");
+    if (!num) {
+      node.textContent = "";
+      num = el("span", "jp-num"); unit = el("span", "jp-unit");
+      node.appendChild(num); node.appendChild(unit);
+    }
+    var m = money(node, sats);
+    num.textContent = m.num;
+    unit.textContent = " " + m.unit;
+  }
+  function describe(node, key, sats) {
+    var exact = Number(sats).toLocaleString("en-US") + " tSats";
+    node.title = label(key) + ": " + U.format(sats) + " (" + exact + ")";
+    node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(sats) : U.format(sats)));
+  }
+  function countTo(node, from, to) {
+    node._jpTarget = to;
+    if (reduce || from == null || from === to) { paintAmount(node, to); return; }
+    if (to > from) { node.classList.remove("jp-grow"); void node.offsetWidth; node.classList.add("jp-grow"); }
+    var t0 = performance.now(), ms = 1100;
+    (function step() {
+      if (node._jpTarget !== to) return;   // a newer reading took over
+      var p = Math.min(1, (performance.now() - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+      paintAmount(node, Math.round(from + (to - from) * e));
+      if (p < 1) requestAnimationFrame(step);
+    }());
+  }
+  function renderAmounts() {
+    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
+      var key = node.getAttribute("data-jackpot"), s = stateOf(data, key);
+      if (!s || typeof s.amount !== "number") { if (node._jpSats == null) node.textContent = "…"; return; }
+      var old = node._jpState;
+      node._jpState = s;
+      describe(node, key, s.amount);
+      if (old && s.cycle > old.cycle) {   // someone won it: a short WON!, then the new, smaller amount
+        node._jpTarget = null;
+        node.classList.add("jp-won");
+        node.textContent = "WON!";
+        clearTimeout(node._jpWon);
+        node._jpWon = setTimeout(function () { node.classList.remove("jp-won"); node.textContent = ""; paintAmount(node, node._jpState.amount); node._jpSats = node._jpState.amount; }, reduce ? 900 : 2200);
+        return;
+      }
+      if (node.classList.contains("jp-won")) return;   // the WON! ends on the newest amount
+      var from = node._jpSats;
+      node._jpSats = s.amount;
+      countTo(node, from, s.amount);
+    });
+    document.querySelectorAll("[data-jackpot-max]").forEach(function (node) {
+      var s = stateOf(data, node.getAttribute("data-jackpot-max"));
+      if (!s || typeof s.maxAmount !== "number") return;
+      var m = money(node, s.maxAmount);
+      node.textContent = "Must hit by " + m.num + " " + m.unit;
+    });
+  }
+
+  /* ═══════════════ MINOR: a coin pot filling up ═══════════════ */
+  function buildPot(node) {
+    if (node._pot) return node._pot;
     node.textContent = "";
+    node.classList.add("pot");
     node.setAttribute("role", "meter");
     node.setAttribute("aria-valuemin", "0");
     node.setAttribute("aria-valuemax", "100");
-    node.setAttribute("aria-label", label(node.getAttribute("data-meter")) + " meter");
-    var track = el("span", "mt-track"), fill = el("span", "mt-fill"), pctEl = el("span", "mt-pct", "…");
-    fill.appendChild(el("span", "mt-shine"));
-    track.appendChild(fill);
-    node.appendChild(track);
-    node.appendChild(pctEl);
-    node._mt = { fill: fill, pct: pctEl };
-    return node._mt;
+    node.setAttribute("aria-label", label(node.getAttribute("data-meter")) + ", a coin pot");
+    var body = el("span", "pot-body"), coins = el("span", "pot-coins");
+    body.appendChild(coins);
+    node.appendChild(el("span", "pot-rim"));
+    node.appendChild(body);
+    var flash = el("span", "pot-won", "WON!");
+    flash.setAttribute("aria-hidden", "true");
+    node.appendChild(flash);
+    node._pot = { coins: coins };
+    return node._pot;
   }
-  function show(node, level, text) {
-    var mt = build(node);
-    mt.fill.style.width = level + "%";
-    mt.pct.textContent = text;
+  function level(node, fill) { buildPot(node).coins.style.height = Math.max(0, Math.min(100, fill)) + "%"; }
+  function paintPot(node, key, s) {
+    level(node, s.fill);
+    node.setAttribute("aria-valuenow", String(s.fill));
+    node.setAttribute("aria-valuetext", Math.floor(s.fill) + "% full");
+    node.title = label(key) + ": the pot fills with every bet and pays out before it is full.";
   }
-  function paint(node, key, m) {
-    show(node, Math.max(0, Math.min(100, m.fill)), pct(m.fill));
-    node.setAttribute("aria-valuenow", String(m.fill));
-    node.setAttribute("aria-valuetext", pct(m.fill) + " full");
-    node.title = label(key) + ": " + pct(m.fill) + " full. It pays out before it is full.";
+  // The pot bursts: full, coins flying, "WON!", then nearly empty again.
+  function burstPot(node) {
+    clearTimeout(node._potWon);
+    level(node, 100);
+    node.classList.remove("pot-burst"); void node.offsetWidth; node.classList.add("pot-burst");
+    node.setAttribute("aria-valuetext", "won, filling again from empty");
+    node._potWon = setTimeout(function () {
+      node.classList.remove("pot-burst");
+      if (node._potState) paintPot(node, node.getAttribute("data-meter"), node._potState);
+      else level(node, 0);
+    }, reduce ? 900 : 2200);
   }
-  // Someone won this meter: fill to the top, flash "WON!", then drop to the new level.
-  function won(node, key, m) {
-    clearTimeout(node._mtWon);
-    node.classList.remove("mt-grow");
-    node.classList.add("mt-won");
-    show(node, 100, "WON!");
-    node.setAttribute("aria-valuetext", "won, starting again");
-    node._mtWon = setTimeout(function () {
-      node.classList.remove("mt-won");
-      paint(node, key, node._mtData || m);
-    }, reduce ? 900 : 2400);
-  }
-
-  function renderMeters() {
+  function renderPots() {
     document.querySelectorAll("[data-meter]").forEach(function (node) {
-      var key = node.getAttribute("data-meter"), m = meterOf(data, key);
-      if (!m) { if (!node._mtData) build(node); return; }
-      var old = node._mtData;
-      node._mtData = m;
-      if (old && m.cycle > old.cycle) { won(node, key, m); return; }
-      if (node.classList.contains("mt-won")) return;   // the won effect ends on the new level
-      if (old && m.fill > old.fill && !reduce) {
-        node.classList.remove("mt-grow"); void node.offsetWidth; node.classList.add("mt-grow");
+      var key = node.getAttribute("data-meter"), s = stateOf(data, key);
+      buildPot(node);
+      if (!s || typeof s.fill !== "number") return;
+      var old = node._potState;
+      node._potState = s;
+      if (old && s.cycle > old.cycle) {
+        if (node._potOwn) { node._potOwn = false; if (!node.classList.contains("pot-burst")) paintPot(node, key, s); return; }   // already burst in the celebration
+        burstPot(node); return;
       }
-      paint(node, key, m);
+      if (node.classList.contains("pot-burst")) return;   // the burst ends on the newest level
+      if (old && s.fill > old.fill && !reduce) { node.classList.remove("pot-grow"); void node.offsetWidth; node.classList.add("pot-grow"); }
+      paintPot(node, key, s);
     });
+  }
+  function burst(key) {
+    document.querySelectorAll('[data-meter="' + key + '"]').forEach(function (node) { node._potOwn = true; burstPot(node); });
   }
 
   /* ═══════════════ Recent wins (jackpots page) ═══════════════ */
@@ -133,8 +201,8 @@
     tr.appendChild(el("td", "jpw-tier", ICONS[tier] + " " + TIERS[tier] + (tier === "grand" ? "" : " · " + (GAMES[w.gameId] || w.gameId))));
     tr.appendChild(el("td", "jpw-player", String(w.player || "")));
     var amt = el("td", "num jpw-amount");
-    amt.appendChild(el("span", "jpw-sats", Number(w.amount).toLocaleString("en-US") + " tSats"));
     amt.appendChild(el("span", "jpw-bch", U.format(w.amount)));
+    amt.appendChild(el("span", "jpw-sats", Number(w.amount).toLocaleString("en-US") + " tSats"));
     tr.appendChild(amt);
     var check = el("td", "jpw-check");
     if (w.seed && window.TNC_Fair) {
@@ -146,7 +214,7 @@
       check.appendChild(b);
     } else {
       var note = el("span", "jpw-old", "Old jackpot");
-      note.title = "Won from the jackpot pools that came before the meters: there is no meter seed to check.";
+      note.title = "Won from the jackpot pools that came before the current jackpots: there is no seed to check.";
       check.appendChild(note);
     }
     tr.appendChild(check);
@@ -170,21 +238,21 @@
       res.checks.forEach(function (c) { ul.appendChild(el("li", c.ok ? "is-ok" : "is-bad", (c.ok ? "✓ Passed: " : "✗ Failed: ") + c.text + ".")); });
       cell.appendChild(ul);
       var dl = el("dl", "seed-list");
-      [["Seed (revealed by the win)", w.seed], ["Seed hash (public since the cycle started)", w.seedHash],
+      [["Seed (revealed by the win)", w.seed], ["Seed hash (public while the jackpot was running)", w.seedHash],
        ["Range of the target", Number(w.minSats).toLocaleString("en-US") + " to " + Number(w.maxSats).toLocaleString("en-US") + " tSats"]].forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       cell.appendChild(dl);
-      cell.appendChild(el("p", "auth-hint", "Before the win, players could only see the seed hash. The target comes from the seed, so it was fixed when this cycle started and could not be changed afterwards."));
+      cell.appendChild(el("p", "auth-hint", "While the jackpot was running, only the seed hash was public. The target comes from the seed, so it was fixed when this cycle started and could not be changed afterwards."));
     }, function (e) {
       cell.textContent = (e && e.message) || "This win could not be checked.";
     });
   }
 
-  // The jackpots page lists each running meter's seed hash (#jp-hashes).
+  // The jackpots page lists each running jackpot's seed hash (#jp-hashes).
   function renderHashes() {
     var dl = document.getElementById("jp-hashes");
-    if (!dl || !data) return;
+    if (!dl || !data || !data.grand) return;
     var rows = [["🏆 Grand · cycle " + data.grand.cycle, data.grand.seedHash]];
     Object.keys(GAMES).forEach(function (g) {
       var m = data.games && data.games[g];
@@ -199,7 +267,7 @@
     });
   }
 
-  function render() { renderMeters(); renderWinners(); renderHashes(); }
+  function render() { renderAmounts(); renderPots(); renderWinners(); renderHashes(); }
 
   /* ═══════════════ Reading ═══════════════ */
   function refresh() {
@@ -207,7 +275,7 @@
     loading = true;
     return api.jackpots().then(function (r) {
       loading = false;
-      if (r.status === 200 && r.data && r.data.grand && typeof r.data.grand.fill === "number") {
+      if (r.status === 200 && r.data && r.data.grand && typeof r.data.grand.amount === "number") {
         data = r.data;
         if (!held) render();
       }
@@ -220,14 +288,29 @@
   }
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); schedule(); });
 
-  // While a spin plays nothing about the meters changes on screen; release() reads them at once.
+  // While a spin plays nothing about the jackpots changes on screen; release() reads them at once.
   function hold() { held++; }
   function release() {
     held = Math.max(0, held - 1);
     return held ? Promise.resolve(data) : refresh();
   }
 
-  window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release, get data() { return data; } };
+  // The machine's tSats / tBCH switch: the game displays follow it at once.
+  if (G) G.onChange(function () {
+    document.querySelectorAll("[data-jackpot], [data-jackpot-max]").forEach(function (node) {
+      if (!gameUnits(node)) return;
+      var key = node.getAttribute("data-jackpot") || node.getAttribute("data-jackpot-max"), s = stateOf(data, key);
+      if (!s) return;
+      if (node.hasAttribute("data-jackpot")) {
+        if (node.classList.contains("jp-won")) return;
+        node._jpTarget = node._jpSats; paintAmount(node, node._jpSats); describe(node, key, node._jpSats);
+      } else {
+        var m = money(node, s.maxAmount); node.textContent = "Must hit by " + m.num + " " + m.unit;
+      }
+    });
+  });
+
+  window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release, burst: burst, get data() { return data; } };
   refresh();
   schedule();
 })();

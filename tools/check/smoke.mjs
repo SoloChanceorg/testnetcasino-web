@@ -13,8 +13,8 @@
  * loads without errors or sideways scroll (signed in on desktop, signed out on a phone), a spin
  * in each game, the full-screen fit after a spin, reels stopping one by one (and STOP), the withdrawals total, the leaderboards
  * "jump to my position", the account withdraw lock, the fairness verifier and the progressive
- * jackpot meters (machines, a meter won by someone, a jackpot spin, the lobby, the jackpots page
- * with Verify, the meter checker on the fairness page).
+ * jackpots (machines, jackpots won by someone else, a jackpot spin, the lobby, the jackpots page
+ * with Verify, the jackpot checker on the fairness page).
  * Exit code 0 = all passed.
  */
 import fs from "node:fs";
@@ -64,8 +64,9 @@ function resetApi() {
   Object.assign(api, {
     user: null, balance: 50000, bonus: { available: false, amount: 1000, nextClaimAt: new Date(Date.now() + 3600e3).toISOString() },
     spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0,
-    jackpots: { grand: { fill: 42.7, cycle: 3, seedHash: "a".repeat(64) },
-      games: Object.fromEntries(GAMES.map((g, i) => [g, { minor: { fill: 8.1 + i, cycle: 12, seedHash: "b".repeat(64) }, major: { fill: 63 + i, cycle: 2, seedHash: "c".repeat(64) } }])),
+    jackpots: { grand: { amount: 121994, maxAmount: 10000000, cycle: 3, seedHash: "a".repeat(64) },
+      games: Object.fromEntries(GAMES.map((g, i) => [g, { minor: { fill: 8.1 + i, cycle: 12, seedHash: "b".repeat(64) },
+        major: { amount: 45678 + i, maxAmount: 500000, cycle: 2, seedHash: "c".repeat(64) } }])),
       recentWins: [], updatedAt: new Date().toISOString() }
   });
 }
@@ -89,7 +90,8 @@ function handle(method, url, body) {
         for (const w of v.meterWins || []) {
           steps.push({ type: "jackpot", pool: w.pool, win: w.win }); jackpotWin += w.win;
           const m = w.pool === "grand" ? api.jackpots.grand : api.jackpots.games[v.gameId][w.pool];
-          m.cycle++; m.fill = 0.4;
+          m.cycle++;
+          if (w.pool === "minor") m.fill = 0.4; else m.amount = 3017;   // a new cycle: empty pot, or a head start
           api.jackpots.recentWins.unshift({ pool: w.pool === "grand" ? "grand" : w.pool + ":" + v.gameId, tier: w.pool, gameId: v.gameId,
             player: "bchtest:qphp...hdxy", amount: w.win, wonAt: new Date().toISOString() });
         }
@@ -281,39 +283,46 @@ try {
       `button "${label}", last reel ${after} ms after Space, balance ${bal}`);    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   }
 
-  /* ═══ 4b. Jackpot meters on the machines, a meter won by someone, and a jackpot spin ═══ */
+  /* ═══ 4b. Jackpots on the machines, a jackpot won by someone else, and a jackpot spin ═══ */
   for (const g of GAMES) {
     resetApi(); signIn();
     await open(`games/${g}.html`, 1280);
-    // Three rows at the very top of the machine: GRAND, MAJOR, MINOR, each a meter with its fill level only.
+    // Three rows at the very top of the machine: GRAND and MAJOR as amounts in the machine's unit
+    // (tSats by default) with "Must hit by", MINOR as a coin pot (a level, never an amount).
+    const major = (45678 + GAMES.indexOf(g)).toLocaleString("en-US"), minorFill = 8.1 + GAMES.indexOf(g);
     const rows = await until(`(() => { const top = document.getElementById("slot-machine").firstElementChild, rows = top ? top.querySelectorAll(".jp-row") : [];
-      const m = (r, key, pct) => { const e = r.querySelector('[data-meter="' + key + '"]'); return e && e.getAttribute("role") === "meter" && e.querySelector(".mt-pct").textContent === pct
-        && parseFloat(e.querySelector(".mt-fill").style.width) === parseFloat(pct) && !/sats|tBCH/.test(r.textContent); };
+      const txt = (r, sel) => (r.querySelector(sel) || {}).textContent;
+      const pot = rows[2] && rows[2].querySelector('[data-meter="minor:${g}"]');
       return top.classList.contains("jp-rows") && rows.length === 3
-        && rows[0].matches(".jp-row-grand") && m(rows[0], "grand", "42.7%")
-        && rows[1].matches(".jp-row-major") && m(rows[1], "major:${g}", "${(63 + GAMES.indexOf(g)).toFixed(1)}%")
-        && rows[2].matches(".jp-row-minor") && m(rows[2], "minor:${g}", "${(8.1 + GAMES.indexOf(g)).toFixed(1)}%"); })()`);
-    const sizes = await ev(`[...document.querySelectorAll(".jp-rows .mt-track")].map(t => t.offsetHeight)`);
-    check(`${g}: GRAND, MAJOR and MINOR meters at the top of the machine (fill only, Grand biggest)`, rows && sizes[0] > sizes[1] && sizes[1] > sizes[2], `tube heights ${sizes.join(" / ")} px`);
+        && rows[0].matches(".jp-row-grand") && txt(rows[0], '[data-jackpot="grand"]') === "121,994 tSats" && txt(rows[0], '[data-jackpot-max="grand"]') === "Must hit by 10,000,000 tSats"
+        && rows[1].matches(".jp-row-major") && txt(rows[1], '[data-jackpot="major:${g}"]') === "${major} tSats" && txt(rows[1], '[data-jackpot-max="major:${g}"]') === "Must hit by 500,000 tSats"
+        && rows[2].matches(".jp-row-minor") && pot && pot.getAttribute("role") === "meter" && +pot.getAttribute("aria-valuenow") === ${minorFill}
+        && parseFloat(pot.querySelector(".pot-coins").style.height) === ${minorFill} && !/\\d/.test(pot.textContent); })()`);
+    await ev(`document.getElementById("unit-switch").click()`);
+    const bch = await ev(`document.querySelector('.jp-rows [data-jackpot="grand"]').textContent === "0.00121994 tBCH" && document.querySelector('.jp-rows [data-jackpot-max="grand"]').textContent === "Must hit by 0.10000000 tBCH"`);
+    await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
+    check(`${g}: GRAND and MAJOR amounts with "Must hit by" (tSats / tBCH switch), MINOR coin pot`, rows && bch);
   }
   {
-    // Someone else wins the Deep Sea Minor: its cycle goes up between two readings.
+    // Someone else wins the Deep Sea Major and Minor: their cycles go up between two readings.
     resetApi(); signIn();
     await open("games/deep-sea.html", 1280);
-    await until(`document.querySelector('[data-meter="minor:deep-sea"] .mt-pct').textContent === "9.1%"`);
-    api.jackpots.games["deep-sea"].minor = { fill: 1.5, cycle: 13, seedHash: "d".repeat(64) };
+    await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "45,679 tSats"`);
+    api.jackpots.games["deep-sea"].major = { amount: 2410, maxAmount: 500000, cycle: 3, seedHash: "d".repeat(64) };
+    api.jackpots.games["deep-sea"].minor = { fill: 0.6, cycle: 13, seedHash: "e".repeat(64) };
     await ev(`TNC_Jackpots.refresh()`);
-    const flash = await until(`(() => { const e = document.querySelector('[data-meter="minor:deep-sea"]'); return e.classList.contains("mt-won") && e.querySelector(".mt-pct").textContent === "WON!"; })()`, 3000);
-    const after = await until(`document.querySelector('[data-meter="minor:deep-sea"] .mt-pct').textContent === "1.5%"`, 4000);
-    check("a meter won by someone else: fills up, shows WON!, then drops to its new level", flash && after);
+    const flash = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "WON!" && document.querySelector('[data-meter="minor:deep-sea"]').classList.contains("pot-burst")`, 3000);
+    const after = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "2,410 tSats" && document.querySelector('[data-meter="minor:deep-sea"]').getAttribute("aria-valuenow") === "0.6"`, 4000);
+    check("jackpots won by someone else: WON! then the new smaller Major, the pot bursts then starts nearly empty", flash && after);
   }
   {
-    // Our own spin wins the Minor and the Major: two celebrations in order, and no spoiler on the meters.
+    // Our own spin wins the Minor and the Major: two celebrations in order (amounts in tBCH, the pot
+    // bursts), and nothing on the jackpots gives the win away while the reels turn.
     resetApi(); signIn(500000);
     const v = { ...SPINS.jackpot, meterWins: [{ pool: "minor", win: 3290 }, { pool: "major", win: 41500 }] }, g = v.gameId;
     api.spinQueue.push(v);
     await open(`games/${g}.html`, 1280);
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && document.querySelector('[data-meter="minor:${g}"] .mt-pct').textContent === "8.1%"`);
+    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && document.querySelector('[data-jackpot="major:${g}"]').textContent === "45,678 tSats"`);
     const callsBefore = api.jackpotCalls;
     await ev(`(() => { window.__lcd = []; new MutationObserver(() => { const t = document.getElementById("lcd-main").textContent; if (/JACKPOT!/.test(t) && window.__lcd[window.__lcd.length - 1] !== t) window.__lcd.push(t); })
       .observe(document.getElementById("lcd-main"), { childList: true, characterData: true, subtree: true });
@@ -321,44 +330,47 @@ try {
     await sleep(600);
     await ev(`TNC_Jackpots.refresh()`);   // a poll while the reels turn must not give the win away
     await sleep(300);
-    const spoiler = await ev(`document.querySelector('[data-meter="minor:${g}"] .mt-pct').textContent`);
-    const banner = await until(`/MINOR JACKPOT/.test(document.getElementById("wb-title").textContent) && /3,290 tSats/.test(document.getElementById("wb-amount").textContent) && /0\\.0000329/.test(document.getElementById("wb-amount").textContent)`, 30000);
+    const spoiler = await ev(`document.querySelector('[data-jackpot="major:${g}"]').textContent + " / " + document.querySelector('[data-meter="minor:${g}"]').getAttribute("aria-valuenow")`);
+    const minorShow = await until(`/MINOR JACKPOT/.test(document.getElementById("wb-title").textContent) && document.getElementById("wb-amount").textContent === "0.00003290 tBCH"
+      && document.querySelector('[data-meter="minor:${g}"]').classList.contains("pot-burst")`, 30000);
+    const majorShow = await until(`/MAJOR JACKPOT/.test(document.getElementById("wb-title").textContent) && document.getElementById("wb-amount").textContent === "0.00041500 tBCH"`, 30000);
     const done = await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, 60000);
-    const meterWon = await until(`/WON!|0\\.4%/.test(document.querySelector('[data-meter="minor:${g}"] .mt-pct').textContent)`, 5000);
+    const after = await until(`/WON!|3,017 tSats/.test(document.querySelector('[data-jackpot="major:${g}"]').textContent)`, 5000);
     const st = await ev(`({ header: TNC_Auth.balance, lcd: window.__lcd, history: [...document.querySelectorAll("#history li")].slice(0, 2).map(l => l.textContent) })`);
     const problems = [];
-    if (spoiler !== "8.1%") problems.push(`meter showed ${spoiler} while the reels turned`);
-    if (!banner) problems.push("no MINOR JACKPOT banner with tSats and tBCH");
+    if (spoiler !== "45,678 tSats / 8.1") problems.push(`jackpots showed ${spoiler} while the reels turned`);
+    if (!minorShow) problems.push("no MINOR JACKPOT banner in tBCH with the pot bursting");
+    if (!majorShow) problems.push("no MAJOR JACKPOT banner in tBCH");
     if (!(st.lcd.length === 2 && /^MINOR/.test(st.lcd[0]) && /^MAJOR/.test(st.lcd[1]))) problems.push("celebrations: " + JSON.stringify(st.lcd));
     if (!done) problems.push("spin did not finish");
     if (st.header !== api.balance) problems.push(`balance ${st.header} != server ${api.balance}`);
     if (!(/Major jackpot/.test(st.history[0]) && /Minor jackpot/.test(st.history[1]))) problems.push("history: " + JSON.stringify(st.history));
-    if (api.jackpotCalls <= callsBefore) problems.push("meters not read after the spin");
-    if (!meterWon) problems.push("the Minor meter did not show the win after the spin");
+    if (api.jackpotCalls <= callsBefore) problems.push("jackpots not read after the spin");
+    if (!after) problems.push("the Major did not move on after the spin");
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check("jackpot spin: Minor then Major celebrations (tSats and tBCH), balance, history, meters after the spin only", !problems.length, problems.join("; "));
+    check("jackpot spin: Minor (pot bursts) then Major celebrations in tBCH, balance, history, jackpots after the spin only", !problems.length, problems.join("; "));
   }
   {
     resetApi();
     await open("index.html", 1280);
-    const lobby = await until(`(() => { const g = document.querySelector('#floor .jp-hero [data-meter="grand"]');
-      const cards = [...document.querySelectorAll(".game-card")];
-      return g && g.querySelector(".mt-pct").textContent === "42.7%" && cards.length === 3
-        && cards.every(c => c.querySelector('.gc-jp .jp-row-major [data-meter^="major:"] .mt-pct').textContent.endsWith("%")
-          && c.querySelector('.gc-jp .jp-row-minor [data-meter^="minor:"] .mt-pct').textContent.endsWith("%"))
-        && !/tBCH|tSats/.test(document.querySelector(".gc-jp").textContent) && !!document.querySelector('#floor .jp-hero a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand meter on the casino floor, Major and Minor meters on every card", lobby);
+    const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
+      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && hero.querySelector('[data-jackpot-max="grand"]').textContent === "Must hit by 0.10000000 tBCH"
+        && cards.length === 3 && cards.every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
+          && c.querySelector('.gc-jp .jp-row-minor [data-meter^="minor:"]').getAttribute("role") === "meter")
+        && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
+    check("lobby: Grand amount with Must hit by, Major amount and Minor coin pot on every card", lobby);
 
-    // Jackpots page: all meters, the seed hashes, and wins: a real one (Verify passes), a tampered one (fails), an old one.
+    // Jackpots page: amounts, pots, seed hashes, and wins: a real one (Verify passes), a tampered one (fails), an old one.
     const real = METERS[0], bad = { ...METERS[1], target: METERS[1].target + 1 };
     api.jackpots.recentWins = [
-      { pool: "minor:deep-sea", tier: "minor", gameId: "deep-sea", player: "Passkey 3f9a2c", amount: real.target + 75, wonAt: new Date().toISOString(), cycle: 11, ...real },
+      { pool: "minor:deep-sea", tier: "minor", gameId: "deep-sea", player: "Passkey 3f9a2c", amount: real.target + 75, wonAt: new Date().toISOString(), cycle: 11, ...real, startSats: 0 },
       { pool: "major:cosmic-voyage", tier: "major", gameId: "cosmic-voyage", player: "Passkey 77aa01", amount: bad.target + 10, wonAt: new Date().toISOString(), cycle: 2, ...bad },
       { pool: "grand", gameId: "deep-sea", player: "bchtest:qphp...hdxy", amount: 102012345, wonAt: new Date(Date.now() - 86400e3).toISOString() }];
     await open("jackpots.html", 1280);
-    const page = await until(`(() => { const meters = document.querySelectorAll(".jpp-pools [data-meter]"), rows = document.querySelectorAll("#jp-wins-body tr");
-      return meters.length === 7 && [...meters].every(m => /^\\d+\\.\\d%$/.test(m.querySelector(".mt-pct").textContent)) && rows.length === 3
-        && document.querySelectorAll("#jp-hashes > div").length === 7 && /3,290 tSats/.test(rows[0].textContent)
+    const page = await until(`(() => { const amounts = document.querySelectorAll(".jpp-pools [data-jackpot]"), maxes = document.querySelectorAll(".jpp-pools [data-jackpot-max]"),
+        pots = document.querySelectorAll(".jpp-pools [data-meter]"), rows = document.querySelectorAll("#jp-wins-body tr");
+      return amounts.length === 4 && [...amounts].every(a => /^0\\.\\d{8} tBCH$/.test(a.textContent)) && [...maxes].every(m => /^Must hit by /.test(m.textContent)) && pots.length === 3
+        && rows.length === 3 && document.querySelectorAll("#jp-hashes > div").length === 7 && /0\\.00003290 tBCH/.test(rows[0].textContent)
         && rows[0].querySelector(".jpw-verify") && rows[1].querySelector(".jpw-verify") && !rows[2].querySelector(".jpw-verify") && /Old jackpot/.test(rows[2].textContent); })()`);
     await ev(`document.querySelectorAll("#jp-wins-body .jpw-verify")[0].click()`);
     const pass = await until(`(() => { const d = document.querySelector("#jp-wins-body tr.jpw-detail"); return d && /This win is fair/.test(d.textContent) && d.querySelectorAll(".jpw-checks .is-ok").length === 3; })()`, 5000);
@@ -367,7 +379,7 @@ try {
     resetApi();
     await open("jackpots.html", 375);
     const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-wins-body tr").length === 0`);
-    check("jackpots page: 7 meters, seed hashes, wins with Verify (real passes, tampered fails, old has none), empty state", page && pass && fail && empty,
+    check("jackpots page: amounts, coin pots, seed hashes, wins with Verify (real passes, tampered fails, old has none), empty state", page && pass && fail && empty,
       `page ${!!page}, verify ${!!pass}, tampered ${!!fail}, empty ${!!empty}`);
   }
 
@@ -418,8 +430,9 @@ try {
     f("mt-seed", "${mv.seed}"); f("mt-hash", "${mv.seedHash}"); f("mt-amount", ${mv.target});
     document.getElementById("mt-submit").click(); })()`);
   const meterOk = await until(`(() => { const t = document.getElementById("mt-result").textContent;
-    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tSats") && t.includes("${mv.displayScale.toLocaleString("en-US")} tSats") && t.includes("${mv.seedHash}"); })()`, 5000);
-  check("fairness: the meter checker derives seed hash, target and display scale from a seed", meterOk);
+    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tSats") && t.includes("${mv.displayScale.toLocaleString("en-US")} tSats")
+      && t.includes("Head start${mv.startSats.toLocaleString("en-US")} tSats") && t.includes("${mv.seedHash}"); })()`, 5000);
+  check("fairness: the jackpot checker derives seed hash, target, display scale and head start from a seed", meterOk);
 } catch (e) {
   check("test run", false, e.message);
 } finally {

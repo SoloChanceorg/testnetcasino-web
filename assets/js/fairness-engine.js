@@ -14,8 +14,9 @@
  *     jackpot draws after every other draw: the game's Major, then the shared
  *     Grand, a hit when randInt(oneInSats) < bet (FAIRNESS.md section 4, step 5).
  *     configFor() rebuilds a version from the current config;
- *   - jackpot meters (FAIRNESS.md section 8): meter() derives a cycle's target
- *     and display scale from its revealed seed; verifyMeterWin() checks a win.
+ *   - jackpots (FAIRNESS.md section 8): meter() derives a cycle's target,
+ *     display scale and head start from its revealed seed; verifyMeterWin()
+ *     checks a win.
  *
  * No DOM. Works in browsers (window.TNC_Fair) and in Node 20+ (module.exports).
  */
@@ -325,8 +326,10 @@
   /* ═══════════════ Jackpot meters (FAIRNESS.md section 8) ═══════════════ */
   var TWO96 = 1n << 96n, TWO32 = 1n << 32n;
   /**
-   * A meter cycle from its revealed seed (64 hex) and the tier's range in sats:
-   * resolves to { seedHash, target, displayScale } (exact BigInt arithmetic).
+   * A jackpot cycle from its revealed seed (64 hex) and the tier's range in sats:
+   * resolves to { seedHash, target, displayScale, startSats } (exact BigInt
+   * arithmetic). startSats is the head start of a Major or Grand cycle; a Minor
+   * cycle starts at 0 whatever it says.
    */
   function meter(seedHex, minSats, maxSats) {
     var seed = hexToBytes(seedHex), min = BigInt(minSats), max = BigInt(maxSats);
@@ -336,24 +339,28 @@
       .then(function (key) { return subtle.sign("HMAC", key, msg); });
     return Promise.all([mac, sha256Hex(seedHex)]).then(function (r) {
       var v = new DataView(r[0]);
-      var x = BigInt(v.getUint32(0, false)), y = BigInt(v.getUint32(4, false));
+      var x = BigInt(v.getUint32(0, false)), y = BigInt(v.getUint32(4, false)), z = BigInt(v.getUint32(8, false));
       var target = min + (max - min) * x * x * x / TWO96;
       var displayScale = target + (max - target) * y / TWO32;
-      return { seedHash: r[1], target: Number(target), displayScale: Number(displayScale) };
+      var startSats = min * z / TWO32;
+      return { seedHash: r[1], target: Number(target), displayScale: Number(displayScale), startSats: Number(startSats) };
     });
   }
   /**
-   * Checks one meter win from GET /jackpots recentWins (it needs seed, seedHash,
-   * minSats, maxSats, target, displayScale and amount). Resolves to
+   * Checks one jackpot win from GET /jackpots recentWins (seed, seedHash, tier or
+   * pool, minSats, maxSats, target, displayScale, startSats, amount). Resolves to
    * { ok, checks: [ { id, ok, text } ], derived }.
    */
   function verifyMeterWin(w) {
+    var minor = (w.tier || String(w.pool || "").split(":")[0]) === "minor";
     return meter(w.seed, w.minSats, w.maxSats).then(function (d) {
+      var start = minor ? 0 : d.startSats;
       var checks = [
         { id: "hash", ok: d.seedHash === String(w.seedHash).toLowerCase(),
           text: "SHA-256 of the seed equals the seed hash published when the cycle started" },
-        { id: "target", ok: d.target === Number(w.target) && d.displayScale === Number(w.displayScale),
-          text: "The seed gives target " + d.target + " and display scale " + d.displayScale + " (the server said " + w.target + " and " + w.displayScale + ")" },
+        { id: "target", ok: d.target === Number(w.target) && d.displayScale === Number(w.displayScale) && (w.startSats == null || start === Number(w.startSats)),
+          text: "The seed gives target " + d.target + ", display scale " + d.displayScale + " and head start " + start +
+            " (the server said " + w.target + ", " + w.displayScale + " and " + (w.startSats == null ? "nothing" : w.startSats) + ")" },
         { id: "amount", ok: Number(w.amount) >= d.target,
           text: "The amount won (" + w.amount + ") is at least the target (" + d.target + ")" }
       ];

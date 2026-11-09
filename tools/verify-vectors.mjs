@@ -73,8 +73,8 @@ for (const v of doc.spins) {
 for (const m of doc.meters || []) {
   checked++;
   const got = await Fair.meter(m.seed, m.minSats, m.maxSats);
-  const win = await Fair.verifyMeterWin({ ...m, amount: m.target });
-  if (!same(got, { seedHash: m.seedHash, target: m.target, displayScale: m.displayScale }) || !win.ok) {
+  const win = await Fair.verifyMeterWin({ ...m, tier: "major", amount: m.target });
+  if (!same(got, { seedHash: m.seedHash, target: m.target, displayScale: m.displayScale, startSats: m.startSats }) || !win.ok) {
     failed++; console.log("METER MISMATCH", m.seed.slice(0, 12), JSON.stringify(got));
   }
 }

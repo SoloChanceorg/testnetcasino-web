@@ -209,13 +209,19 @@
           '</div>' +
         '</section>',
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
-      // Jackpot meters at the top of the machine: the shared Grand (one style on every machine,
-      // the biggest), then this game's Major and Minor (in the machine's theme, Minor the
-      // smallest). Only the fill level is shown; filled by jackpots.js.
-      jackpots: '<div class="jp-rows" role="group" aria-label="Jackpot meters">' +
-          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-meter" data-meter="grand"></span></div>' +
-          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-meter" data-meter="major:' + esc(id) + '"></span></div>' +
-          '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span><span class="jp-meter" data-meter="minor:' + esc(id) + '"></span></div>' +
+      // Jackpots at the top of the machine (filled by jackpots.js): the shared GRAND (one style
+      // on every machine, the most prominent) and this game's MAJOR as live prize amounts in the
+      // machine's unit, each with "Must hit by"; this game's MINOR as a coin pot filling up.
+      jackpots: '<div class="jp-rows" role="group" aria-label="Jackpots">' +
+          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-row-amt">' +
+            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span>' +
+            '<span class="jp-row-max" data-jackpot-units="game" data-jackpot-max="grand"></span></span></div>' +
+          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-row-amt">' +
+            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span>' +
+            '<span class="jp-row-max" data-jackpot-units="game" data-jackpot-max="major:' + esc(id) + '"></span></span></div>' +
+          '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span>' +
+            '<span class="jp-row-note">Pays out before it is full</span>' +
+            '<span class="jp-pot" data-meter="minor:' + esc(id) + '"></span></div>' +
         '</div>'
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
@@ -332,7 +338,7 @@
 
     var machine = $("#slot-machine"), reelsWin = $("#reels-window"), svg = $("#paylines");
     machine.parentNode.classList.add("ms-" + game.theme);   // per-theme 3D stage (perspective)
-    if (window.TNC_Jackpots) window.TNC_Jackpots.render();   // the meters were just built
+    if (window.TNC_Jackpots) window.TNC_Jackpots.render();   // the jackpot displays were just built
     var strips = Array.prototype.slice.call(reelsWin.querySelectorAll(".reel-strip"));
     var reelEls = strips.map(function (s) { return s.parentNode; });
     var betInput = $("#bet-input"), spinBtn = $("#spin-btn"), spinWrap = $("#spin-wrap");
@@ -399,13 +405,14 @@
         '</details>';
     }
 
-    // The jackpot meters in plain words (D40: a gift from the faucet, outside the RTP).
+    // The jackpots in plain words (D40, D41: a gift from the faucet, outside the RTP).
     function jackpotRules() {
-      return '<div class="pt-section"><div class="pt-h">Jackpot meters</div><ul class="rules">' +
-        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet fills this machine\'s ✨ Minor and ⭐ Major and the 🏆 Grand shared by all machines. Nothing is taken from your bet.</li>' +
+      return '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
+        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet grows this machine\'s 🪙 Minor and ⭐ Major and the 🏆 Grand shared by all machines, and each one is won before it reaches its limit. Nothing is taken from your bet.</li>' +
         '<li>Every tSat you bet adds 1 tSat to the Minor, 3 to the Major and 10 to the Grand.</li>' +
-        '<li>Each meter has a hidden target, fixed when it starts: Minor 500 to 50,000 tSats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000. Small targets are more likely. The spin that reaches it wins everything the meter holds, always before the meter is full. Then it starts again from zero with a new target.</li>' +
-        '<li>Provably fair: each meter publishes the SHA-256 hash of its secret seed when it starts, and the win reveals the seed. Anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
+        '<li>Each one has a hidden target, fixed when it starts: Minor 500 to 50,000 tSats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000. Small targets are more likely. The spin that reaches it wins everything it holds.</li>' +
+        '<li>The Major and the Grand show their prize and never start from zero: after a win the faucet gives the next one a head start. The Minor is a coin pot that starts empty and always pays out before it is full.</li>' +
+        '<li>Provably fair: each jackpot publishes the SHA-256 hash of its secret seed when it starts, and the win reveals the seed. Anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
       '</ul></div>';
     }
 
@@ -1293,29 +1300,30 @@
       }
     }
 
-    // A jackpot meter paid out: its own celebration, bigger for the Major, biggest for the Grand,
-    // with the amount in tSats and tBCH. The meter drops to its new level when the spin ends.
+    // A jackpot paid out: its own celebration (the Minor: the coin pot bursts; the Major: big; the
+    // Grand: biggest), with the amount in tBCH. The jackpots are read again when the spin ends.
     var JP = {
       minor: { title: "MINOR JACKPOT!", banner: "big", ms: 3200, coins: 60, burst: 30, shake: false, count: 1600 },
       major: { title: "MAJOR JACKPOT!", banner: "mega", ms: 4400, coins: 140, burst: 60, shake: true, count: 2400 },
       grand: { title: "GRAND JACKPOT!", banner: "jackpot", ms: 5600, coins: 240, burst: 100, shake: true, count: 3200 }
     };
     async function celebrateJackpot(st) {
-      var c = JP[st.pool] || JP.major, sats = fmt(st.win) + " tSats", bchs = window.TNC_Units ? TNC_Units.format(st.win) : "";
+      var c = JP[st.pool] || JP.major, bchs = window.TNC_Units ? TNC_Units.format(st.win) : fmt(st.win) + " tSats";
       var token = ++presentToken;
       hideBanner();
       clearWins();
       winShown = st.win;
       countUp(meterWin, 0, st.win, reduce ? 0 : c.count, token, true);
       credit(st.win, token, reduce ? 0 : c.count);
-      showBanner(c.banner, c.title, sats + (bchs ? " · " + bchs : ""));
+      showBanner(c.banner, c.title, bchs);
+      if (st.pool === "minor" && window.TNC_Jackpots) window.TNC_Jackpots.burst("minor:" + id);
       machine.classList.add("celebrate");
       if (c.shake && !reduce) machine.classList.add("shake");
       if (st.pool === "grand" && marquee) marquee.classList.add("jackpot");
       (st.pool === "minor" ? sfx.bigWin : st.pool === "major" ? sfx.megaWin : sfx.jackpot).call(sfx);
       fx.coinShower(c.coins);
       fx.burst(flavor.burst, c.burst);
-      setLcd(c.title + " " + sats + (bchs ? " (" + bchs + ")" : ""), "win blink");
+      setLcd(c.title + " " + bchs, "win blink");
       lcdSub.textContent = "A gift from the faucet, on top of the game's win.";
       addHistory(st.pool + " jackpot", st.win, st.win, st.pool === "minor" ? "big" : "jackpot");
       await sleep(reduce ? 1500 : c.ms);

@@ -14,7 +14,7 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 - Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
   **1,000 sat** daily bonus (resets at 00:00 UTC).
 - Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **100.01%** (it is a faucet, so it pays back slightly more than it takes).
-- Jackpots: a Minor and a Major per game and a shared Grand, as meters filled by the faucet with every bet, on top of the RTP.
+- Jackpots: a Minor and a Major per game and a shared Grand, grown by the faucet with every bet, on top of the RTP.
 - Withdrawals go to any Testnet4 address the player enters.
 
 ## Games
@@ -144,36 +144,46 @@ exactly as the server sent it, and the balance is set to the response's `balance
 Signed-out visitors see the machine with a "Sign in to play" button. Errors show the server's message
 (`insufficient_funds`, `invalid_bet`, `rate_limited`, ...); a 401 means the session ended and shows the sign-in button.
 
-## Jackpot meters
+## Jackpots
 
-The jackpots are **meters** (backend decision D40, live since 2026-11-09) and a gift from the faucet, outside the games'
-RTP: the 100.01% is the game alone. Each game has a **Minor** and a **Major**, and all three share the **Grand**. Every bet of
-`b` sats fills the game's Minor by `b`, its Major by `3 × b` and the Grand by `10 × b`, all faucet money. Each meter cycle
-has a hidden target (Minor 500 to 50,000 sats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000; small targets more
-likely); the spin that reaches it wins everything the meter holds, and the meter starts again at 0 with a new target.
+The jackpots (backend decisions D40 and D41, live since 2026-11-09) are a gift from the faucet, outside the games' RTP:
+the 100.01% is the game alone. Each game has a **Minor** and a **Major**, and all three share the **Grand**. Every bet of
+`b` sats grows the game's Minor by `b`, its Major by `3 × b` and the Grand by `10 × b`, all faucet money. Each cycle has a
+hidden target (Minor 500 to 50,000 sats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000; small targets more likely);
+the spin that reaches it wins everything it holds, and a new cycle starts with a new target.
 
-`assets/js/jackpots.js` reads `GET /jackpots` (public: `grand` and `games[id].minor / major`, each `{ fill, cycle, seedHash }`,
-plus `recentWins`) when the page opens and every 12 s while the tab is visible. Only the fill level is public: every
-`[data-meter="grand" | "major:<id>" | "minor:<id>"]` becomes a glass tube (`role="meter"`) that moves smoothly to `fill`%
-with the level beside it, never an amount, never predicted. When a meter's `cycle` goes up between two readings, someone
-won it: the tube fills to the top, flashes "WON!" and drops to its new level. Grand is the biggest tube and has one global
-red-neon style; Major and Minor wear each machine's theme (styles keyed on `.theme-*`, which sits on `<body>` in the games
-and on each lobby card), Minor the smallest.
+`assets/js/jackpots.js` reads `GET /jackpots` (public) when the page opens and every 12 s while the tab is visible. It only
+ever shows what the server sent:
 
-- **Games**: three rows at the very top of the machine (GRAND, MAJOR, MINOR), also in full screen. While a spin plays the
-  meters are held (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop; when the spin has
-  played out they are read at once (`release()`). A spin can end with up to three `{ type: "jackpot", pool: "minor" |
-  "major" | "grand", win }` steps (smallest first; `jackpotWin` is their sum, `balance` includes it, `totalWin` is the game
-  alone). Each plays its own celebration, bigger for the Major and biggest for the Grand, with the amount in tSats and tBCH,
-  and gets its own line in Recent spins. The rules section explains the meters (no numbers from the config: version 3
-  configs have no `jackpots` field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
-- **Lobby**: the Grand meter at the top of the casino floor (with a link to the jackpots page) and each machine's Major and
-  Minor meters at the top of its card.
-- **Jackpots page** (`jackpots.html`): all seven meters, the rules in short, the seed hash of every running meter ("Seed
-  hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tSats and tBCH). Wins with a
-  `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must give the same `target`
-  and `displayScale`, and the amount must be at least the target; each check shows as passed or failed. Wins from the old
-  pools (before the meters, no `seed`) show "Old jackpot" and no Verify. The API has no full history of jackpot wins.
+- **GRAND and MAJOR are prize amounts** (`amount`, `maxAmount`): every `[data-jackpot="grand" | "major:<id>"]` counts up
+  smoothly to each new reading, and `[data-jackpot-max]` shows "Must hit by <maxAmount>". `data-jackpot-units="bch8"` is
+  tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch. A new cycle never starts
+  at 0: the faucet gives it a random head start.
+- **MINOR is a coin pot** (`fill`, never an amount): every `[data-meter="minor:<id>"]` becomes a pot (`role="meter"`)
+  whose coins rise to the level. It starts empty after a win and always pays out before it is full.
+- When a `cycle` goes up between two readings, someone won it: GRAND / MAJOR flash "WON!" and then show the new, smaller
+  amount; the pot bursts (coins flying, "WON!") and starts again nearly empty.
+- GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
+  `<body>` in the games and on each lobby card).
+
+Where they are:
+
+- **Games**: three rows at the very top of the machine, also in full screen: GRAND (the most prominent) and MAJOR, label
+  left and amount right with "Must hit by" under it, then the MINOR pot. While a spin plays the displays are held
+  (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop; when the spin has played out they are
+  read at once (`release()`). A spin can end with up to three `{ type: "jackpot", pool: "minor" | "major" | "grand", win }`
+  steps (smallest first; `jackpotWin` is their sum, `balance` includes it, `totalWin` is the game alone). Each plays its
+  own celebration with the amount in tBCH: the Minor pot bursts (`TNC_Jackpots.burst()`), the Major is big, the Grand the
+  biggest. Each gets a line in Recent spins. The rules section explains the jackpots (version 3 configs have no `jackpots`
+  field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
+- **Lobby**: the Grand amount with "Must hit by" at the top of the casino floor (with a link to the jackpots page), and each
+  machine's Major amount and Minor pot at the top of its card.
+- **Jackpots page** (`jackpots.html`): every jackpot now, the rules in short, the seed hash of every running jackpot ("Seed
+  hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and tSats). Wins with
+  a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must give the same
+  `target`, `displayScale` and `startSats` (0 for a Minor), and the amount must be at least the target; each check shows as
+  passed or failed. Wins from the old pools (no `seed`) show "Old jackpot" and no Verify. The API has no full history of
+  jackpot wins.
 
 ## Account and withdrawals
 
@@ -215,19 +225,18 @@ shows while that row is out of view (IntersectionObserver). Amounts are tBCH, wi
   hash it showed before.
 - **Your spins**: `GET /spins?cursor=`. Once a spin's seed is revealed it can be verified, one by one or all at once.
 - **Verify any spin**: replays a spin from server seed, client seed, nonce, game, game version and bet. Nothing is sent to the server.
-- **Jackpot meters**: the meters explained in plain words, and a checker: paste a seed and the range (or pick the tier) to
-  get its seed hash, target and display scale; with the published hash and the amount it also passes or fails the win.
+- **Jackpots**: the jackpots explained in plain words, and a checker: paste a seed and the range (or pick the tier) to get
+  its seed hash, target, display scale and head start; with the published hash and the amount it also passes or fails the win.
 
 Game versions: the API serves only the current config (version 3). Versions 1 and 3 have the same rules; version 2
 (2026-11-08 to 2026-11-09) adds the two old jackpot draws at the end of the spin's random stream (the game's Major, then the
 Grand; a hit when `randInt(oneInSats) < bet`, with `oneInSats` 730,000 and 9,300,000 for every game). `TNC_Fair.configFor()`
 rebuilds a version from the current config, so every spin ever played can still be replayed; for version 2 the page also
-checks that a jackpot was paid exactly when the replay hits one. From version 3 the jackpots are meters and draw nothing
-from the spin.
+checks that a jackpot was paid exactly when the replay hits one. From version 3 the jackpots draw nothing from the spin.
 
 `assets/js/fairness-engine.js` is an independent implementation of the backend's `docs/FAIRNESS.md`: HMAC-SHA256 stream with
-`crypto.subtle`, rejection sampling, the slot rules, exact `BigInt` win arithmetic, the game versions and the jackpot meter
-derivation (`meter()`, `verifyMeterWin()`, FAIRNESS.md section 8). It decides nothing; it only checks.
+`crypto.subtle`, rejection sampling, the slot rules, exact `BigInt` win arithmetic, the game versions and the jackpot derivation
+(`meter()`, `verifyMeterWin()`, FAIRNESS.md section 8: target, display scale, head start). It decides nothing; it only checks.
 It must reproduce every backend test vector:
 
 ```sh
@@ -261,7 +270,7 @@ login.html            Sign-in: Testnet4 wallet or passkey (CSP-protected)
 account.html          Balance, withdrawals, withdrawal address, balance history (CSP-protected)
 fairness.html         Seeds, spin history and the in-browser verifier (CSP-protected)
 leaderboards.html     Seven leaderboards (CSP-protected)
-jackpots.html         The jackpot meters, their seed hashes and the latest 20 wins with Verify (CSP-protected)
+jackpots.html         The jackpots now, their seed hashes and the latest 20 wins with Verify (CSP-protected)
 withdrawals.html      Every withdrawal the faucet has sent, with the total (CSP-protected)
 legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
@@ -272,7 +281,7 @@ assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin 
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
 assets/js/units.js    Amount formatting: tBCH everywhere, tSats / tBCH switch inside the games
-assets/js/jackpots.js Jackpot meters and the latest wins (GET /jackpots, lobby, games and jackpots page)
+assets/js/jackpots.js Jackpot amounts, Minor coin pots and the latest wins (GET /jackpots, lobby, games, jackpots page)
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase
@@ -292,7 +301,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109l`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109m`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
@@ -305,10 +314,10 @@ Node 22+ only, no dependencies; the site itself still has no build step.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
   real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
-  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpot meters (machines, a meter won by someone else, a jackpot spin
-  with Minor and Major wins and no spoiler, lobby, jackpots page with Verify), the
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpots (machine rows and the unit switch, jackpots won by someone
+  else, a jackpot spin with Minor and Major wins and no spoiler, lobby, jackpots page with Verify), the
   withdrawals total, the leaderboards jump, the account withdraw lock, the fairness verifier (version 3 and 2 spins) and the
-  meter checker. Exit code 0 = all passed. `fixtures/meters.json` holds the backend's meter vectors.
+  jackpot checker. Exit code 0 = all passed. `fixtures/meters.json` holds the backend's jackpot vectors.
   Refresh the fixtures when the game config version changes.
 - `node tools/verify-vectors.mjs` checks the fairness verifier against all backend test vectors.
 

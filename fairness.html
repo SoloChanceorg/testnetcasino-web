@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109l">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109m">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -63,7 +63,7 @@
           <li>You choose a <b>client seed</b>. Every spin also has a <b>nonce</b>: 0, 1, 2 and so on.</li>
           <li>Every reel stop, multiplier, bonus and rounding comes from HMAC-SHA256(server seed, client seed:nonce), so neither side can steer a result alone.</li>
           <li>When you rotate the seed, the old server seed is revealed. This page then replays your spins in your browser and checks every win.</li>
-          <li>The jackpot meters are fair in their own way: each meter's hidden target is fixed by a seed before the meter starts. See <a href="#meters">Jackpot meters</a> below.</li>
+          <li>The jackpots are fair in their own way: each jackpot's hidden target is fixed by a seed before it starts. See <a href="#jackpots">Jackpots</a> below.</li>
         </ol>
       </section>
 
@@ -135,17 +135,17 @@
         <div class="vf-result" id="vf-result" role="status" aria-live="polite"></div>
       </section>
 
-      <section class="panel" id="meters" aria-labelledby="mt-title">
-        <h2 class="panel-label" id="mt-title">💰 JACKPOT METERS</h2>
-        <p>The jackpots are a gift from the faucet, outside the games' RTP: every bet fills the machine's Minor and Major and the shared Grand with faucet money. Each meter has a hidden target. The spin that reaches it wins everything the meter holds, and the meter starts again from zero with a new target.</p>
+      <section class="panel" id="jackpots" aria-labelledby="mt-title">
+        <h2 class="panel-label" id="mt-title">💰 JACKPOTS</h2>
+        <p>The jackpots are a gift from the faucet, outside the games' RTP: every bet grows the machine's Minor and Major and the shared Grand with faucet money. Each one has a hidden target. The spin that reaches it wins everything it holds, and a new cycle starts with a new target.</p>
         <ol class="fair-steps">
-          <li>When a meter starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
-          <li>The target comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives two numbers, one picks the <b>target</b> between the tier's minimum and maximum (small targets more likely), the other a <b>display scale</b> between the target and the maximum. The meter you see is the amount against the display scale, so it pays out at a random point before it is full.</li>
-          <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target, and that the amount won is at least that target. Before the win nobody but the server knew the target, and the hash proves it could not be changed after the meter started.</li>
+          <li>When a cycle starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
+          <li>Everything about the cycle comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives three numbers. The first picks the <b>target</b> between the tier's minimum and maximum (small targets more likely), the second a <b>display scale</b> between the target and the maximum (the Minor pot shows its coins against it, so it pays out at a random point before it is full), and the third the <b>head start</b> of a Major or Grand, below the tier's minimum, so it says nothing about the target. The Minor starts at zero.</li>
+          <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target, display scale and head start, and that the amount won is at least the target. While the jackpot was running only the hash was public, so the target was fixed when the cycle started and could not be changed afterwards.</li>
         </ol>
         <p class="auth-hint">Every recent win on the <a href="jackpots.html#jackpot-winners">jackpots page</a> has a Verify button. Or check a seed yourself:</p>
         <form id="mt-form" class="vf-grid" novalidate>
-          <div><label class="auth-label" for="mt-tier">Meter</label>
+          <div><label class="auth-label" for="mt-tier">Jackpot</label>
             <select class="auth-input" id="mt-tier"><option value="minor">Minor (500 to 50,000)</option><option value="major">Major (5,000 to 500,000)</option><option value="grand">Grand (100,000 to 10,000,000)</option><option value="custom">Other range</option></select></div>
           <div class="mt-range">
             <div><label class="auth-label" for="mt-min">Minimum (tSats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1" value="500"></div>
@@ -157,7 +157,7 @@
             <input class="auth-input auth-mono" id="mt-hash" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div><label class="auth-label" for="mt-amount">Amount won in tSats (optional)</label>
             <input class="auth-input auth-mono" id="mt-amount" type="number" inputmode="numeric" min="0" step="1"></div>
-          <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="mt-submit">🔍 Check the meter seed</button></div>
+          <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="mt-submit">🔍 Check the jackpot seed</button></div>
         </form>
         <div class="vf-result" id="mt-result" role="status" aria-live="polite"></div>
       </section>
@@ -188,14 +188,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109l"></script>
-  <script src="assets/js/api.js?v=20261109l"></script>
-  <script src="assets/js/units.js?v=20261109l"></script>
-  <script src="assets/js/faucet.js?v=20261109l"></script>
-  <script src="assets/js/auth.js?v=20261109l"></script>
-  <script src="assets/js/fairness-engine.js?v=20261109l"></script>
-  <script src="assets/js/fairness.js?v=20261109l"></script>
-  <script src="assets/js/fx.js?v=20261109l"></script>
-  <script src="assets/js/music.js?v=20261109l"></script>
+  <script src="assets/js/config.js?v=20261109m"></script>
+  <script src="assets/js/api.js?v=20261109m"></script>
+  <script src="assets/js/units.js?v=20261109m"></script>
+  <script src="assets/js/faucet.js?v=20261109m"></script>
+  <script src="assets/js/auth.js?v=20261109m"></script>
+  <script src="assets/js/fairness-engine.js?v=20261109m"></script>
+  <script src="assets/js/fairness.js?v=20261109m"></script>
+  <script src="assets/js/fx.js?v=20261109m"></script>
+  <script src="assets/js/music.js?v=20261109m"></script>
 </body>
 </html>
