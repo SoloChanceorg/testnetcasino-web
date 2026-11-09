@@ -2310,7 +2310,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .mt-range { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* ── The PixiJS machine (preview, ?pixi=1): one canvas in a 3D stage, so the whole machine can tilt ── */
-.px-stage { position: relative; perspective: 1400px; perspective-origin: 50% 30%; margin: 0 auto 18px; max-width: 760px; }
+.px-stage { position: relative; perspective: 1400px; perspective-origin: 50% 30%; margin: 0 auto 18px; max-width: 804px; }
 .px-machine { position: relative; transform-style: preserve-3d; transform-origin: 50% 100%; rotate: x 4deg; }   /* leans back a little, at rest */
 .px-canvas { position: relative; width: max-content; max-width: 100%; margin: 0 auto; }   /* exactly the canvas */
 .px-corner { position: absolute; width: 0; height: 0; pointer-events: none; }   /* the canvas corners, for pointer mapping */

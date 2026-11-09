@@ -25,6 +25,9 @@
 
   var PIXI = window.PIXI;
   var W = 760, H = 1080;                 // the machine's own coordinates; scaled to the page
+  // Room around the machine inside the canvas: the console flares wider than the cabinet at its front
+  // edge, and the neon glows; PX/PT/PB keep all of it inside the canvas (nothing cut at the corners).
+  var PX = 22, PT = 10, PB = 14, VW = W + 2 * PX, VH = H + PT + PB;
   var CW = 100, CH = 100, GAP = 6;       // one reel cell; GAP: the metal divider between two reels
   var RX = 46, RY = 300;                 // top left of the reels
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
@@ -140,20 +143,21 @@
       try { await Promise.race([Promise.all([document.fonts.load("40px Bungee"), document.fonts.ready]), sleep(1500)]); } catch (e) {}
     }
     var app = new PIXI.Application();
-    await app.init({ width: W, height: H, backgroundAlpha: 0, antialias: true, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true });
+    await app.init({ width: VW, height: VH, backgroundAlpha: 0, antialias: true, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true });
     hostEl.appendChild(app.canvas);
     app.canvas.setAttribute("aria-hidden", "true");
+    var frame = new PIXI.Container(); frame.position.set(PX, PT);   // the machine, inside the canvas's margin
     var world = new PIXI.Container();   // everything, shaken as one
-    app.stage.addChild(world);
+    frame.addChild(world); app.stage.addChild(frame);
     // Full screen: the page goes full screen, the site around the machine hides, and the canvas grows
     // to fill the screen (MARGIN px on the side that runs out first).
     var fsBtn = document.getElementById("fs-toggle"), docEl = document.documentElement, MARGIN = 10;
     function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function fit() {
       var full = document.body.classList.contains("is-fullscreen");
-      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * W / H) : Math.min(stageEl.clientWidth || W, W);
-      app.renderer.resize(w, Math.round(w * H / W));
-      app.stage.scale.set(w / W);
+      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * VW / VH) : Math.min(stageEl.clientWidth || VW, VW);
+      app.renderer.resize(w, Math.round(w * VH / VW));
+      app.stage.scale.set(w / VW);
     }
     // The machine leans and tilts in CSS 3D, so the canvas is not a flat rectangle on screen. Four
     // invisible markers sit on the canvas corners and move with it; a pointer is mapped back to the canvas
@@ -170,7 +174,7 @@
     };
     fit();
     window.addEventListener("resize", fit);
-    if (window.ResizeObserver) new ResizeObserver(function () { if (Math.abs(Math.min(stageEl.clientWidth, W) - app.screen.width) > 1 && !document.body.classList.contains("is-fullscreen")) fit(); }).observe(stageEl);
+    if (window.ResizeObserver) new ResizeObserver(function () { if (Math.abs(Math.min(stageEl.clientWidth, VW) - app.screen.width) > 1 && !document.body.classList.contains("is-fullscreen")) fit(); }).observe(stageEl);
     var FS_ICON = {
       enter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
       exit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
@@ -1480,7 +1484,7 @@
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 124, 12 + 270); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible }; };
+    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 124, 12 + 270); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, bounds: (function () { var b = world.getLocalBounds(); return [Math.round(b.minX), Math.round(b.minY), Math.round(b.maxX), Math.round(b.maxY)]; })() }; };
   }
 
   window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };
