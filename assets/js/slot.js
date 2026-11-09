@@ -264,7 +264,7 @@
           '</div>' +
         '</div>'
     };
-    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }
+    function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> key</p>'; }
     function short(v) { return v >= 1000 ? (v / 1000) + "K" : String(v); }
 
     function machineOrchard() {

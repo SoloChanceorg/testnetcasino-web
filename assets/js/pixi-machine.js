@@ -117,7 +117,7 @@
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="?pixi=0">🎰 Classic machine</a>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
-        '<p class="px-note">Preview: the whole machine drawn with PixiJS. Press <b>' + esc(T.spin) + '</b> or <b>Space</b> to spin, and again to stop the reels. Bitcoin Cash Testnet4 coins only: no real money.</p></section>' +
+        '<p class="px-note">Press ' + esc(T.spin) + ' · or press <b>Space</b> key</p></section>' +
       '<section class="panel" aria-labelledby="hist-title"><h2 class="panel-label" id="hist-title">RECENT SPINS</h2>' +
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol></section>';
     var stageEl = document.getElementById("px-stage"), machineEl = document.getElementById("slot-machine");
