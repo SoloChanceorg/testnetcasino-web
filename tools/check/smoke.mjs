@@ -357,9 +357,9 @@ try {
     const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
       return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && !/Must hit|before it is full/.test(document.getElementById("floor").textContent)
         && cards.length === 3 && cards.every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
-          && c.querySelector('.gc-jp .jp-row-minor [data-meter^="minor:"]').getAttribute("role") === "meter")
+          && !c.querySelector('.jp-row-minor, [data-meter]'))
         && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand amount, Major amount and Minor coin pot on every card, no Must hit", lobby);
+    check("lobby: Grand amount, Major amount on every card (no Minor row), no Must hit", lobby);
 
     // Jackpots page: amounts, pots, seed hashes, and wins: a real one (Verify passes), a tampered one (fails), an old one.
     const real = METERS[0], bad = { ...METERS[1], target: METERS[1].target + 1 };

@@ -180,7 +180,7 @@ Where they are:
   biggest. Each gets a line in Recent spins. The rules section explains the jackpots (version 3 configs have no `jackpots`
   field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
 - **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each
-  machine's Major amount and Minor pot at the top of its card.
+  machine's Major amount at the top of its card (the Minor pot is shown in the games and on the jackpots page).
 - **Jackpots page** (`jackpots.html`): every jackpot now, the rules in short, the seed hash of every running jackpot ("Seed
   hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and tSats). Wins with
   a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must give the same
@@ -305,7 +305,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109p`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109q`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

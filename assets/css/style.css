@@ -2191,11 +2191,9 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .jp-hero-sub { font-size: .8rem; color: var(--muted); text-align: center; }
 .gc-jp { display: flex; flex-direction: column; gap: 5px; margin: 10px 10px 0; }
 .gc-jp .jp-row { padding: 5px 12px; gap: 8px; }
-.gc-jp .jp-row-minor { padding: 2px 12px; }
 .gc-jp .jp-row-name { font-size: .72rem; letter-spacing: 2px; }
-.gc-jp .jp-row-minor .jp-row-name { font-size: .64rem; }
 .gc-jp .jp-row-val { font-size: 1rem; }
-.gc-jp .jp-pot, .jpp-game .jp-pot { width: 38px; height: 33px; }
+.jpp-game .jp-pot { width: 38px; height: 33px; }
 
 /* Jackpots page: the jackpots now, then the recent wins with Verify */
 .jpp-pool.is-grand {
