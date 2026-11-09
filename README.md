@@ -69,10 +69,10 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 
 ## Live faucet stats
 
-Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`), the hot wallet,
-and the sum of player balances, plus player counts (all time, last 30 days, last 24 hours, with a
+Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`) and
+the sum of player balances, plus player counts (all time, last 30 days, last 24 hours, with a
 balance). The server recomputes them at most every 5 minutes; the bar re-reads them every
-minute while the tab is visible and says so when the server marks them `stale`. The faucet and hot wallet are rounded to 2 decimals (hover for the exact value); player balances show all 8 decimals.
+minute while the tab is visible and says so when the server marks them `stale`. The faucet is rounded to 2 decimals (hover for the exact value); player balances show all 8 decimals.
 
 ## Units
 
@@ -305,7 +305,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109o`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109p`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

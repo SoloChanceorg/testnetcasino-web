@@ -4,14 +4,14 @@
  * GET {apiBase}/faucet (public): { wallet, house, users, pendingWithdrawals,
  * updatedAt, stale? }, all in sats:
  *   house               what the faucet has left to give away
- *   wallet              the hot wallet's confirmed balance
+ *   wallet              the hot wallet's confirmed balance (not shown)
  *   users               sum of all player balances
  *   pendingWithdrawals  withdrawals requested but not yet sent (not shown)
  *   players             { allTime, withBalance, last24h, last30d } (counts)
  * The server recomputes them at most every 5 minutes; the bar re-reads them
  * every minute while the tab is visible. Amounts are shown in tBCH: the faucet
- * and wallet rounded to 2 decimals (exact value in the tooltip), player
- * balances with all 8 decimals.
+ * rounded to 2 decimals (exact value in the tooltip), player balances with all
+ * 8 decimals.
  *
  * Depends on: api.js, units.js.
  */
@@ -33,7 +33,6 @@
       '<span class="fb-live" aria-hidden="true"><span class="fb-dot"></span><span data-k="live">LIVE</span></span>' +
       '<dl class="fb-stats">' +
         stat("house", "Left in the faucet", "fb-main") +
-        stat("wallet", "Hot wallet") +
         stat("users", "Player balances") +
       '</dl>' +
       '<span class="fb-time" data-k="time"></span>' +
@@ -61,13 +60,13 @@
     q("live").textContent = stale ? "STALE" : "LIVE";
     if (!data) {
       if (failed) {
-        ["house", "wallet", "users"].forEach(function (k) { q(k).textContent = "n/a"; });
+        ["house", "users"].forEach(function (k) { q(k).textContent = "n/a"; });
         q("time").textContent = "Faucet offline";
       }
       return;
     }
     // Faucet totals are rounded to 2 decimals; player balances are small, so they show all 8.
-    [["house", data.house, true], ["wallet", data.wallet, true], ["users", data.users, false]].forEach(function (p) {
+    [["house", data.house, true], ["users", data.users, false]].forEach(function (p) {
       var e = q(p[0]);
       e.textContent = p[2] ? U.round2(p[1]) : U.format(p[1]);
       e.parentNode.title = U.format(p[1]);
