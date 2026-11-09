@@ -159,8 +159,9 @@ ever shows what the server sent:
   smoothly to each new reading. `data-jackpot-units="bch8"` is
   tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch. A new cycle never starts
   at 0: the faucet gives it a random head start.
-- **MINOR is a coin pot** (`fill`, never an amount): every `[data-meter="minor:<id>"]` becomes a pot (`role="meter"`)
-  whose coins rise to the level. It starts empty after a win and always pays out before it is full.
+- **MINOR is a level, never an amount** (`fill`): every `[data-meter="minor:<id>"]` (`role="meter"`) is either the
+  machine's own **Minor screen** in the games (`.minor-screen`, see below) or, on the jackpots page, a coin pot whose coins
+  rise. It starts empty after a win.
 - **A surprise, a pure gift:** the limits are never shown (no "Must hit by", no `maxAmount`, no target ranges, nothing like
   "before it is full") on the lobby, the games, the rules or the jackpots page. Only a win's Verify details show its
   range, because the check needs it.
@@ -171,12 +172,17 @@ ever shows what the server sent:
 
 Where they are:
 
-- **Games**: three rows at the very top of the machine, also in full screen: GRAND (the most prominent) and MAJOR, label
-  left and amount right, then the MINOR pot. While a spin plays the displays are held
+- **Games**: two rows at the very top of the machine, also in full screen: GRAND (the most prominent) and MAJOR, label
+  left and amount right. The MINOR has its own screen right of the reels, about 1.5 reels wide (`.reel-bay` grid,
+  5 : 1.45), under the reels as a strip on phones (600 px and less). Items fall in and settle into a pile of 15 spots:
+  a pyramid of rows 5, 4, 3, 2, 1, or on phones 8 + 7 filled left to right; `floor(fill% of 15)` are shown, so the pile
+  is never complete. 🍒 apples fall from a branch into a wicker basket, 🐚 pearls sink into a treasure chest on the sand
+  with bubbles rising, 🚀 stars streak into a glass energy capsule. A win makes everything fly out with "WON!", then the
+  pile starts again nearly empty. While a spin plays the displays are held
   (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop; when the spin has played out they are
   read at once (`release()`). A spin can end with up to three `{ type: "jackpot", pool: "minor" | "major" | "grand", win }`
   steps (smallest first; `jackpotWin` is their sum, `balance` includes it, `totalWin` is the game alone). Each plays its
-  own celebration with the amount in tBCH: the Minor pot bursts (`TNC_Jackpots.burst()`), the Major is big, the Grand the
+  own celebration with the amount in tBCH: the Minor screen bursts (`TNC_Jackpots.burst()`), the Major is big, the Grand the
   biggest. Each gets a line in Recent spins. The rules section explains the jackpots (version 3 configs have no `jackpots`
   field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
 - **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each
@@ -305,7 +311,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109q`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109s`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

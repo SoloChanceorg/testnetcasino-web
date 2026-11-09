@@ -15,16 +15,17 @@
  *     `amount`, counting up smoothly to each new reading. Units: data-jackpot-units="bch8" is
  *     tBCH with 8 decimals (lobby, jackpots page); "game" follows the machine's tSats / tBCH
  *     switch.
- *   - MINOR is a coin pot that fills up, never an amount: every [data-meter="minor:<gameId>"]
- *     becomes a pot (role="meter") whose coins rise to `fill`%.
- *   - When a `cycle` goes up between two readings, someone won it: a short "WON!" (the pot
- *     bursts), then the new state (a smaller amount, or a nearly empty pot).
+ *   - MINOR is a level, never an amount: every [data-meter="minor:<gameId>"] (role="meter")
+ *     is either the machine's own Minor screen beside the reels (.minor-screen: apples,
+ *     pearls or stars falling into a pile) or, on the jackpots page, a coin pot.
+ *   - When a `cycle` goes up between two readings, someone won it: a short "WON!" (the Minor
+ *     bursts), then the new state (a smaller amount, or a nearly empty Minor).
  * Values are only ever what the server sent: nothing is predicted between readings.
  *
  * Reads GET /jackpots when the page opens, every 12 s while the tab is visible, and on
  * refresh(). The game page calls hold() while a spin plays, so a display never gives away a
  * win before the reels stop, and release() when it ends (which reads them again at once).
- * burst(key) bursts a pot (the player's own Minor win).
+ * burst(key) bursts a Minor (the player's own Minor win).
  *
  * On the jackpots page: the recent wins (#jp-wins-body) with a Verify button for wins with a
  * seed (checked in the browser by fairness-engine.js), and the seed hashes now (#jp-hashes).
@@ -112,14 +113,32 @@
     });
   }
 
-  /* ═══════════════ MINOR: a coin pot filling up ═══════════════ */
-  function buildPot(node) {
-    if (node._pot) return node._pot;
-    node.textContent = "";
-    node.classList.add("pot");
+  /* ═══════════════ MINOR ═══════════════ */
+  // Two looks, both a level and never an amount:
+  //   - .minor-screen (the games): the machine's own screen beside the reels. Items (apples,
+  //     pearls, stars) fall in and settle into a pile of 15 spots: a pyramid of rows 5, 4, 3, 2,
+  //     1, or on phones a strip of 8 + 7 filled left to right (CSS picks the layout from the same
+  //     spot numbers). Shown: floor(fill% of 15), so it is never complete.
+  //   - anything else (the jackpots page): a coin pot whose coins rise.
+  var SPOTS = 15, ITEMS = { orchard: "🍎", cosmic: "⭐", deepsea: "" };   // deep sea: CSS pearls
+  var SPOT = [];
+  for (var r = 0; r < 5; r++) for (var c = 0; c < 5 - r; c++) SPOT.push({ pr: r, pc: c });
+  SPOT.forEach(function (o, k) { o.sr = k % 2; o.sc = Math.floor(k / 2); });
+  function isScreen(node) { return node.classList.contains("minor-screen"); }
+  function themeOf(node) { var m = /\bmn-(orchard|deepsea|cosmic)\b/.exec(node.className); return m ? m[1] : "orchard"; }
+
+  function buildMinor(node) {
+    if (node._mn) return node._mn;
     node.setAttribute("role", "meter");
     node.setAttribute("aria-valuemin", "0");
     node.setAttribute("aria-valuemax", "100");
+    if (isScreen(node)) {
+      node.setAttribute("aria-label", label(node.getAttribute("data-meter")));
+      node._mn = { pile: node.querySelector(".mn-pile"), item: ITEMS[themeOf(node)] };
+      return node._mn;
+    }
+    node.textContent = "";
+    node.classList.add("pot");
     node.setAttribute("aria-label", label(node.getAttribute("data-meter")) + ", a coin pot");
     var body = el("span", "pot-body"), coins = el("span", "pot-coins");
     body.appendChild(coins);
@@ -128,46 +147,72 @@
     var flash = el("span", "pot-won", "WON!");
     flash.setAttribute("aria-hidden", "true");
     node.appendChild(flash);
-    node._pot = { coins: coins };
-    return node._pot;
+    node._mn = { coins: coins };
+    return node._mn;
   }
-  function level(node, fill) { buildPot(node).coins.style.height = Math.max(0, Math.min(100, fill)) + "%"; }
-  function paintPot(node, key, s) {
-    level(node, s.fill);
+  // The screen's pile: add the missing items (falling in one after another) or take extra ones away.
+  function pileTo(node, count, animate) {
+    var mn = buildMinor(node), pile = mn.pile, have = pile.children.length;
+    for (var k = have; k < count; k++) {
+      var it = el("span", "mn-item" + (mn.item ? "" : " mn-pearl"), mn.item || null), o = SPOT[k];
+      it.style.cssText = "--pr:" + o.pr + ";--pc:" + o.pc + ";--sr:" + o.sr + ";--sc:" + o.sc + ";";
+      if (animate && !reduce) { it.classList.add("mn-drop"); it.style.animationDelay = ((k - have) * 0.12) + "s"; }
+      pile.appendChild(it);
+    }
+    while (pile.children.length > count) pile.removeChild(pile.lastChild);
+  }
+  function paintMinor(node, key, s, animate) {
+    var mn = buildMinor(node);
+    if (mn.pile) pileTo(node, Math.min(SPOTS - 1, Math.floor(Math.max(0, s.fill) / 100 * SPOTS)), animate);
+    else mn.coins.style.height = Math.max(0, Math.min(100, s.fill)) + "%";
     node.setAttribute("aria-valuenow", String(s.fill));
     node.setAttribute("aria-valuetext", Math.floor(s.fill) + "% full");
-    node.title = label(key) + ": the pot fills with every bet.";
+    node.title = label(key) + (mn.pile ? ": it fills up with every bet." : ": the pot fills with every bet.");
   }
-  // The pot bursts: full, coins flying, "WON!", then nearly empty again.
-  function burstPot(node) {
-    clearTimeout(node._potWon);
-    level(node, 100);
-    node.classList.remove("pot-burst"); void node.offsetWidth; node.classList.add("pot-burst");
+  // Won: everything bursts out, "WON!", then it starts again nearly empty.
+  function burstMinor(node) {
+    var mn = buildMinor(node), cls = mn.pile ? "mn-burst" : "pot-burst";
+    clearTimeout(node._mnWon);
+    if (mn.pile) {
+      if (!mn.pile.children.length) pileTo(node, 6, false);   // something to burst even when it was nearly empty
+      Array.prototype.forEach.call(mn.pile.children, function (it) {
+        it.classList.remove("mn-drop");
+        it.style.animationDelay = "";
+        it.style.setProperty("--dx", Math.round(Math.random() * 240 - 120) + "px");
+        it.style.setProperty("--dy", Math.round(-60 - Math.random() * 160) + "px");
+        it.style.setProperty("--rot", Math.round(Math.random() * 720 - 360) + "deg");
+      });
+    } else {
+      mn.coins.style.height = "100%";
+    }
+    node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);
     node.setAttribute("aria-valuetext", "won, filling again from empty");
-    node._potWon = setTimeout(function () {
-      node.classList.remove("pot-burst");
-      if (node._potState) paintPot(node, node.getAttribute("data-meter"), node._potState);
-      else level(node, 0);
+    node._mnWon = setTimeout(function () {
+      node.classList.remove(cls);
+      if (mn.pile) pileTo(node, 0, false);
+      if (node._mnState) paintMinor(node, node.getAttribute("data-meter"), node._mnState, true);
     }, reduce ? 900 : 2200);
   }
-  function renderPots() {
+  function bursting(node) { return node.classList.contains("mn-burst") || node.classList.contains("pot-burst"); }
+  function renderMinors() {
     document.querySelectorAll("[data-meter]").forEach(function (node) {
       var key = node.getAttribute("data-meter"), s = stateOf(data, key);
-      buildPot(node);
+      buildMinor(node);
       if (!s || typeof s.fill !== "number") return;
-      var old = node._potState;
-      node._potState = s;
+      var old = node._mnState;
+      node._mnState = s;
       if (old && s.cycle > old.cycle) {
-        if (node._potOwn) { node._potOwn = false; if (!node.classList.contains("pot-burst")) paintPot(node, key, s); return; }   // already burst in the celebration
-        burstPot(node); return;
+        if (node._mnOwn) { node._mnOwn = false; if (!bursting(node)) paintMinor(node, key, s, true); return; }   // already burst in the celebration
+        burstMinor(node); return;
       }
-      if (node.classList.contains("pot-burst")) return;   // the burst ends on the newest level
-      if (old && s.fill > old.fill && !reduce) { node.classList.remove("pot-grow"); void node.offsetWidth; node.classList.add("pot-grow"); }
-      paintPot(node, key, s);
+      if (bursting(node)) return;   // the burst ends on the newest level
+      if (old && s.fill > old.fill && !reduce && !isScreen(node)) { node.classList.remove("pot-grow"); void node.offsetWidth; node.classList.add("pot-grow"); }
+      paintMinor(node, key, s, !!old);
     });
   }
+  // The player's own Minor win: burst it now (the celebration), not again when it is read.
   function burst(key) {
-    document.querySelectorAll('[data-meter="' + key + '"]').forEach(function (node) { node._potOwn = true; burstPot(node); });
+    document.querySelectorAll('[data-meter="' + key + '"]').forEach(function (node) { node._mnOwn = true; burstMinor(node); });
   }
 
   /* ═══════════════ Recent wins (jackpots page) ═══════════════ */
@@ -262,7 +307,7 @@
     });
   }
 
-  function render() { renderAmounts(); renderPots(); renderWinners(); renderHashes(); }
+  function render() { renderAmounts(); renderMinors(); renderWinners(); renderHashes(); }
 
   /* ═══════════════ Reading ═══════════════ */
   function refresh() {

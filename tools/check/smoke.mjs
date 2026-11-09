@@ -287,22 +287,25 @@ try {
   for (const g of GAMES) {
     resetApi(); signIn();
     await open(`games/${g}.html`, 1280);
-    // Three rows at the very top of the machine: GRAND and MAJOR as amounts in the machine's unit
-    // (tSats by default), MINOR as a coin pot (a level, never an amount). No "Must hit by": a surprise.
+    // Two rows at the very top of the machine: GRAND and MAJOR as amounts in the machine's unit (tSats
+    // by default); no "Must hit by", a surprise. The MINOR has its own screen right of the reels, about
+    // 1.5 reels wide: items in a pile (floor(fill% of 15)), a level and never an amount.
     const major = (45678 + GAMES.indexOf(g)).toLocaleString("en-US"), minorFill = 8.1 + GAMES.indexOf(g);
     const rows = await until(`(() => { const top = document.getElementById("slot-machine").firstElementChild, rows = top ? top.querySelectorAll(".jp-row") : [];
       const txt = (r, sel) => (r.querySelector(sel) || {}).textContent;
-      const pot = rows[2] && rows[2].querySelector('[data-meter="minor:${g}"]');
-      return top.classList.contains("jp-rows") && rows.length === 3
+      const mn = document.querySelector('.reel-bay > .minor-screen[data-meter="minor:${g}"]'), rw = document.getElementById("reels-window").getBoundingClientRect();
+      const ms = mn && mn.getBoundingClientRect(), ratio = ms && ms.width / (rw.width / 5);
+      return top.classList.contains("jp-rows") && rows.length === 2
         && rows[0].matches(".jp-row-grand") && txt(rows[0], '[data-jackpot="grand"]') === "121,994 tSats"
         && rows[1].matches(".jp-row-major") && txt(rows[1], '[data-jackpot="major:${g}"]') === "${major} tSats" && !/Must hit|before it is full/.test(top.textContent)
         && !/Must hit|before it is full|reaches its limit|50,000|500,000|10,000,000/.test(document.querySelector(".paytable").textContent)
-        && rows[2].matches(".jp-row-minor") && pot && pot.getAttribute("role") === "meter" && +pot.getAttribute("aria-valuenow") === ${minorFill}
-        && parseFloat(pot.querySelector(".pot-coins").style.height) === ${minorFill} && !/\\d/.test(pot.textContent); })()`);
+        && mn && mn.getAttribute("role") === "meter" && +mn.getAttribute("aria-valuenow") === ${minorFill}
+        && mn.querySelectorAll(".mn-pile .mn-item").length === ${Math.floor(minorFill / 100 * 15)} && !/\\d/.test(mn.textContent)
+        && ms.left >= rw.right && Math.abs(ms.height - rw.height) < 2 && ratio > 1.2 && ratio < 1.8; })()`);
     await ev(`document.getElementById("unit-switch").click()`);
     const bch = await ev(`document.querySelector('.jp-rows [data-jackpot="grand"]').textContent === "0.00121994 tBCH"`);
     await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
-    check(`${g}: GRAND and MAJOR amounts (tSats / tBCH switch), MINOR coin pot, no limits shown (also not in the rules)`, rows && bch);
+    check(`${g}: GRAND and MAJOR amounts (tSats / tBCH switch), MINOR screen right of the reels, no limits shown`, rows && bch);
   }
   {
     // Someone else wins the Deep Sea Major and Minor: their cycles go up between two readings.
@@ -312,9 +315,14 @@ try {
     api.jackpots.games["deep-sea"].major = { amount: 2410, maxAmount: 500000, cycle: 3, seedHash: "d".repeat(64) };
     api.jackpots.games["deep-sea"].minor = { fill: 0.6, cycle: 13, seedHash: "e".repeat(64) };
     await ev(`TNC_Jackpots.refresh()`);
-    const flash = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "WON!" && document.querySelector('[data-meter="minor:deep-sea"]').classList.contains("pot-burst")`, 3000);
-    const after = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "2,410 tSats" && document.querySelector('[data-meter="minor:deep-sea"]').getAttribute("aria-valuenow") === "0.6"`, 4000);
-    check("jackpots won by someone else: WON! then the new smaller Major, the pot bursts then starts nearly empty", flash && after);
+    const flash = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "WON!" && document.querySelector('[data-meter="minor:deep-sea"]').classList.contains("mn-burst")`, 3000);
+    const after = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "2,410 tSats" && document.querySelector('[data-meter="minor:deep-sea"]').getAttribute("aria-valuenow") === "0.6" && document.querySelectorAll('[data-meter="minor:deep-sea"] .mn-item').length === 0`, 4000);
+    // Phones: the Minor screen sits under the reels as a strip.
+    resetApi(); signIn();
+    await open("games/deep-sea.html", 375);
+    const strip = await until(`(() => { const mn = document.querySelector(".minor-screen").getBoundingClientRect(), rw = document.getElementById("reels-window").getBoundingClientRect();
+      return mn.top >= rw.bottom && Math.abs(mn.width - rw.width) < 2 && mn.height < 100 && document.querySelectorAll(".minor-screen .mn-item").length === 1; })()`);
+    check("jackpots won by someone else: WON! then the new smaller Major, the Minor bursts then starts nearly empty; strip on phones", flash && after && strip);
   }
   {
     // Our own spin wins the Minor and the Major: two celebrations in order (amounts in tBCH, the pot
@@ -333,14 +341,14 @@ try {
     await sleep(300);
     const spoiler = await ev(`document.querySelector('[data-jackpot="major:${g}"]').textContent + " / " + document.querySelector('[data-meter="minor:${g}"]').getAttribute("aria-valuenow")`);
     const minorShow = await until(`/MINOR JACKPOT/.test(document.getElementById("wb-title").textContent) && document.getElementById("wb-amount").textContent === "0.00003290 tBCH"
-      && document.querySelector('[data-meter="minor:${g}"]').classList.contains("pot-burst")`, 30000);
+      && document.querySelector('[data-meter="minor:${g}"]').classList.contains("mn-burst")`, 30000);
     const majorShow = await until(`/MAJOR JACKPOT/.test(document.getElementById("wb-title").textContent) && document.getElementById("wb-amount").textContent === "0.00041500 tBCH"`, 30000);
     const done = await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, 60000);
     const after = await until(`/WON!|3,017 tSats/.test(document.querySelector('[data-jackpot="major:${g}"]').textContent)`, 5000);
     const st = await ev(`({ header: TNC_Auth.balance, lcd: window.__lcd, history: [...document.querySelectorAll("#history li")].slice(0, 2).map(l => l.textContent) })`);
     const problems = [];
     if (spoiler !== "45,678 tSats / 8.1") problems.push(`jackpots showed ${spoiler} while the reels turned`);
-    if (!minorShow) problems.push("no MINOR JACKPOT banner in tBCH with the pot bursting");
+    if (!minorShow) problems.push("no MINOR JACKPOT banner in tBCH with the Minor screen bursting");
     if (!majorShow) problems.push("no MAJOR JACKPOT banner in tBCH");
     if (!(st.lcd.length === 2 && /^MINOR/.test(st.lcd[0]) && /^MAJOR/.test(st.lcd[1]))) problems.push("celebrations: " + JSON.stringify(st.lcd));
     if (!done) problems.push("spin did not finish");
@@ -349,7 +357,7 @@ try {
     if (api.jackpotCalls <= callsBefore) problems.push("jackpots not read after the spin");
     if (!after) problems.push("the Major did not move on after the spin");
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check("jackpot spin: Minor (pot bursts) then Major celebrations in tBCH, balance, history, jackpots after the spin only", !problems.length, problems.join("; "));
+    check("jackpot spin: Minor (its screen bursts) then Major celebrations in tBCH, balance, history, jackpots after the spin only", !problems.length, problems.join("; "));
   }
   {
     resetApi();

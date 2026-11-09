@@ -177,7 +177,9 @@
           '<li><span class="e">' + syms[SCAT].emoji + '</span>' + esc(FS.name) + '</li>' +
           '<li><span class="e">' + syms[BONUS].emoji + '</span>' + esc(BON.name) + ' Bonus</li>' +
         '</ul><div class="fs-sign" id="fs-sign" hidden></div></div>',
-      reels: '<div class="reels-window" id="reels-window" role="img" aria-label="Slot reels">' +
+      // The reels and, beside them (under them on phones), the Minor jackpot's own screen: items
+      // falling into a pile as the Minor grows (filled by jackpots.js).
+      reels: '<div class="reel-bay"><div class="reels-window" id="reels-window" role="img" aria-label="Slot reels">' +
           new Array(REELS + 1).join('<div class="reel"><div class="reel-strip"></div></div>') +
           '<div class="sticky-layer" id="sticky-layer" aria-hidden="true"></div>' +
           '<svg class="paylines-svg" id="paylines" aria-hidden="true"></svg>' +
@@ -185,6 +187,10 @@
           '<div class="win-banner" id="win-banner" aria-hidden="true"><div class="rays"></div>' +
             '<div class="wb-title" id="wb-title"></div><div class="wb-amount" id="wb-amount"></div></div>' +
         '</div>' +
+        '<div class="minor-screen mn-' + esc(game.theme) + '" data-meter="minor:' + esc(id) + '">' +
+          '<span class="mn-sign" aria-hidden="true">MINOR</span><span class="mn-scene" aria-hidden="true"></span>' +
+          '<span class="mn-pile" aria-hidden="true"></span><span class="mn-won" aria-hidden="true">WON!</span>' +
+        '</div></div>' +
         '<div class="m-lock" id="m-lock" hidden><a class="btn-red m-lock-btn" id="m-lock-btn" href="#">🔑 Sign in to play</a>' +
           '<p>New accounts get 10,000 free tSats (0.0001 tBCH).</p></div>',
       lcd: function (extra) {
@@ -211,14 +217,12 @@
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
       // Jackpots at the top of the machine (filled by jackpots.js): the shared GRAND (one style
       // on every machine, the most prominent) and this game's MAJOR as live prize amounts in the
-      // machine's unit; this game's MINOR as a coin pot filling up.
+      // machine's unit. This game's MINOR has its own screen beside the reels (see reels).
       jackpots: '<div class="jp-rows" role="group" aria-label="Jackpots">' +
           '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span>' +
             '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
           '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span>' +
             '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
-          '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span>' +
-            '<span class="jp-pot" data-meter="minor:' + esc(id) + '"></span></div>' +
         '</div>'
     };
     function hint(verb) { return '<p class="m-hint">' + verb + ' · or press <b>Space</b> (again to stop the reels). Bitcoin Cash Testnet4 coins only: no real money.</p>'; }

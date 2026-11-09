@@ -2120,6 +2120,118 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 .pot-burst::after { background-position: 7px 6px; animation-delay: .3s; }
 
+/* ── The Minor's own screen, beside the reels (under them on phones) ──
+   jackpots.js drops items into .mn-pile: 15 spots, each with --pr/--pc (pyramid row and column)
+   and --sr/--sc (phone strip row and column). Sizes come from the pile's width (cqw). */
+.reel-bay { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 1.45fr); gap: 8px; align-items: stretch; }
+.minor-screen {
+  --fall: -230px; position: relative; overflow: hidden; min-height: 0; border-radius: 12px;
+  border: 3px solid var(--gold-dark); box-shadow: inset 0 6px 14px rgba(0,0,0,.8), 0 0 0 2px #000;
+}
+.mn-sign {
+  position: absolute; top: 6px; left: 50%; z-index: 4; transform: translateX(-50%); padding: 2px 8px; border-radius: 6px;
+  font: 400 .64rem var(--sign); letter-spacing: 2px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,.4);
+}
+.mn-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.mn-scene::before, .mn-scene::after { content: ""; position: absolute; }
+.mn-pile { position: absolute; left: 6%; right: 6%; bottom: 12%; height: 72%; z-index: 2; container-type: inline-size; }
+.mn-item {   /* --d: item size; --s: spacing, a bit less than the size, so the pile overlaps like a real heap */
+  --d: 23.5cqw; --s: calc(var(--d) * .82); position: absolute; width: var(--d); height: var(--d);
+  left: calc((var(--pc) + var(--pr) * .5) * var(--s) + (100cqw - 4 * var(--s) - var(--d)) / 2); bottom: calc(var(--pr) * var(--s) * .86);
+  display: flex; align-items: center; justify-content: center; font-family: var(--emoji); font-size: calc(var(--d) * .86); line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.45));
+}
+.mn-pearl::before {
+  content: ""; width: 86%; height: 86%; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff 0 16%, #f6f1fb 28%, #d9cfe8 60%, #a497bf 100%);
+  box-shadow: inset -2px -3px 4px rgba(90,70,130,.35), 0 0 6px rgba(220,240,255,.6);
+}
+@keyframes mn-drop {
+  0% { opacity: 0; transform: translateY(var(--fall)); }
+  12% { opacity: 1; }
+  78% { transform: translateY(6%); }
+  90% { transform: translateY(-4%); }
+  100% { opacity: 1; transform: none; }
+}
+.mn-drop { animation: mn-drop .75s cubic-bezier(.45, 0, .85, .55) both; }
+.mn-won {
+  position: absolute; left: 50%; top: 42%; z-index: 5; opacity: 0; pointer-events: none; transform: translate(-50%, -50%);
+  font: 400 1.1rem var(--sign); letter-spacing: 1px; color: #ffe79a; text-shadow: 0 0 10px #ffb300, 0 2px 0 #000; white-space: nowrap;
+}
+/* Won: everything flies out, "WON!", then it starts again nearly empty. */
+@keyframes mn-fly { to { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1.3); } }
+@keyframes mn-won { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%); } }
+@keyframes mn-flash { 0%, 100% { box-shadow: inset 0 6px 14px rgba(0,0,0,.8), 0 0 0 2px #000; } 30% { box-shadow: inset 0 0 40px rgba(255,231,154,.9), 0 0 0 2px #000, 0 0 26px rgba(255,209,102,.9); } }
+.mn-burst { animation: mn-flash 1.2s ease-out; }
+.mn-burst .mn-item { animation: mn-fly 1s ease-out forwards; }
+.mn-burst .mn-won { animation: mn-won 2.1s ease-out forwards; }
+
+/* 🍒 Fruit Orchard: a sunny branch, apples falling into a wicker basket */
+.mn-orchard { border-color: #5b3412; background: linear-gradient(180deg, #a9dcff 0%, #e4f6d2 58%, #b7dc84 100%); }
+.mn-orchard .mn-sign { background: #5b3412; color: #fff6dc; }
+.mn-orchard .mn-scene::before { /* the branch the apples fall from, with leaves */
+  content: "🍃 🌿 🍃 🌿"; left: -6%; right: -6%; top: 18%; height: 7px; border-radius: 4px; background: linear-gradient(180deg, #8a5527, #5b3412);
+  box-shadow: 0 2px 3px rgba(0,0,0,.3); font: 14px/7px var(--emoji); text-align: center; white-space: nowrap; overflow: visible;
+}
+.mn-orchard .mn-scene::after { /* the basket */
+  left: 6%; right: 6%; bottom: 4%; height: 24%; border-radius: 4px 4px 22px 22px; border-top: 5px solid #5b3412;
+  background: repeating-linear-gradient(90deg, #b07138 0 7px, #8a5527 7px 9px), #8a5527;
+  box-shadow: inset 0 -6px 10px rgba(0,0,0,.35), 0 3px 5px rgba(0,0,0,.3);
+}
+.mn-orchard .mn-pile { bottom: 14%; }
+/* 🐚 Deep Sea: a treasure chest on the sand, pearls sinking into it, bubbles rising */
+.mn-deepsea { border-color: #3b2a12; border-radius: 20px; background: linear-gradient(180deg, #0f5e86 0%, #073047 60%, #04121c 100%); }
+.mn-deepsea .mn-sign { background: linear-gradient(180deg, #f6dd9b, #c99a3e 50%, #a87a12); color: #3b2a12; }
+.mn-deepsea .mn-scene::before { /* bubbles */
+  inset: 0; opacity: .7;
+  background: radial-gradient(circle, rgba(200,240,255,.7) 0 2px, transparent 3px) 0 0 / 34px 46px,
+              radial-gradient(circle, rgba(200,240,255,.5) 0 1.5px, transparent 2.5px) 17px 23px / 34px 46px;
+  animation: mn-bubbles 6s linear infinite;
+}
+@keyframes mn-bubbles { to { background-position: 0 -460px, 17px -437px; } }
+.mn-deepsea .mn-scene::after { /* sand and the chest */
+  left: 0; right: 0; bottom: 0; height: 30%;
+  background:
+    linear-gradient(180deg, transparent 0 8%, #f0d38a 8% 13%, transparent 13% 55%, #f0d38a 55% 60%, transparent 60%) 10% 0 / 80% 72% no-repeat,
+    linear-gradient(180deg, #8a5a2b, #5c3a18) 10% 0 / 80% 72% no-repeat,
+    radial-gradient(ellipse at 50% 100%, #d9b56a, #b08d57 70%) 0 100% / 100% 42% no-repeat;
+}
+.mn-deepsea .mn-pile { bottom: 16%; }
+/* 🚀 Cosmic Voyage: stars streaking into a glass energy capsule */
+.mn-cosmic { border-color: #8a46f0; border-radius: 6px; background: radial-gradient(ellipse at 50% 30%, #2a1060, #07041a 70%); }
+.mn-cosmic .mn-sign { background: rgba(46,197,255,.15); color: #9ff0ff; border: 1px solid #2ec5ff; text-shadow: 0 0 6px rgba(159,240,255,.9); }
+.mn-cosmic .mn-scene::before { /* distant stars */
+  inset: 0; opacity: .8;
+  background: radial-gradient(circle, #fff 0 1px, transparent 1.5px) 0 0 / 23px 31px, radial-gradient(circle, #b388ff 0 1px, transparent 1.5px) 11px 15px / 29px 37px;
+}
+.mn-cosmic .mn-scene::after { /* the capsule */
+  left: 7%; right: 7%; top: 22%; bottom: 6%; border-radius: 24px 24px 12px 12px;
+  border: 2px solid rgba(46,197,255,.75); background: linear-gradient(90deg, rgba(159,240,255,.12), transparent 30%, transparent 70%, rgba(159,240,255,.08));
+  box-shadow: 0 0 14px rgba(46,197,255,.5), inset 0 0 18px rgba(179,136,255,.35);
+}
+.mn-cosmic .mn-item { filter: drop-shadow(0 0 4px rgba(255,231,154,.9)); }
+.mn-cosmic .mn-pile { bottom: 9%; }
+
+/* Phones: the Minor screen goes under the reels as a strip; the pile fills left to right. */
+@media (max-width: 600px) {
+  .reel-bay { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .minor-screen { --fall: -70px; height: 76px; }
+  .mn-sign { top: 50%; left: 8px; transform: translateY(-50%); writing-mode: vertical-rl; rotate: 180deg; padding: 6px 2px; font-size: .56rem; letter-spacing: 1px; }
+  .mn-pile { left: 34px; right: 10px; bottom: 8px; height: 58px; }
+  .mn-item { --d: 12.4cqw; --s: calc(var(--d) * .88); left: calc((var(--sc) + var(--sr) * .5) * var(--s)); bottom: calc(var(--sr) * var(--s) * .78); }
+  .mn-orchard .mn-scene::before { top: 6px; left: 30px; }
+  .mn-orchard .mn-scene::after { left: 30px; right: 6px; height: 30%; border-radius: 4px 4px 12px 12px; }
+  .mn-orchard .mn-pile, .mn-deepsea .mn-pile { bottom: 10px; }
+  .mn-deepsea .mn-scene::after { height: 38%; }
+  .mn-cosmic .mn-scene::after { left: 30px; right: 6px; top: 8px; bottom: 6px; border-radius: 14px; }
+  .mn-cosmic .mn-pile { bottom: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-drop, .mn-burst, .mn-burst .mn-item, .mn-deepsea .mn-scene::before { animation: none; }
+  .mn-burst .mn-item { opacity: 0; }
+  .mn-burst .mn-won { animation: none; opacity: 1; }
+}
+
 /* Machine rows: label left, prize right; the Minor row has the pot. */
 .jp-rows { position: relative; z-index: 4; display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
 .jp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 16px; border-radius: 12px; }
