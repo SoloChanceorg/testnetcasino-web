@@ -241,16 +241,18 @@
     }
 
     /* ═══ Cabinet ═══ */
-    L.cabinet.addChild(paint(W - 20, 930, function (g, w, h) {
-      g.shadowColor = T.neon; g.shadowBlur = 28;
-      g.beginPath(); g.moveTo(40, 6); g.lineTo(w - 40, 6); g.lineTo(w - 6, 40); g.lineTo(w - 6, h - 6); g.lineTo(6, h - 6); g.lineTo(6, 40); g.closePath();
-      g.fillStyle = grad(g, 0, h, [T.bg[0], T.bg[1], "#05020f"]); g.fill();
-      g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();
-      // grid lines
-      g.save(); g.clip(); g.globalAlpha = 0.08; g.strokeStyle = T.neon2; g.lineWidth = 1;
+    // The cabinet's upper body, from its cut top corners down to the fold (FY), where it bends forward
+    // into the console (see Deck): one body, one neon outline.
+    var FY = 736;
+    L.cabinet.addChild(paint(W - 20, FY - 140 + 2, function (g, w, h) {
+      function outline() { g.beginPath(); g.moveTo(6, h); g.lineTo(6, 40); g.lineTo(40, 6); g.lineTo(w - 40, 6); g.lineTo(w - 6, 40); g.lineTo(w - 6, h); }
+      outline(); g.closePath(); g.shadowColor = T.neon; g.shadowBlur = 28;
+      g.fillStyle = grad(g, 0, h, [T.bg[0], T.bg[1]]); g.fill(); g.shadowBlur = 0;
+      g.save(); g.clip(); g.globalAlpha = 0.08; g.strokeStyle = T.neon2; g.lineWidth = 1;   // grid lines
       for (var y = 20; y < h; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
       for (var x0 = 14; x0 < w; x0 += 28) { g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, h); g.stroke(); }
       g.restore();
+      outline(); g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();   // open at the bottom
     })).position.set(10, 140);
     var title = txt(T.title, { fontSize: 50, fill: "#f2e6ff", letterSpacing: 3,
       dropShadow: { color: T.neon, blur: 18, distance: 0, alpha: 1 }, stroke: { color: "#2a0f5a", width: 3 } });
@@ -479,40 +481,50 @@
       clearTimeout(srTimer); srLive.textContent = ""; srTimer = setTimeout(function () { srLive.textContent = plain; }, 60);
     }
 
-    /* ═══ Deck: readouts, LAUNCH, throttle, on a console that slopes toward the player ═══
-       The deck is drawn flat (DW × DH) into a render texture every frame and shown on a
-       PerspectiveMesh: narrower at the back, wider at the front, like a cockpit console. Keys stand
+    /* ═══ Deck: readouts, LAUNCH, throttle, on the cabinet's console sloping toward the player ═══
+       The deck is drawn flat into a render texture every frame and shown on a PerspectiveMesh:
+       a little wider at the front, like a cockpit console. Keys stand
        up from it (their side walls face the player), screens and the lever's slot are sunk into it.
        Taps are mapped back through the same projection to the flat deck. */
-    var DW = 700, DH = 290, DX = 30, DY = 742;
-    var deck = new PIXI.Container();
-    var Q = [DX + 74, DY + 10, DX + DW - 74, DY + 10, DX + DW + 10, DY + DH - 2, DX - 10, DY + DH - 2];   // TL, TR, BR, BL
-    // The slab under the console: its front edge, facing the player
-    L.panel.addChild(paint(W, 40, function (g) {
-      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 14, 24); g.lineTo(Q[6] + 14, 24); g.closePath();
-      g.fillStyle = grad(g, 0, 24, ["#3a1f7a", "#140834"]); g.fill();
-      g.lineWidth = 2; g.strokeStyle = T.neon2; g.shadowColor = T.neon2; g.shadowBlur = 10;
-      g.beginPath(); g.moveTo(Q[6] + 14, 23); g.lineTo(Q[4] - 14, 23); g.stroke();
-      g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Q[6], 1); g.lineTo(Q[4], 1); g.stroke();
+    // The console is the cabinet's lower body: from the fold it slopes toward the player across the
+    // cabinet's full width, its sides continuing the cabinet's, flaring a little toward the front edge.
+    // DW × DH: the controls' area, drawn at OX inside the full console width DWF.
+    // The console's side lines start exactly on the cabinet's (cabinet x 10, its outline 6 px in).
+    var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 8;
+    var deckRoot = new PIXI.Container(), deck = new PIXI.Container(); deck.x = OX;
+    var Q = [CX0, FY, CX0 + DWF, FY, CX0 + DWF + FLARE, FY + DH, CX0 - FLARE, FY + DH];   // TL, TR, BR, BL
+    // The cabinet's base: the console's front edge, facing the player
+    L.panel.addChild(paint(W, 30, function (g) {
+      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 10, 20); g.lineTo(Q[6] + 10, 20); g.closePath();
+      g.fillStyle = grad(g, 0, 20, ["#2a1660", "#0b0522"]); g.fill();
+      g.lineWidth = 3; g.strokeStyle = T.neon; g.shadowColor = T.neon; g.shadowBlur = 14;
+      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[6] + 10, 20); g.lineTo(Q[4] - 10, 20); g.lineTo(Q[4], 0); g.stroke();
+      g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Q[6] + 4, 1.5); g.lineTo(Q[4] - 4, 1.5); g.stroke();
     })).position.set(0, Q[5] - 1);
-    // The console surface (painted flat, seen in perspective)
-    deck.addChild(paint(DW, DH, function (g, w, h) {
-      rr(g, 0, 0, w, h, 18); g.fillStyle = grad(g, 0, h, ["#2b1566", "#1a0b44", "#100628"]); g.fill();
+    // The console surface (painted flat, seen in perspective): the cabinet's material, lit a little more
+    // where it faces up, a crease of light along the fold, the outline down its sides and along the front.
+    deckRoot.addChild(paint(DWF, DH, function (g, w, h) {
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h - 16); g.quadraticCurveTo(w, h, w - 16, h); g.lineTo(16, h); g.quadraticCurveTo(0, h, 0, h - 16); g.closePath();
+      g.fillStyle = grad(g, 0, h, ["#24104f", "#170a3a", "#0c0526"]); g.fill();
       g.save(); g.clip();
-      g.globalAlpha = 0.07; g.strokeStyle = "#ffffff"; g.lineWidth = 1;
-      for (var y = 6; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }   // brushed metal
-      g.globalAlpha = 1; g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 2;                         // panel seams
-      [252, 528].forEach(function (x) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); });
-      g.strokeStyle = "rgba(179,136,255,.18)"; g.lineWidth = 1;
-      [254, 530].forEach(function (x) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); });
+      g.globalAlpha = 0.08; g.strokeStyle = T.neon2; g.lineWidth = 1;                                  // the cabinet's grid
+      for (var y = 14; y < h; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      for (var x0 = 4; x0 < w; x0 += 28) { g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, h); g.stroke(); }
+      g.globalAlpha = 0.05; g.strokeStyle = "#ffffff";                                                  // brushed metal
+      for (var y2 = 6; y2 < h; y2 += 5) { g.beginPath(); g.moveTo(0, y2); g.lineTo(w, y2); g.stroke(); }
+      g.globalAlpha = 1;
+      var fold = g.createLinearGradient(0, 0, 0, 22);                                                   // the fold: lit edge, then shade
+      fold.addColorStop(0, "rgba(220,200,255,.35)"); fold.addColorStop(0.12, "rgba(220,200,255,.08)"); fold.addColorStop(0.25, "rgba(0,0,0,.35)"); fold.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = fold; g.fillRect(0, 0, w, 22);
+      g.strokeStyle = "rgba(0,0,0,.4)"; g.lineWidth = 2;                                                // panel seams
+      [OX + 252, OX + 528].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
+      g.strokeStyle = "rgba(179,136,255,.16)"; g.lineWidth = 1;
+      [OX + 254, OX + 530].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
       g.restore();
-      [[12, 12], [w - 12, 12], [12, h - 12], [w - 12, h - 12], [253, 12], [529, 12], [253, h - 12], [529, h - 12]].forEach(function (q) {   // rivets
-        var rg = g.createRadialGradient(q[0] - 1, q[1] - 1, 0.5, q[0], q[1], 4); rg.addColorStop(0, "#d9ccff"); rg.addColorStop(1, "#3b2a7a");
-        g.beginPath(); g.arc(q[0], q[1], 3.5, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
-      });
-      rr(g, 1.5, 1.5, w - 3, h - 3, 17); g.lineWidth = 3; g.strokeStyle = "rgba(154,107,255,.85)"; g.stroke();
-      g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.25)"; rr(g, 5, 5, w - 10, h - 10, 14); g.stroke();
+      g.beginPath(); g.moveTo(1.5, 0); g.lineTo(1.5, h - 16); g.quadraticCurveTo(1.5, h - 1.5, 16, h - 1.5); g.lineTo(w - 16, h - 1.5); g.quadraticCurveTo(w - 1.5, h - 1.5, w - 1.5, h - 16); g.lineTo(w - 1.5, 0);
+      g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();   // the outline continues: sides and front, open at the fold
     }));
+    deckRoot.addChild(deck);
     // A recessed screen: dark glass sunk into the panel, its upper inner wall in shadow, a lit lip below.
     function recess(w, h, r) {
       return paint(w + 8, h + 8, function (g) {
@@ -651,11 +663,11 @@
     deckHit(556 + 88, 12 + 236, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
 
     // The console in perspective
-    var deckRT = PIXI.RenderTexture.create({ width: DW, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
+    var deckRT = PIXI.RenderTexture.create({ width: DWF, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
     var deckMesh = new PIXI.PerspectiveMesh({ texture: deckRT, verticesX: 12, verticesY: 12,
       x0: Q[0], y0: Q[1], x1: Q[2], y1: Q[3], x2: Q[4], y2: Q[5], x3: Q[6], y3: Q[7] });
     L.panel.addChild(deckMesh);
-    app.ticker.add(function () { app.renderer.render({ container: deck, target: deckRT, clear: true }); });
+    app.ticker.add(function () { app.renderer.render({ container: deckRoot, target: deckRT, clear: true }); });
     // Square -> quad homography (Heckbert), inverted to map a tap on the console back to the flat deck.
     var HM = (function (q) {
       var x0 = q[0], y0 = q[1], x1 = q[2], y1 = q[3], x2 = q[4], y2 = q[5], x3 = q[6], y3 = q[7];
@@ -667,7 +679,7 @@
     }(Q));
     function toDeck(x, y) {
       var u = HM[0] * x + HM[1] * y + HM[2], v = HM[3] * x + HM[4] * y + HM[5], w = HM[6] * x + HM[7] * y + HM[8];
-      return { x: u / w * DW, y: v / w * DH };
+      return { x: u / w * DWF - OX, y: v / w * DH };
     }
     function hitAt(e) {
       var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
@@ -683,7 +695,7 @@
 
     // For tests: the panel point where a deck control is drawn.
     function deckPoint(x, y) {   // flat deck -> panel (the forward homography)
-      var u = x / DW, v = y / DH, q = Q;
+      var u = (x + OX) / DWF, v = y / DH, q = Q;
       var dx1 = q[2] - q[4], dx2 = q[6] - q[4], dx3 = q[0] - q[2] + q[4] - q[6], dy1 = q[3] - q[5], dy2 = q[7] - q[5], dy3 = q[1] - q[3] + q[5] - q[7];
       var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
       var a = q[2] - q[0] + gg * q[2], b = q[6] - q[0] + hh * q[6], d = q[3] - q[1] + gg * q[3], e = q[7] - q[1] + hh * q[7], w = gg * u + hh * v + 1;

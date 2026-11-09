@@ -2311,7 +2311,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 
 /* ── The PixiJS machine (preview, ?pixi=1): one canvas in a 3D stage, so the whole machine can tilt ── */
 .px-stage { position: relative; perspective: 1400px; perspective-origin: 50% 30%; margin: 0 auto 18px; max-width: 760px; }
-.px-machine { position: relative; transform-style: preserve-3d; transform-origin: 50% 60%; }
+.px-machine { position: relative; transform-style: preserve-3d; transform-origin: 50% 100%; rotate: x 4deg; }   /* leans back a little, at rest */
 .px-canvas { width: 100%; }
 .px-canvas canvas { display: block; margin: 0 auto; max-width: 100%; touch-action: manipulation; }
 .px-note { margin: 10px 0 0; font-size: .82rem; opacity: .8; }
