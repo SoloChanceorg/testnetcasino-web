@@ -277,17 +277,6 @@
   }
 
   /* ═══════════════ Jackpots: check a seed ═══════════════ */
-  var RANGES = { minor: [500, 50000], major: [5000, 500000], grand: [100000, 10000000] };
-  $("mt-tier").addEventListener("change", function () {
-    var r = RANGES[this.value];
-    if (r) { $("mt-min").value = r[0]; $("mt-max").value = r[1]; }
-  });
-  ["mt-min", "mt-max"].forEach(function (id) {
-    $(id).addEventListener("input", function () {
-      var t = $("mt-tier"), r = RANGES[t.value];
-      if (r && (+$("mt-min").value !== r[0] || +$("mt-max").value !== r[1])) t.value = "custom";
-    });
-  });
   $("mt-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var out = $("mt-result"), btn = $("mt-submit");
@@ -298,7 +287,7 @@
     out.className = "vf-result";
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The seed must be 64 hex characters."
       : hash && !/^[0-9a-f]{64}$/.test(hash) ? "The seed hash must be 64 hex characters."
-      : !(min >= 0) || !(max >= min) ? "The range needs a minimum of 0 or more and a maximum at least as big." : "";
+      : !(min >= 0) || !(max >= min) ? "Enter the range from the win's Verify details: a minimum of 0 or more and a maximum at least as big." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Checking...");
     Fair.meter(seedHex, min, max).then(function (d) {
@@ -311,7 +300,7 @@
       var dl = el("dl", "seed-list");
       var tier = $("mt-tier").value;
       [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tSats"], ["Display scale", fmt(d.displayScale) + " tSats"],
-       ["Head start", tier === "minor" ? "0 tSats (a Minor starts empty)" : fmt(d.startSats) + " tSats" + (tier === "custom" ? " (Major and Grand; a Minor starts at 0)" : "")]].forEach(function (p) {
+       ["Head start", tier === "minor" ? "0 tSats (a Minor starts empty)" : fmt(d.startSats) + " tSats"]].forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       out.appendChild(dl);
@@ -320,8 +309,6 @@
         checks.forEach(function (c) { ul.appendChild(el("li", c[0] ? "is-ok" : "is-bad", (c[0] ? "✓ Passed: " : "✗ Failed: ") + c[1] + ".")); });
         out.appendChild(ul);
       }
-      if (tier !== "major" && tier !== "grand") out.appendChild(el("p", "auth-hint", "A Minor pot shows its coins against the display scale, so this one paid out at " +
-        (Math.floor(d.target / d.displayScale * 1000) / 10).toFixed(1) + "% full or later, always before it was full."));
     }).catch(function (err) {
       out.className = "vf-result is-bad";
       out.textContent = err && err.message || "Could not check this seed.";

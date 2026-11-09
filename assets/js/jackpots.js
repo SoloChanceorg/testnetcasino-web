@@ -8,12 +8,13 @@
  *                     cycle, seed, seedHash, minSats, maxSats, target, displayScale, startSats } ], updatedAt }
  *
  * The jackpots are a gift from the faucet, on top of the games' RTP. Every bet grows the game's
- * Minor and Major and the shared Grand; each is won at a hidden target, before its limit.
+ * Minor and Major and the shared Grand; each is won at a hidden target. When is a surprise: the
+ * limits (`maxAmount`, the target ranges) are never shown.
  *
  *   - GRAND and MAJOR are prize amounts: every [data-jackpot="grand" | "major:<gameId>"] shows
  *     `amount`, counting up smoothly to each new reading. Units: data-jackpot-units="bch8" is
  *     tBCH with 8 decimals (lobby, jackpots page); "game" follows the machine's tSats / tBCH
- *     switch. [data-jackpot-max="..."] shows "Must hit by <maxAmount>" in the same units.
+ *     switch.
  *   - MINOR is a coin pot that fills up, never an amount: every [data-meter="minor:<gameId>"]
  *     becomes a pot (role="meter") whose coins rise to `fill`%.
  *   - When a `cycle` goes up between two readings, someone won it: a short "WON!" (the pot
@@ -109,12 +110,6 @@
       node._jpSats = s.amount;
       countTo(node, from, s.amount);
     });
-    document.querySelectorAll("[data-jackpot-max]").forEach(function (node) {
-      var s = stateOf(data, node.getAttribute("data-jackpot-max"));
-      if (!s || typeof s.maxAmount !== "number") return;
-      var m = money(node, s.maxAmount);
-      node.textContent = "Must hit by " + m.num + " " + m.unit;
-    });
   }
 
   /* ═══════════════ MINOR: a coin pot filling up ═══════════════ */
@@ -141,7 +136,7 @@
     level(node, s.fill);
     node.setAttribute("aria-valuenow", String(s.fill));
     node.setAttribute("aria-valuetext", Math.floor(s.fill) + "% full");
-    node.title = label(key) + ": the pot fills with every bet and pays out before it is full.";
+    node.title = label(key) + ": the pot fills with every bet.";
   }
   // The pot bursts: full, coins flying, "WON!", then nearly empty again.
   function burstPot(node) {
@@ -297,16 +292,10 @@
 
   // The machine's tSats / tBCH switch: the game displays follow it at once.
   if (G) G.onChange(function () {
-    document.querySelectorAll("[data-jackpot], [data-jackpot-max]").forEach(function (node) {
-      if (!gameUnits(node)) return;
-      var key = node.getAttribute("data-jackpot") || node.getAttribute("data-jackpot-max"), s = stateOf(data, key);
-      if (!s) return;
-      if (node.hasAttribute("data-jackpot")) {
-        if (node.classList.contains("jp-won")) return;
-        node._jpTarget = node._jpSats; paintAmount(node, node._jpSats); describe(node, key, node._jpSats);
-      } else {
-        var m = money(node, s.maxAmount); node.textContent = "Must hit by " + m.num + " " + m.unit;
-      }
+    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
+      if (!gameUnits(node) || node._jpSats == null || node.classList.contains("jp-won")) return;
+      var key = node.getAttribute("data-jackpot");
+      node._jpTarget = node._jpSats; paintAmount(node, node._jpSats); describe(node, key, node._jpSats);
     });
   });
 

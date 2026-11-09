@@ -2073,7 +2073,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .auth-user .auth-addr { font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; font-weight: 700; font-size: .82rem; letter-spacing: 0; text-transform: none; }
 
 /* ═══════════════════════ Jackpots ═══════════════════════ */
-/* GRAND and MAJOR: live prize amounts (jackpots.js counts them up), with "Must hit by" under them.
+/* GRAND and MAJOR: live prize amounts (jackpots.js counts them up); their limits stay a surprise.
    MINOR: a coin pot filling up (never an amount). GRAND has one global style; MAJOR and MINOR wear
    the machine's theme (.theme-* is on <body> in the games and on each lobby card). */
 .jp-num { font-variant-numeric: tabular-nums; }
@@ -2120,13 +2120,11 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 .pot-burst::after { background-position: 7px 6px; animation-delay: .3s; }
 
-/* Machine rows: label left, prize right ("Must hit by" under it); the Minor row has the pot. */
+/* Machine rows: label left, prize right; the Minor row has the pot. */
 .jp-rows { position: relative; z-index: 4; display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
 .jp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 16px; border-radius: 12px; }
 .jp-row-name { flex: none; font: 400 .95rem var(--sign); letter-spacing: 3px; white-space: nowrap; }
-.jp-row-amt { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
 .jp-row-val { font: 700 1.25rem "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; letter-spacing: 0; white-space: nowrap; text-align: right; }
-.jp-row-max { font-size: .7rem; opacity: .8; white-space: nowrap; }
 .jp-row-note { flex: 1; min-width: 0; font-size: .74rem; opacity: .85; text-align: right; }
 .jp-row-minor { padding: 3px 16px; }
 .jp-row-minor .jp-row-name { font-size: .74rem; letter-spacing: 2px; }
@@ -2138,7 +2136,6 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 .jp-row-grand .jp-row-name { color: #ffb3bb; }
 .jp-row-grand .jp-row-val { font-size: 1.45rem; color: #fff1d0; text-shadow: 0 0 12px rgba(255,77,94,.9), 0 0 2px #fff; }
-.jp-row-grand .jp-row-max { color: #ffb3bb; }
 
 /* MAJOR and MINOR: per machine */
 .theme-orchard .jp-row-major, .theme-orchard .jp-row-minor {   /* wooden fruit-stand plank, cream numbers */
@@ -2177,7 +2174,6 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .jp-row-minor .jp-row-name { font-size: .66rem; }
   .jp-row-val { font-size: 1rem; }
   .jp-row-grand .jp-row-val { font-size: 1.12rem; }
-  .jp-row-max { font-size: .62rem; }
   .jp-row-note { font-size: .64rem; }
 }
 
@@ -2192,7 +2188,6 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   font: 700 clamp(1.6rem, 6vw, 2.4rem) "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace; letter-spacing: 0;
   color: #fff1d0; text-shadow: 0 0 14px rgba(255,77,94,.9), 0 0 2px #fff;
 }
-.jp-hero-max { font-size: .78rem; color: #ffb3bb; }
 .jp-hero-sub { font-size: .8rem; color: var(--muted); text-align: center; }
 .gc-jp { display: flex; flex-direction: column; gap: 5px; margin: 10px 10px 0; }
 .gc-jp .jp-row { padding: 5px 12px; gap: 8px; }

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261109m">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261109o">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -140,16 +140,16 @@
         <p>The jackpots are a gift from the faucet, outside the games' RTP: every bet grows the machine's Minor and Major and the shared Grand with faucet money. Each one has a hidden target. The spin that reaches it wins everything it holds, and a new cycle starts with a new target.</p>
         <ol class="fair-steps">
           <li>When a cycle starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
-          <li>Everything about the cycle comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives three numbers. The first picks the <b>target</b> between the tier's minimum and maximum (small targets more likely), the second a <b>display scale</b> between the target and the maximum (the Minor pot shows its coins against it, so it pays out at a random point before it is full), and the third the <b>head start</b> of a Major or Grand, below the tier's minimum, so it says nothing about the target. The Minor starts at zero.</li>
+          <li>Everything about the cycle comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives three numbers. The first picks the <b>target</b> between the tier's minimum and maximum (small targets more likely), the second a <b>display scale</b> between the target and the maximum (the Minor pot shows its coins against it), and the third the <b>head start</b> of a Major or Grand, below the tier's minimum, so it says nothing about the target. The Minor starts at zero.</li>
           <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target, display scale and head start, and that the amount won is at least the target. While the jackpot was running only the hash was public, so the target was fixed when the cycle started and could not be changed afterwards.</li>
         </ol>
-        <p class="auth-hint">Every recent win on the <a href="jackpots.html#jackpot-winners">jackpots page</a> has a Verify button. Or check a seed yourself:</p>
+        <p class="auth-hint">Every recent win on the <a href="jackpots.html#jackpot-winners">jackpots page</a> has a Verify button. Or check a seed yourself, with the range shown in that win's Verify details:</p>
         <form id="mt-form" class="vf-grid" novalidate>
           <div><label class="auth-label" for="mt-tier">Jackpot</label>
-            <select class="auth-input" id="mt-tier"><option value="minor">Minor (500 to 50,000)</option><option value="major">Major (5,000 to 500,000)</option><option value="grand">Grand (100,000 to 10,000,000)</option><option value="custom">Other range</option></select></div>
+            <select class="auth-input" id="mt-tier"><option value="minor">Minor</option><option value="major">Major</option><option value="grand">Grand</option></select></div>
           <div class="mt-range">
-            <div><label class="auth-label" for="mt-min">Minimum (tSats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1" value="500"></div>
-            <div><label class="auth-label" for="mt-max">Maximum (tSats)</label><input class="auth-input auth-mono" id="mt-max" type="number" inputmode="numeric" min="0" step="1" value="50000"></div>
+            <div><label class="auth-label" for="mt-min">Minimum (tSats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1"></div>
+            <div><label class="auth-label" for="mt-max">Maximum (tSats)</label><input class="auth-input auth-mono" id="mt-max" type="number" inputmode="numeric" min="0" step="1"></div>
           </div>
           <div class="vf-wide"><label class="auth-label" for="mt-seed">Seed (revealed by the win, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="mt-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
@@ -188,14 +188,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261109m"></script>
-  <script src="assets/js/api.js?v=20261109m"></script>
-  <script src="assets/js/units.js?v=20261109m"></script>
-  <script src="assets/js/faucet.js?v=20261109m"></script>
-  <script src="assets/js/auth.js?v=20261109m"></script>
-  <script src="assets/js/fairness-engine.js?v=20261109m"></script>
-  <script src="assets/js/fairness.js?v=20261109m"></script>
-  <script src="assets/js/fx.js?v=20261109m"></script>
-  <script src="assets/js/music.js?v=20261109m"></script>
+  <script src="assets/js/config.js?v=20261109o"></script>
+  <script src="assets/js/api.js?v=20261109o"></script>
+  <script src="assets/js/units.js?v=20261109o"></script>
+  <script src="assets/js/faucet.js?v=20261109o"></script>
+  <script src="assets/js/auth.js?v=20261109o"></script>
+  <script src="assets/js/fairness-engine.js?v=20261109o"></script>
+  <script src="assets/js/fairness.js?v=20261109o"></script>
+  <script src="assets/js/fx.js?v=20261109o"></script>
+  <script src="assets/js/music.js?v=20261109o"></script>
 </body>
 </html>

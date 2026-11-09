@@ -156,11 +156,14 @@ the spin that reaches it wins everything it holds, and a new cycle starts with a
 ever shows what the server sent:
 
 - **GRAND and MAJOR are prize amounts** (`amount`, `maxAmount`): every `[data-jackpot="grand" | "major:<id>"]` counts up
-  smoothly to each new reading, and `[data-jackpot-max]` shows "Must hit by <maxAmount>". `data-jackpot-units="bch8"` is
+  smoothly to each new reading. `data-jackpot-units="bch8"` is
   tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch. A new cycle never starts
   at 0: the faucet gives it a random head start.
 - **MINOR is a coin pot** (`fill`, never an amount): every `[data-meter="minor:<id>"]` becomes a pot (`role="meter"`)
   whose coins rise to the level. It starts empty after a win and always pays out before it is full.
+- **A surprise, a pure gift:** the limits are never shown (no "Must hit by", no `maxAmount`, no target ranges, nothing like
+  "before it is full") on the lobby, the games, the rules or the jackpots page. Only a win's Verify details show its
+  range, because the check needs it.
 - When a `cycle` goes up between two readings, someone won it: GRAND / MAJOR flash "WON!" and then show the new, smaller
   amount; the pot bursts (coins flying, "WON!") and starts again nearly empty.
 - GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
@@ -169,14 +172,14 @@ ever shows what the server sent:
 Where they are:
 
 - **Games**: three rows at the very top of the machine, also in full screen: GRAND (the most prominent) and MAJOR, label
-  left and amount right with "Must hit by" under it, then the MINOR pot. While a spin plays the displays are held
+  left and amount right, then the MINOR pot. While a spin plays the displays are held
   (`TNC_Jackpots.hold()`), so a poll can never give a win away before the reels stop; when the spin has played out they are
   read at once (`release()`). A spin can end with up to three `{ type: "jackpot", pool: "minor" | "major" | "grand", win }`
   steps (smallest first; `jackpotWin` is their sum, `balance` includes it, `totalWin` is the game alone). Each plays its
   own celebration with the amount in tBCH: the Minor pot bursts (`TNC_Jackpots.burst()`), the Major is big, the Grand the
   biggest. Each gets a line in Recent spins. The rules section explains the jackpots (version 3 configs have no `jackpots`
   field). The line prize for 5 top symbols is called "TOP PRIZE" so it is not confused with them.
-- **Lobby**: the Grand amount with "Must hit by" at the top of the casino floor (with a link to the jackpots page), and each
+- **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each
   machine's Major amount and Minor pot at the top of its card.
 - **Jackpots page** (`jackpots.html`): every jackpot now, the rules in short, the seed hash of every running jackpot ("Seed
   hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and tSats). Wins with
@@ -225,7 +228,8 @@ shows while that row is out of view (IntersectionObserver). Amounts are tBCH, wi
   hash it showed before.
 - **Your spins**: `GET /spins?cursor=`. Once a spin's seed is revealed it can be verified, one by one or all at once.
 - **Verify any spin**: replays a spin from server seed, client seed, nonce, game, game version and bet. Nothing is sent to the server.
-- **Jackpots**: the jackpots explained in plain words, and a checker: paste a seed and the range (or pick the tier) to get
+- **Jackpots**: the jackpots explained in plain words, and a checker: paste a seed, pick the tier and type the range from the
+  win's Verify details (no presets, so the ranges are not given away) to get
   its seed hash, target, display scale and head start; with the published hash and the amount it also passes or fails the win.
 
 Game versions: the API serves only the current config (version 3). Versions 1 and 3 have the same rules; version 2
@@ -301,7 +305,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261109m`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261109o`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

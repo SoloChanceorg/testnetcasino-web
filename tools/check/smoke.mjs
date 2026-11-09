@@ -288,20 +288,21 @@ try {
     resetApi(); signIn();
     await open(`games/${g}.html`, 1280);
     // Three rows at the very top of the machine: GRAND and MAJOR as amounts in the machine's unit
-    // (tSats by default) with "Must hit by", MINOR as a coin pot (a level, never an amount).
+    // (tSats by default), MINOR as a coin pot (a level, never an amount). No "Must hit by": a surprise.
     const major = (45678 + GAMES.indexOf(g)).toLocaleString("en-US"), minorFill = 8.1 + GAMES.indexOf(g);
     const rows = await until(`(() => { const top = document.getElementById("slot-machine").firstElementChild, rows = top ? top.querySelectorAll(".jp-row") : [];
       const txt = (r, sel) => (r.querySelector(sel) || {}).textContent;
       const pot = rows[2] && rows[2].querySelector('[data-meter="minor:${g}"]');
       return top.classList.contains("jp-rows") && rows.length === 3
-        && rows[0].matches(".jp-row-grand") && txt(rows[0], '[data-jackpot="grand"]') === "121,994 tSats" && txt(rows[0], '[data-jackpot-max="grand"]') === "Must hit by 10,000,000 tSats"
-        && rows[1].matches(".jp-row-major") && txt(rows[1], '[data-jackpot="major:${g}"]') === "${major} tSats" && txt(rows[1], '[data-jackpot-max="major:${g}"]') === "Must hit by 500,000 tSats"
+        && rows[0].matches(".jp-row-grand") && txt(rows[0], '[data-jackpot="grand"]') === "121,994 tSats"
+        && rows[1].matches(".jp-row-major") && txt(rows[1], '[data-jackpot="major:${g}"]') === "${major} tSats" && !/Must hit|before it is full/.test(top.textContent)
+        && !/Must hit|before it is full|reaches its limit|50,000|500,000|10,000,000/.test(document.querySelector(".paytable").textContent)
         && rows[2].matches(".jp-row-minor") && pot && pot.getAttribute("role") === "meter" && +pot.getAttribute("aria-valuenow") === ${minorFill}
         && parseFloat(pot.querySelector(".pot-coins").style.height) === ${minorFill} && !/\\d/.test(pot.textContent); })()`);
     await ev(`document.getElementById("unit-switch").click()`);
-    const bch = await ev(`document.querySelector('.jp-rows [data-jackpot="grand"]').textContent === "0.00121994 tBCH" && document.querySelector('.jp-rows [data-jackpot-max="grand"]').textContent === "Must hit by 0.10000000 tBCH"`);
+    const bch = await ev(`document.querySelector('.jp-rows [data-jackpot="grand"]').textContent === "0.00121994 tBCH"`);
     await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
-    check(`${g}: GRAND and MAJOR amounts with "Must hit by" (tSats / tBCH switch), MINOR coin pot`, rows && bch);
+    check(`${g}: GRAND and MAJOR amounts (tSats / tBCH switch), MINOR coin pot, no limits shown (also not in the rules)`, rows && bch);
   }
   {
     // Someone else wins the Deep Sea Major and Minor: their cycles go up between two readings.
@@ -354,11 +355,11 @@ try {
     resetApi();
     await open("index.html", 1280);
     const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
-      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && hero.querySelector('[data-jackpot-max="grand"]').textContent === "Must hit by 0.10000000 tBCH"
+      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && !/Must hit|before it is full/.test(document.getElementById("floor").textContent)
         && cards.length === 3 && cards.every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
           && c.querySelector('.gc-jp .jp-row-minor [data-meter^="minor:"]').getAttribute("role") === "meter")
         && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand amount with Must hit by, Major amount and Minor coin pot on every card", lobby);
+    check("lobby: Grand amount, Major amount and Minor coin pot on every card, no Must hit", lobby);
 
     // Jackpots page: amounts, pots, seed hashes, and wins: a real one (Verify passes), a tampered one (fails), an old one.
     const real = METERS[0], bad = { ...METERS[1], target: METERS[1].target + 1 };
@@ -367,9 +368,9 @@ try {
       { pool: "major:cosmic-voyage", tier: "major", gameId: "cosmic-voyage", player: "Passkey 77aa01", amount: bad.target + 10, wonAt: new Date().toISOString(), cycle: 2, ...bad },
       { pool: "grand", gameId: "deep-sea", player: "bchtest:qphp...hdxy", amount: 102012345, wonAt: new Date(Date.now() - 86400e3).toISOString() }];
     await open("jackpots.html", 1280);
-    const page = await until(`(() => { const amounts = document.querySelectorAll(".jpp-pools [data-jackpot]"), maxes = document.querySelectorAll(".jpp-pools [data-jackpot-max]"),
+    const page = await until(`(() => { const amounts = document.querySelectorAll(".jpp-pools [data-jackpot]"), pools = document.querySelector(".jpp-pools"),
         pots = document.querySelectorAll(".jpp-pools [data-meter]"), rows = document.querySelectorAll("#jp-wins-body tr");
-      return amounts.length === 4 && [...amounts].every(a => /^0\\.\\d{8} tBCH$/.test(a.textContent)) && [...maxes].every(m => /^Must hit by /.test(m.textContent)) && pots.length === 3
+      return amounts.length === 4 && [...amounts].every(a => /^0\\.\\d{8} tBCH$/.test(a.textContent)) && !/Must hit|before it is full|reaches its limit|50,000|500,000|10,000,000/.test(pools.textContent + document.querySelector(".lb-lead").textContent) && pots.length === 3
         && rows.length === 3 && document.querySelectorAll("#jp-hashes > div").length === 7 && /0\\.00003290 tBCH/.test(rows[0].textContent)
         && rows[0].querySelector(".jpw-verify") && rows[1].querySelector(".jpw-verify") && !rows[2].querySelector(".jpw-verify") && /Old jackpot/.test(rows[2].textContent); })()`);
     await ev(`document.querySelectorAll("#jp-wins-body .jpw-verify")[0].click()`);
@@ -379,7 +380,7 @@ try {
     resetApi();
     await open("jackpots.html", 375);
     const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-wins-body tr").length === 0`);
-    check("jackpots page: amounts, coin pots, seed hashes, wins with Verify (real passes, tampered fails, old has none), empty state", page && pass && fail && empty,
+    check("jackpots page: amounts and coin pots (no limits shown), seed hashes, wins with Verify (real passes, tampered fails, old has none), empty state", page && pass && fail && empty,
       `page ${!!page}, verify ${!!pass}, tampered ${!!fail}, empty ${!!empty}`);
   }
 
@@ -426,7 +427,7 @@ try {
   const jpDraw = await until(`/Major hit/.test(document.getElementById("vf-result").textContent) && /Grand no hit/.test(document.getElementById("vf-result").textContent)`, 10000);
   check("fairness: the verifier reproduces an old (version 2) Major jackpot draw", jpDraw);
   const mv = METERS[2];
-  await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("mt-tier", "grand"); document.getElementById("mt-tier").dispatchEvent(new Event("change"));
+  await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("mt-tier", "grand"); f("mt-min", ${mv.minSats}); f("mt-max", ${mv.maxSats});
     f("mt-seed", "${mv.seed}"); f("mt-hash", "${mv.seedHash}"); f("mt-amount", ${mv.target});
     document.getElementById("mt-submit").click(); })()`);
   const meterOk = await until(`(() => { const t = document.getElementById("mt-result").textContent;

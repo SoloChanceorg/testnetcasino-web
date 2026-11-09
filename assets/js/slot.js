@@ -211,16 +211,13 @@
       stage: '<div class="bonus-stage" id="bonus-stage" role="dialog" aria-label="Bonus game" hidden></div>',
       // Jackpots at the top of the machine (filled by jackpots.js): the shared GRAND (one style
       // on every machine, the most prominent) and this game's MAJOR as live prize amounts in the
-      // machine's unit, each with "Must hit by"; this game's MINOR as a coin pot filling up.
+      // machine's unit; this game's MINOR as a coin pot filling up.
       jackpots: '<div class="jp-rows" role="group" aria-label="Jackpots">' +
-          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span><span class="jp-row-amt">' +
-            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span>' +
-            '<span class="jp-row-max" data-jackpot-units="game" data-jackpot-max="grand"></span></span></div>' +
-          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span><span class="jp-row-amt">' +
-            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span>' +
-            '<span class="jp-row-max" data-jackpot-units="game" data-jackpot-max="major:' + esc(id) + '"></span></span></div>' +
+          '<div class="jp-row jp-row-grand"><span class="jp-row-name">GRAND</span>' +
+            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="grand">…</span></div>' +
+          '<div class="jp-row jp-row-major"><span class="jp-row-name">MAJOR</span>' +
+            '<span class="jp-row-val" data-jackpot-units="game" data-jackpot="major:' + esc(id) + '">…</span></div>' +
           '<div class="jp-row jp-row-minor"><span class="jp-row-name">MINOR</span>' +
-            '<span class="jp-row-note">Pays out before it is full</span>' +
             '<span class="jp-pot" data-meter="minor:' + esc(id) + '"></span></div>' +
         '</div>'
     };
@@ -408,10 +405,10 @@
     // The jackpots in plain words (D40, D41: a gift from the faucet, outside the RTP).
     function jackpotRules() {
       return '<div class="pt-section"><div class="pt-h">Jackpots</div><ul class="rules">' +
-        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet grows this machine\'s 🪙 Minor and ⭐ Major and the 🏆 Grand shared by all machines, and each one is won before it reaches its limit. Nothing is taken from your bet.</li>' +
+        '<li><b>RTP ' + RTP + ' is the game alone.</b> Jackpots are an extra gift from the faucet: every bet grows this machine\'s 🪙 Minor and ⭐ Major and the 🏆 Grand shared by all machines. Nothing is taken from your bet.</li>' +
         '<li>Every tSat you bet adds 1 tSat to the Minor, 3 to the Major and 10 to the Grand.</li>' +
-        '<li>Each one has a hidden target, fixed when it starts: Minor 500 to 50,000 tSats, Major 5,000 to 500,000, Grand 100,000 to 10,000,000. Small targets are more likely. The spin that reaches it wins everything it holds.</li>' +
-        '<li>The Major and the Grand show their prize and never start from zero: after a win the faucet gives the next one a head start. The Minor is a coin pot that starts empty and always pays out before it is full.</li>' +
+        '<li>Each one has a hidden target, fixed when it starts. The spin that reaches it wins everything it holds. When that happens is a surprise.</li>' +
+        '<li>The Major and the Grand show their prize and never start from zero: after a win the faucet gives the next one a head start. The Minor is a coin pot that starts empty after a win.</li>' +
         '<li>Provably fair: each jackpot publishes the SHA-256 hash of its secret seed when it starts, and the win reveals the seed. Anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
       '</ul></div>';
     }
