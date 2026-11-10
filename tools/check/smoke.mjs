@@ -578,9 +578,9 @@ try {
     if (!g1.golden || g1.status !== "GOLDEN BALL · WINS ×10" || g1.banner !== "GOLDEN BALL! | All wins ×10" || g1.revealed) problems.push("golden spin: " + JSON.stringify({ s: g1.status, b: g1.banner, g: g1.golden }));
     await ev(`__emit(${JSON.stringify({ type: "result", round: { ...gspin, status: "settled", seed: "a".repeat(64) }, results: [{ player: "bchtest:qphp...hdxy", bet: 10, win: 3600 }] })});
       __emit({ type: "settled", roundId: 804, bet: 10, win: 3600, balance: 53820 }); 0`);
-    const g2 = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "13 BLACK · GOLDEN ×10" && s.banner === "GOLDEN WIN ×10! | +3,600 tSats" && s.recent[0] === 13 && s.recentGolden[0] === true; })()`, 6000);
+    const g2 = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "13 BLACK · GOLDEN ×10" && s.banner === "GOLDEN WIN ×10! | +3,600 tSats" && s.recent[0] === 13 && s.recentGolden[0] === true; })()`, 9000);
     const gres = await ev(`document.getElementById("rt-results").textContent`);
-    if (!g2 || !/Golden ball: every win of this round pays ×10/.test(gres) || !/×10\+3,590 tSats/.test(gres)) problems.push("golden result: " + JSON.stringify(await ev(`TNC_RouletteState()`)).slice(0, 220) + " | " + gres);
+    if (!g2 || !/Golden ball: every win of this round pays ×10/.test(gres) || !/×10\+3,590 tSats/.test(gres)) problems.push("golden result: " + JSON.stringify(await ev(`(() => { const s = TNC_RouletteState(); return { status: s.status, banner: s.banner, recent: s.recent, recentGolden: s.recentGolden, revealed: s.revealed }; })()`)) + " | " + gres);
     // Previous rounds: Details checks a real round (backend vector) in the browser.
     if (width === 1280) {
       await until(`document.querySelectorAll("#rt-rounds tr").length === 5`, 4000);

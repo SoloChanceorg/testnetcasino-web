@@ -404,9 +404,9 @@
       g.beginPath(); g.arc(c, c, c - 1, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
     }).texture;
     ball._white = ball.texture;
-    ballGlow = paint(R * 0.36, R * 0.36, function (g, w) {
+    ballGlow = paint(R * 0.5, R * 0.5, function (g, w) {
       var c = w / 2, rg = g.createRadialGradient(c, c, 1, c, c, c);
-      rg.addColorStop(0, "rgba(255,216,77,.85)"); rg.addColorStop(0.35, "rgba(255,190,40,.35)"); rg.addColorStop(1, "rgba(255,170,0,0)");
+      rg.addColorStop(0, "rgba(255,236,140,1)"); rg.addColorStop(0.18, "rgba(255,210,60,.8)"); rg.addColorStop(0.45, "rgba(255,180,30,.3)"); rg.addColorStop(1, "rgba(255,170,0,0)");
       g.fillStyle = rg; g.fillRect(0, 0, w, w);
     });
     ballGlow.anchor.set(0.5); ballGlow.blendMode = "add";
@@ -692,10 +692,14 @@
     if (!bannerC) return;
     bannerTitle.text = title; bannerAmt.text = amount || ""; bannerTitle.style.fill = color || "#ffe79a";
     bannerTitle.scale.set(1); if (bannerTitle.width > 420) bannerTitle.scale.set(420 / bannerTitle.width);
+    // Each banner has its own token: the fade-out of an older one (still running) never touches a newer one.
+    var token = showBanner.token = (showBanner.token || 0) + 1;
     bannerC.visible = true; bannerC.alpha = 1; bannerC.scale.set(0.3);
-    animate(450, function (p) { bannerC.scale.set(0.3 + 0.7 * p); }, ease.back);
+    animate(450, function (p) { if (token === showBanner.token) bannerC.scale.set(0.3 + 0.7 * p); }, ease.back);
     clearTimeout(showBanner.t);
-    showBanner.t = setTimeout(function () { animate(300, function (p) { bannerC.alpha = 1 - p; }).then(function () { bannerC.visible = false; }); }, ms || 3800);
+    showBanner.t = setTimeout(function () {
+      animate(300, function (p) { if (token === showBanner.token) bannerC.alpha = 1 - p; }).then(function () { if (token === showBanner.token) bannerC.visible = false; });
+    }, ms || 3800);
   }
   function emit(n, x, y) {
     if (reduce) n = Math.min(n, 10);
