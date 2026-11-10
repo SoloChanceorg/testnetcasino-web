@@ -160,6 +160,7 @@
     // Full screen: the page goes full screen, the site around the machine hides, and the canvas grows
     // to fill the screen (MARGIN px on the side that runs out first).
     var fsBtn = document.getElementById("fs-toggle"), docEl = document.documentElement, MARGIN = 10;
+    if (T.fsY != null) fsBtn.style.top = ((PT + T.fsY) / VH * 100).toFixed(2) + "%";   // a skin can move it off its cabinet art
     function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function fit() {
       var full = document.body.classList.contains("is-fullscreen");

@@ -386,9 +386,20 @@
       g.beginPath(); g.ellipse(w / 2, h / 2 + 4, 58, 44, 0, 0, Math.PI * 2); g.lineWidth = 2.5; g.strokeStyle = "#ffe79a"; g.stroke();
     });
     var openShell = k.texOf(132, 112, function (g, w, h) {
-      g.beginPath(); g.ellipse(w / 2, h / 2 + 18, 58, 26, 0, 0, Math.PI * 2); g.fillStyle = k.grad(g, h / 2, h, ["#f8ece0", "#c8a07a"]); g.fill();
-      g.beginPath(); g.ellipse(w / 2, h / 2 + 16, 44, 16, 0, 0, Math.PI * 2); g.fillStyle = "#fbe9ef"; g.fill();
-      g.beginPath(); g.ellipse(w / 2, h / 2 - 22, 56, 22, 0, Math.PI, 0); g.fillStyle = k.grad(g, 0, h / 2, ["#f2dcc0", "#b08a64"]); g.fill();
+      var cx = w / 2, hy = h / 2 + 8;                                                          // the hinge: the back rim of the base
+      // The lid, swung up from the hinge: its outside with ribs, then its pearly inside showing at the rim
+      g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 8; g.shadowOffsetY = 3;
+      g.beginPath(); g.ellipse(cx, hy, 57, 46, 0, Math.PI, 0); g.closePath(); g.fillStyle = k.grad(g, hy - 46, hy, ["#f2dcc0", "#b08a64"]); g.fill();
+      g.shadowBlur = 0; g.shadowOffsetY = 0;
+      g.save(); g.clip(); g.strokeStyle = "rgba(120,80,50,.5)"; g.lineWidth = 2;
+      for (var i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(cx, hy + 2); g.quadraticCurveTo(cx + i * 12, hy - 20, cx + i * 19, hy - 48); g.stroke(); }
+      g.restore();
+      g.beginPath(); g.ellipse(cx, hy, 57, 46, 0, Math.PI, 0); g.lineWidth = 2; g.strokeStyle = "#ffe79a"; g.stroke();
+      g.beginPath(); g.ellipse(cx, hy, 48, 12, 0, Math.PI, 0); g.closePath(); g.fillStyle = "#e9c9d6"; g.fill();   // the inside of the lid
+      // The base: the bowl, its pink inside and a gold rim, joined to the lid at the hinge
+      g.beginPath(); g.ellipse(cx, hy + 10, 58, 28, 0, 0, Math.PI * 2); g.fillStyle = k.grad(g, hy, hy + 40, ["#f8ece0", "#c8a07a"]); g.fill();
+      g.beginPath(); g.ellipse(cx, hy + 8, 46, 17, 0, 0, Math.PI * 2); g.fillStyle = "#fbe9ef"; g.fill();
+      g.beginPath(); g.ellipse(cx, hy + 10, 58, 28, 0, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = "#ffe79a"; g.stroke();
     });
     var fill = null;
     function fillFor() {

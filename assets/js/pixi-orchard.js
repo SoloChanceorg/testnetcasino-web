@@ -13,7 +13,7 @@
 
   var theme = {
     title: "FRUIT ORCHARD", spin: "SPIN", bet: "PRICE TAGS", lower: "Pick a lower price tag", fsShort: "Free spins",
-    neon: "#ffd166", neon2: "#ff9f43", text: "#fff1d6", accent: "#ffd166", featY: 266,
+    neon: "#ffd166", neon2: "#ff9f43", text: "#fff1d6", accent: "#ffd166", featY: 266, fsY: 200,
     burst: ["🍒", "🍋", "🍊", "🍇", "🍉", "🍃", "🌸"],
     quips: ["No fruit this time.", "The orchard is quiet… spin again!", "Not ripe yet!", "A gentle breeze, nothing more."],
     welcome: "Welcome to the orchard! Pick a price tag and press SPIN", twist: "STICKY WILDS",
