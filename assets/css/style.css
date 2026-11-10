@@ -1546,3 +1546,6 @@ body.is-fullscreen .px-machine { width: auto; }
   .fb-stat { justify-content: center !important; }
   .fb-players { justify-items: center; text-align: center; }
 }
+/* Bonus countdowns ("41m 41s"): fixed-width digits in a fixed-width box, so the pills beside them never move. */
+[data-bonus-left] { display: inline-block; min-width: 7ch; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; }
+.bonus-pill [data-bonus-left] { font-size: .95em; }
