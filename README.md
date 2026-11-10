@@ -249,7 +249,7 @@ Where they are:
 
 - **Games**: at the very top of the machine, also in full screen: GRAND (the most prominent), then MAJOR and MINOR side by
   side (stacked on phones). The rules section explains the jackpots and the collector from the config.
-- **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each machine's Major
+- **Lobby**: the Grand amount at the top of the Slot machines section (with a link to the jackpots page), and each machine's Major
   amount at the top of its card.
 - **Jackpots page** (`jackpots.html`): every jackpot and collector now, the rules in short, the seed hash of every running
   jackpot ("Seed hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH sats). Wins with a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must
@@ -297,7 +297,8 @@ real minute while someone is at the table: `:00` to `:20` betting, then a 28 to 
   player only), `joined`, `left`, `chat`, `pong`, `error`. Pinged every 30 s, reopened after a drop with a growing wait (the
   server keeps the place for 10 s). Every countdown runs on the server's clock (`serverTime`). Signed-out visitors see the
   table from `GET /roulette/state` (every 10 s) with a "Sign in to play" button.
-- **Lobby card**: a wide card under the machines (`assets/js/lobby.js`) with the last five numbers from
+- **Lobby card**: a wide card in the lobby's own Roulette section, below Slot machines and apart from the Grand (roulette has no
+  jackpots; a Poker section will follow) (`assets/js/lobby.js`) with the last five numbers from
   `GET /roulette/rounds` and how many players are at the table from `GET /roulette/state`, read every 30 s while the tab is
   visible. Without an answer it keeps its own text and sample numbers.
 - **Chips** go through `POST /roulette/bets` (taps close together in one request, up to 50 chips, each with its own
@@ -483,7 +484,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111f`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111j`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

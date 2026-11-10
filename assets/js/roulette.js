@@ -156,7 +156,7 @@
     var G1 = RULES.goldenOneIn, GX = RULES.goldenMultiplier;
     return '<p>One table for everyone, a European wheel with a single zero. A round every minute while players are at the table: ' +
       '20 seconds to place chips, then the wheel spins for about half a minute. The usual payouts: a winning bet on <i>n</i> numbers returns ' +
-      RULES.payoutPockets + ' / <i>n</i> times the stake. <b>RTP ' + rtpText() + '</b> with the golden ball (36/37 × (1 + ' + (GX - 1) + '/' + G1 + ')). Roulette has its own RTP, apart from the slots.</p>' +
+      RULES.payoutPockets + ' / <i>n</i> times the stake. <b>Return to Player ' + rtpText() + '</b> with the golden ball (36/37 × (1 + ' + (GX - 1) + '/' + G1 + ')). Roulette has its own Return to Player rate, apart from the slots.</p>' +
       '<p class="rt-golden-rule"><span class="rt-gball" aria-hidden="true"></span><span><b>Golden ball:</b> in about 1 round in ' + G1 + ' the ball is golden and every win of the round pays ×' + GX +
       '. It is drawn from the round\'s seed when betting closes.</span></p>' +
       '<div class="tbl-wrap"><table class="acct-table rt-pay"><thead><tr><th scope="col">Bet</th><th scope="col">Covers</th><th scope="col" class="num">Pays</th>' +

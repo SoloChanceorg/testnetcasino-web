@@ -314,7 +314,7 @@ try {
     if (!(await openMachine(g))) { check(`${g} (PixiJS machine) builds`, false); continue; }
     const idle = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tBCH sats" && s.jackpots.major === "${major} tBCH sats"
       && s.jackpots.minor === "${minor} tBCH sats" && s.tank.filled === ${c.filled} && s.tank.size === ${c.size}; })()
-      && /RTP101% in all/.test(document.querySelector(".paytable .facts").textContent) && /Jackpot head starts8\\.5%/.test(document.querySelector(".paytable .facts").textContent) && !/Must hit|before it is full|reaches its limit|faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
+      && /Return to Player101% in all/.test(document.querySelector(".paytable .facts").textContent) && /Jackpot head starts8\\.5%/.test(document.querySelector(".paytable .facts").textContent) && !/Must hit|before it is full|reaches its limit|faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
       && !document.querySelector("#slot-machine .reels-window")`, 8000);
     if (!idle) problems.push("idle: " + JSON.stringify(await ev(`TNC_PixiState()`)));
     // Sats only: no whole-coin switch on the machines.
@@ -343,7 +343,7 @@ try {
     resetApi(); signIn();
     if (!(await openMachine(g, 375))) problems.push("phone: not built " + JSON.stringify(await ev(`({ text: document.getElementById("app").textContent.slice(0, 200) })`)) + pageErrors.slice(0, 2).join(" | "));
     else if (!(await until(`document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 8000))) problems.push("phone: sideways scroll");
-    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} in sats only, RTP 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
+    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} in sats only, Return to Player 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
   }
 
   /* ═══ 4a. Reels stop one by one; STOP (Space) lands them early; a win holds the next spin ═══ */
@@ -495,19 +495,19 @@ try {
   {
     resetApi();
     await open("index.html", 1280);
-    const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
-      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "121,994 tBCH sats" && !/Must hit|before it is full|gift/.test(document.getElementById("floor").textContent)
-        && /RTP of 101%/.test(document.getElementById("floor").textContent) && !/110%/.test(document.body.textContent)
-        && document.querySelector('[data-rtp-part="headStarts"]').textContent === "8.5%"
+    const lobby = await until(`(() => { const hero = document.querySelector("#slots .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
+      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "121,994 tBCH sats" && !/Must hit|before it is full|gift/.test(document.getElementById("slots").textContent)
+        && /Return to Player rate of 101%/.test(document.getElementById("slots").textContent) && !/110%/.test(document.body.textContent) && !/\\bRTP\\b/.test(document.body.textContent + document.querySelector("meta[name=description]").content)
+        && [...document.querySelectorAll("[data-rtp]")].every((e) => e.textContent === "101%")
         && cards.length === 4 && cards.slice(0, 3).every(c => /^45,6(7[89]|80) tBCH sats$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
           && !c.querySelector('.jp-row-minor, [data-meter], [data-collector]'))
         && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand amount, Major amount on every machine card, RTP 101% and its parts from the config", lobby);
+    check("lobby: Grand amount, Major amount on every machine card, Return to Player 101% from the config, no \"RTP\" anywhere", lobby);
     const rlNums = JSON.stringify(ROULETTE.slice(0, 5).map((v) => String(v.number)));
-    const rlCard = await until(`(() => { const c = document.querySelector('.game-card.theme-roulette[href="games/roulette.html"]');
-      return !!c && JSON.stringify([...c.querySelectorAll('[data-rl-last] span')].map(s => s.textContent)) === ${JSON.stringify(rlNums)}
+    const rlCard = await until(`(() => { const c = document.querySelector('#roulette .game-card.theme-roulette[href="games/roulette.html"]');
+      return !!c && !document.querySelector("#slots .theme-roulette") && JSON.stringify([...c.querySelectorAll('[data-rl-last] span')].map(s => s.textContent)) === ${JSON.stringify(rlNums)}
         && [...c.querySelectorAll('[data-rl-last] span')].every((s, i) => s.className === (/^pk-[rbg]/.exec(s.className)[0] + (i === 0 ? " pk-gold" : ""))) && /LIVE/.test(c.textContent); })()`);
-    check("lobby: Roulette card with the last five numbers from GET /roulette/rounds, the golden round marked", rlCard);
+    check("lobby: Roulette in its own section, apart from the slot machines and the Grand, with the last five numbers from GET /roulette/rounds, the golden round marked", rlCard);
 
     // Jackpots page: amounts, collectors, seed hashes, and wins: a real one (Verify passes), a tampered one (fails),
     // an older D40 one (its own rules, passes) and one from the first pools (no seed).

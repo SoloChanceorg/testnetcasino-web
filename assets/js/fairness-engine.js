@@ -11,7 +11,7 @@
  *     rounded to whole sats with one draw when there is a remainder;
  *   - game versions: the API serves the current config (version 5 from D45, version 4
  *     from D43, before that version 3). Version 5 is version 4 with its own payScale and
- *     jackpot chances (101% RTP with everything included). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
+ *     jackpot chances (a 101% Return to Player rate with everything included). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
  *     2026-11-09) adds two jackpot draws after every other draw: the game's Major,
  *     then the shared Grand (FAIRNESS.md section 4, step 5). Version 4 has version
  *     3's reels with its own payScale, plus the jackpots won in the game and the

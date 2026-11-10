@@ -30,8 +30,8 @@
  *   game.value(sats)   "1,234"  (meters, unit shown apart)
  *   game.unit()        "tBTC sats"
  *
- * RTP in running text: pages write the current numbers and mark them, and they are replaced from a game
- * config (GET /games/{id}/config, public; every machine has the same RTP and parts):
+ * The Return to Player rate in running text: pages write the current numbers and mark them, and they are replaced from a game
+ * config (GET /games/{id}/config, public; every machine has the same rate and parts):
  *   <span data-rtp>101%</span>                    rtp
  *   <span data-rtp-part="headStarts">8.5%</span>  rtpParts.game / collector / jackpots / headStarts
  *   <span data-jp-share="minor">3.36%</span>       jackpot.minor / major / grand .contribution
