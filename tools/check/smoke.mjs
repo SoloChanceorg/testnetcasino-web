@@ -459,10 +459,15 @@ try {
     const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
       return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && !/Must hit|before it is full|gift/.test(document.getElementById("floor").textContent)
         && /RTP of 110%/.test(document.getElementById("floor").textContent)
-        && cards.length === 3 && cards.every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
+        && cards.length === 4 && cards.slice(0, 3).every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
           && !c.querySelector('.jp-row-minor, [data-meter], [data-collector]'))
         && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
-    check("lobby: Grand amount, Major amount on every card, RTP 110%", lobby);
+    check("lobby: Grand amount, Major amount on every machine card, RTP 110%", lobby);
+    const rlNums = JSON.stringify(ROULETTE.slice(0, 5).map((v) => String(v.number)));
+    const rlCard = await until(`(() => { const c = document.querySelector('.game-card.theme-roulette[href="games/roulette.html"]');
+      return !!c && JSON.stringify([...c.querySelectorAll('[data-rl-last] span')].map(s => s.textContent)) === ${JSON.stringify(rlNums)}
+        && [...c.querySelectorAll('[data-rl-last] span')].every(s => /^pk-[rbg]$/.test(s.className)) && /LIVE/.test(c.textContent); })()`);
+    check("lobby: Roulette card with the last five numbers from GET /roulette/rounds", rlCard);
 
     // Jackpots page: amounts, collectors, seed hashes, and wins: a real one (Verify passes), a tampered one (fails),
     // an older D40 one (its own rules, passes) and one from the first pools (no seed).

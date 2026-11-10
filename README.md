@@ -230,6 +230,9 @@ wheel at **RTP 100%** (its own RTP; the slots stay at 110%). A round every real 
   player only), `joined`, `left`, `chat`, `pong`, `error`. Pinged every 30 s, reopened after a drop with a growing wait (the
   server keeps the place for 10 s). Every countdown runs on the server's clock (`serverTime`). Signed-out visitors see the
   table from `GET /roulette/state` (every 10 s) with a "Sign in to play" button.
+- **Lobby card**: a wide card under the machines (`assets/js/lobby.js`) with the last five numbers from
+  `GET /roulette/rounds` and how many players are at the table from `GET /roulette/state`, read every 30 s while the tab is
+  visible. Without an answer it keeps its own text and sample numbers.
 - **Chips** go through `POST /roulette/bets` (taps close together in one request, up to 50 chips, each with its own
   `requestId`) and **Clear** through `POST /roulette/bets/clear`; **Repeat** places your chips of the last round again.
   Chips of 1 to 1,000 tSats, at most 10,000 a round (checked before sending too). A player who joins during a round sees "You
@@ -400,7 +403,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110g`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110h`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
