@@ -659,11 +659,12 @@ try {
     await open("index.html", 1280, { coin: "btc" });
     await until(`!!document.querySelector(".chip-balance") && /12,199/.test(document.querySelector('[data-jackpot="grand"]').textContent)`, 8000);
     const h = await ev(`({ sel: (document.querySelector('.coin-opt[aria-checked="true"]') || {}).dataset?.coin, bal: document.querySelector(".chip-balance").textContent,
-      other: (document.querySelector(".auth-other") || {}).textContent, fBtc: document.querySelector('[data-k="house:btc"]').textContent, fBch: document.querySelector('[data-k="house:bch"]').textContent,
+      other: document.querySelector(".chip-balance").title, chip: document.querySelector(".auth-user").textContent, fBtc: document.querySelector('[data-k="house:btc"]').textContent, fBch: document.querySelector('[data-k="house:bch"]').textContent,
       grand: document.querySelector('.jp-hero [data-jackpot="grand"]').textContent, bonus: [...document.querySelectorAll(".db-coin")].map((l) => l.dataset.coin + ":" + l.textContent),
       card: document.querySelector('.game-card [data-jackpot="major:fruit-orchard"]').textContent, coinAttr: document.documentElement.dataset.coin })`);
     if (h.sel !== "btc" || h.coinAttr !== "btc") problems.push("selected coin " + h.sel + "/" + h.coinAttr);
-    if (h.bal !== "5,000 tBTC sats" || h.other !== "50,000 tBCH sats") problems.push("balances: " + h.bal + " / " + h.other);
+    if (!(await ev(`document.getElementById("quick-coins").hidden`))) problems.push("Just need tBTC or tBCH? shown while signed in");
+    if (h.bal !== "5,000 tBTC sats" || h.other !== "Balance 5,000 tBTC sats, 50,000 tBCH sats" || /sats/.test(h.chip)) problems.push("balances: " + h.bal + " / " + h.other + " / chip " + h.chip);
     if (h.fBtc !== "0.04 tBTC" || h.fBch !== "1,110.43 tBCH") problems.push("faucet bar: " + h.fBtc + " / " + h.fBch);
     if (h.grand !== "12,199 tBTC sats" || h.card !== "4,568 tBTC sats" || !hasCoin("/jackpots", "btc")) problems.push("jackpots: " + h.grand + " / " + h.card);
     if (!(h.bonus.length === 2 && /^btc:100 tBTC satsClaim$/.test(h.bonus[0]) && /^bch:1,000 tBCH satsClaimed today$/.test(h.bonus[1]))) problems.push("bonus card: " + JSON.stringify(h.bonus));
@@ -673,7 +674,9 @@ try {
     await ev(`document.querySelector('.coin-opt[data-coin="bch"]').click()`);
     await sleep(800);
     if (!(await until(`document.documentElement.dataset.coin === "bch" && (document.querySelector(".chip-balance") || {}).textContent === "50,000 tBCH sats" && localStorage.getItem("tnc.coin") === "bch"`, 8000))) problems.push("switch to tBCH: " + await ev(`document.documentElement.dataset.coin + " " + ((document.querySelector(".chip-balance") || {}).textContent)`));
-    check("coins: the header switch (tBTC first), both balances, both faucets, tBTC jackpots, a daily bonus per coin, switching reloads in the other coin", !problems.length, problems.join("; "));
+    resetApi(); await open("index.html", 1280, { coin: "btc" }); await sleep(500);
+    if (await ev(`document.getElementById("quick-coins").hidden`)) problems.push("Just need tBTC or tBCH? hidden while signed out");
+    check("coins: the header switch (tBTC first), \"Just need\" only when signed out, both balances, both faucets, tBTC jackpots, a daily bonus per coin, switching reloads in the other coin", !problems.length, problems.join("; "));
   }
   {
     // A slot machine in tBTC: tBTC jackpots, bets up to 100, the spin's coin and the tBTC balance.

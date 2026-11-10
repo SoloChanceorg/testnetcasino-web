@@ -114,8 +114,8 @@ wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in
 - **Every call that moves money takes the coin** (`api.js`; the server treats a missing coin as tBCH): `POST /spins`,
   `POST /bonus/daily?coin=`, `GET /ledger?coin=`, `GET /jackpots?coin=`, `GET /leaderboards?coin=`, `POST /roulette/bets`
   and `/clear`, `POST /withdrawals`.
-- **Header**: the selected coin's balance and daily bonus pill; the other coin's balance small in the account chip (and both in
-  the tooltip). The lobby's daily bonus card has a line and a Claim button per coin.
+- **Header**: the selected coin's balance beside the coin switch (both coins in its tooltip) and its daily bonus pill; the
+  account chip only names the account. The lobby's daily bonus card has a line and a Claim button per coin.
 - **Faucet bar**: both faucets and both player totals side by side (`coins` in `GET /faucet`).
 - **Slots**: the bet ladder follows the coin (tBTC 1, 2, 3, 5, 10, 15, 20, 30, 50, 100; tBCH 1 ... 1,000; every skin draws ten
   stops), and the machine shows the coin's jackpots and collectors.
@@ -483,7 +483,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111c`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

@@ -846,14 +846,14 @@ html.is-fullscreen, html.is-fullscreen body { overflow: hidden; height: 100%; }
 .faucet-bar { position: relative; z-index: 2; background: var(--tc-felt-950); border-bottom: 1px solid var(--tc-felt-700); color: var(--tc-felt-300); font-size: .8rem; }
 .fb-inner {
   max-width: 1240px; margin: 0 auto; padding: 8px 24px;
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 18px;
 }
 .fb-live { display: inline-flex; align-items: center; gap: 6px; font: 500 .68rem/1 var(--mono); letter-spacing: .12em; color: var(--tc-mint); }
 .fb-dot { width: 7px; height: 7px; background: var(--tc-mint); transform: rotate(45deg); animation: fb-pulse 1.6s ease-in-out infinite; }
 @keyframes fb-pulse { 50% { opacity: .35; } }
 .faucet-bar.is-error .fb-live { color: #ff8a8a; }
 .faucet-bar.is-error .fb-dot { background: var(--tc-red); animation: none; }
-.fb-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; }
+.fb-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; justify-content: center; margin: 0; }
 .fb-stat { display: flex; align-items: center; gap: 8px; }
 .fb-stat dt { color: var(--tc-felt-300); font-weight: 400; }
 .fb-stat dd { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--tc-net); white-space: nowrap; }
@@ -977,7 +977,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .history-foot { margin: 10px 0 0; font-size: .84rem; color: var(--muted); }
 
 /* Faucet bar: player counts on the right */
-.fb-players { margin: 0 0 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; color: var(--tc-felt-300); }
+.fb-players { margin: 0; display: flex; justify-content: center; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; color: var(--tc-felt-300); }
 .fb-players[hidden] { display: none; }
 .fb-players dt { color: var(--tc-felt-300); }
 .fb-players dd { margin: 0; white-space: nowrap; }
@@ -1467,7 +1467,6 @@ body.is-fullscreen .px-machine { width: auto; }
 .coin-opt[aria-checked="true"] { color: var(--tc-felt-900); background: var(--tc-net); font-weight: 500; }
 .coin-opt[aria-checked="true"] .coin-badge { filter: brightness(0) saturate(100%); opacity: .55; }
 .coin-opt:focus-visible { outline: 3px solid var(--tc-ivory); outline-offset: 1px; }
-.auth-other { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--tc-felt-700); font: 400 .78rem var(--mono); color: var(--tc-net); }
 
 /* Faucet bar: one value per coin */
 .fb-stat dd + dd { padding-left: 10px; border-left: 1px solid var(--tc-felt-700); }
@@ -1540,3 +1539,9 @@ body.is-fullscreen .px-machine { width: auto; }
 .hr-foot { margin: 18px 0 0 !important; font-size: .84rem; color: var(--tc-felt-300) !important; }
 .hr-coin-row .dn-label { display: flex; align-items: center; gap: 6px; color: var(--tc-net); }
 .hr-coin-row .copy-code { color: var(--tc-net); }
+/* Faucet bar on phones: centred like on wide screens */
+@media (max-width: 600px) {
+  .fb-stats { justify-items: center; text-align: center; }
+  .fb-stat { justify-content: center !important; }
+  .fb-players { justify-items: center; text-align: center; }
+}

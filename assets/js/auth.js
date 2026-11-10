@@ -5,7 +5,7 @@
  *   On load it calls GET /me (via TNC_API): { user, balances, dailyBonuses, ... }, or
  *   401 when signed out. It renders the nav (#auth-nav): the coin switch (tBTC / tBCH, D46) on
  *   every page, then "Sign in" for visitors; for players the selected coin's balance (the other
- *   coin's in its tooltip and in the account chip's), its daily bonus pill, the account and
+ *   coin's in its tooltip), its daily bonus pill, the account and
  *   "Sign out". On the lobby it also fills the daily bonus card (#daily-bonus, both coins).
  *   No token is stored: the session is an HttpOnly cookie. Exposed as window.TNC_Auth:
  *   Auth.balance is the selected coin's balance; Auth.balances / Auth.bonuses have every coin.
@@ -108,6 +108,9 @@
   }
 
   function changed() {
+    // Lobby: "Just need tBTC or tBCH?" is a sign-up invitation, so it is hidden once signed in.
+    var qc = $("quick-coins");
+    if (qc) qc.hidden = !!Auth.user;
     renderNav();
     renderBonusCard();
     tickCountdowns();
@@ -281,16 +284,9 @@
       if (Auth.user.method === "wallet" && Auth.user.address) name.className = "auth-addr";
       name.textContent = userLabel(Auth.user);
       who.appendChild(name);
-      // The other coin's balance, small, in the account chip.
-      other.forEach(function (x) {
-        var o = document.createElement("span");
-        o.className = "auth-other";
-        o.setAttribute("data-coin", x);
-        o.textContent = fmtBalance(Auth.balances[x], x);
-        who.appendChild(o);
-      });
-      who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account") +
-        other.map(function (x) { return ", " + fmtBalance(Auth.balances[x], x); }).join(""));
+      // The account chip names the account only; the balance chip beside the coin switch shows the
+      // selected coin's balance (both coins in its tooltip).
+      who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account"));
       var out = document.createElement("button");
       out.type = "button";
       out.className = "chip-link auth-out";
