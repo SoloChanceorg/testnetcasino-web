@@ -207,7 +207,6 @@ body[data-page="lobby"] #casino-bg { opacity: .35; }
 .hero-rtp strong { color: var(--tc-gold); font-weight: 700; }
 .tagline { margin: 14px 0 0; max-width: 560px; font-size: 1.08rem; color: var(--tc-ivory-dim); }
 .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
-.by { margin: 22px 0 0; color: var(--tc-felt-300); font-size: .9rem; }
 .hero-side { display: grid; gap: 16px; }
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 24px; padding-top: 8px; }
@@ -1085,7 +1084,6 @@ button.bonus-pill { font: inherit; cursor: pointer; }
   .pay-table td { display: block; padding: 0; border: 0; }
   .pay-table td.pay-to { grid-area: to; min-width: 0; }
   .pay-table td.pay-amount { grid-area: amount; }
-  .pay-table td.pay-amount::after { content: " tBCH"; font-weight: 600; font-size: .78em; color: var(--muted); }
   .pay-table td.pay-when { grid-area: when; font-size: .78rem; }
   .pay-table td.pay-tx { grid-area: tx; text-align: right; }
   .pay-copy { margin-left: 4px; width: 26px; height: 26px; }
@@ -1549,3 +1547,10 @@ body.is-fullscreen .px-machine { width: auto; }
 /* Bonus countdowns ("41m 41s"): fixed-width digits in a fixed-width box, so the pills beside them never move. */
 [data-bonus-left] { display: inline-block; min-width: 7ch; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; }
 .bonus-pill [data-bonus-left] { font-size: .95em; }
+
+/* Withdrawals (public page and account): every row in its own coin's colour, tBTC orange, tBCH mint.
+   The colour is set on the elements inside the row, so --tc-net is read from the row's data-coin. */
+tr[data-coin] .pay-amount, tr[data-coin] .pay-coin, tr[data-coin] td.num { color: var(--tc-net); }
+tr[data-coin] a, tr[data-coin] a:hover { color: var(--tc-net); }
+.pay-total-amount .pay-total-coin { color: var(--tc-net); }
+.pay-total-amount .pay-total-unit { color: var(--tc-net); opacity: .85; }

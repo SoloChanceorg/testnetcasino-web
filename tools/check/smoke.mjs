@@ -497,7 +497,7 @@ try {
     await open("index.html", 1280);
     const lobby = await until(`(() => { const hero = document.querySelector("#slots .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
       return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "121,994 tBCH sats" && !/Must hit|before it is full|gift/.test(document.getElementById("slots").textContent)
-        && /Return to Player rate of 101%/.test(document.getElementById("slots").textContent) && !/110%/.test(document.body.textContent) && !/\\bRTP\\b/.test(document.body.textContent + document.querySelector("meta[name=description]").content)
+        && /Return to Player rate of 101%/.test(document.getElementById("slots").textContent) && !/110%|&gt;100%|>100%/.test(document.body.textContent) && /The casino with a 101% Return to Player rate/.test(document.querySelector(".hero-rtp").textContent) && !/\\bRTP\\b/.test(document.body.textContent + document.querySelector("meta[name=description]").content)
         && [...document.querySelectorAll("[data-rtp]")].every((e) => e.textContent === "101%")
         && cards.length === 4 && cards.slice(0, 3).every(c => /^45,6(7[89]|80) tBCH sats$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
           && !c.querySelector('.jp-row-minor, [data-meter], [data-collector]'))
