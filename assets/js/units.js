@@ -25,13 +25,10 @@
  *   round4(sats, coin)  "1.0201 tBCH"        rounded to 4 decimals
  *   parse(text)         "12,340" → 12340     (sats input, whole numbers; null if invalid)
  *
- * Inside a game machine the credit can be shown in sats (default) or whole coins, with a switch
- * on the machine:
- *   game.get() / set(u) / toggle() / onChange(fn)    u = "sat" | "bch" (whole coins)
- *   game.format(sats)  "1,234 tBTC sats" or "0.00001234 tBTC"
- *   game.value(sats)   "1,234" or "0.00001234"  (meters, unit shown apart)
- *   game.unit()        "tBTC sats" or "tBTC"
- * The preference is a display setting only (localStorage "tnc.gameUnit").
+ * The games show sats only (no whole-coin switch):
+ *   game.format(sats)  "1,234 tBTC sats"
+ *   game.value(sats)   "1,234"  (meters, unit shown apart)
+ *   game.unit()        "tBTC sats"
  *
  * RTP in running text: pages write the current numbers and mark them, and they are replaced from a game
  * config (GET /games/{id}/config, public; every machine has the same RTP and parts):
@@ -42,10 +39,6 @@
 (function () {
   "use strict";
 
-  var KEY = "tnc.gameUnit";
-  var gameUnit = "sat";
-  try { if (localStorage.getItem(KEY) === "bch") gameUnit = "bch"; } catch (e) {}
-  var listeners = [];
 
   function int(n) { return Number(n).toLocaleString("en-US"); }
   function ok(n) { return typeof n === "number" && isFinite(n); }
@@ -121,6 +114,7 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fillCoin); else fillCoin();
   function sats(n, c) { return ok(n) ? int(Math.round(n)) + " " + unit(c) : "n/a"; }
+  function sats_(n) { return sats(n); }
   window.TNC_Units = {
     unit: unit,
     bch: function (sats) { return ok(sats) ? bch(sats) : "n/a"; },
@@ -147,17 +141,9 @@
       return n > 2100000000000000 ? null : n;
     },
     game: {
-      get: function () { return gameUnit; },
-      set: function (u) {
-        gameUnit = u === "bch" ? "bch" : "sat";
-        try { localStorage.setItem(KEY, gameUnit); } catch (e) {}
-        listeners.forEach(function (fn) { fn(gameUnit); });
-      },
-      toggle: function () { this.set(gameUnit === "bch" ? "sat" : "bch"); },
-      onChange: function (fn) { listeners.push(fn); },
-      unit: function () { return gameUnit === "bch" ? COINS[coin].ticker : unit(); },
-      value: function (sats) { return !ok(sats) ? "n/a" : gameUnit === "bch" ? bch(sats) : int(sats); },
-      format: function (sats) { return this.value(sats) + " " + this.unit(); }
+      unit: function () { return unit(); },
+      value: function (sats) { return ok(sats) ? int(sats) : "n/a"; },
+      format: function (sats) { return sats_(sats); }
     }
   };
 })();

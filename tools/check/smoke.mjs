@@ -297,7 +297,7 @@ try {
     }
   }
 
-  /* ═══ 4. The machines (PixiJS): jackpots and the collector, tBCH sats / tBCH, a spin, full screen, phone ═══ */
+  /* ═══ 4. The machines (PixiJS): jackpots and the collector in sats, a spin, full screen, phone ═══ */
   // The whole machine is a canvas; TNC_PixiState() reports what it shows, TNC_PixiBet() sets the bet,
   // Space spins (and stops), TNC_PixiGo() presses a stage's button (or Auto) like a player would.
   const THEME = { "fruit-orchard": "orchard", "deep-sea": "deepsea", "cosmic-voyage": "cosmic" };
@@ -317,10 +317,8 @@ try {
       && /RTP101% in all/.test(document.querySelector(".paytable .facts").textContent) && /Jackpot head starts8\\.5%/.test(document.querySelector(".paytable .facts").textContent) && !/Must hit|before it is full|reaches its limit|faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
       && !document.querySelector("#slot-machine .reels-window")`, 8000);
     if (!idle) problems.push("idle: " + JSON.stringify(await ev(`TNC_PixiState()`)));
-    await ev(`document.getElementById("unit-switch").click()`);
-    const bch = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "0.00121994 tBCH" && s.jackpots.minor === "${(0.0000231 + i * 1e-8).toFixed(8)} tBCH"; })()`, 3000);
-    if (!bch) problems.push("tBCH: " + JSON.stringify((await ev(`TNC_PixiState()`)).jackpots));
-    await ev(`document.getElementById("unit-switch").click()`);   // back to tBCH sats
+    // Sats only: no whole-coin switch on the machines.
+    if (await ev(`!!document.getElementById("unit-switch")`)) problems.push("a unit switch is still there");
     // Full screen: the canvas fills the screen with 10 px on the side that runs out first.
     await ev(`document.body.classList.add("is-fullscreen"); document.documentElement.classList.add("is-fullscreen"); scrollTo(0, 0); dispatchEvent(new Event("resize"))`);
     await sleep(400);
@@ -345,7 +343,7 @@ try {
     resetApi(); signIn();
     if (!(await openMachine(g, 375))) problems.push("phone: not built " + JSON.stringify(await ev(`({ text: document.getElementById("app").textContent.slice(0, 200) })`)) + pageErrors.slice(0, 2).join(" | "));
     else if (!(await until(`document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 8000))) problems.push("phone: sideways scroll");
-    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} (tBCH sats / tBCH), RTP 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
+    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} in sats only, RTP 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
   }
 
   /* ═══ 4a. Reels stop one by one; STOP (Space) lands them early; a win holds the next spin ═══ */
@@ -687,7 +685,7 @@ try {
     if (j.grand !== "12,199 tBTC sats" || j.major !== "4,568 tBTC sats") problems.push("jackpots " + JSON.stringify(j));
     await ev(`TNC_PixiBet(1000)`);
     if ((await ev(`TNC_PixiState().bet`)) !== 100) problems.push("max bet " + await ev(`TNC_PixiState().bet`));
-    if (!/tBTC sats/.test(await ev(`document.getElementById("unit-switch").textContent`))) problems.push("unit switch");
+    if (!/tBTC sats/.test(await ev(`TNC_PixiState().lcd + " " + TNC_PixiState().jackpots.minor`))) problems.push("unit");
     await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiBet(${v.bet}); ${space}`);
     await sleep(300);
     if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");

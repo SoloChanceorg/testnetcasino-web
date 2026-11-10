@@ -15,8 +15,8 @@
  *
  *   - GRAND, MAJOR and MINOR are prize amounts, like real progressive displays: every
  *     [data-jackpot="grand" | "major:<gameId>" | "minor:<gameId>"] shows `amount`, counting up
- *     smoothly to each new reading. Units: data-jackpot-units="bch8" is sats of the selected coin
- *     (lobby, jackpots page); "game" follows the machine's sats / whole-coin switch.
+ *     smoothly to each new reading. Units: sats of the selected coin (data-jackpot-units="bch8" on
+ *     the lobby and jackpots page, "game" on the machines: the same).
  *   - The COLLECTOR is every game's shared fill meter (`filled` of `size` collect symbols):
  *     [data-collector="<gameId>"], a small bar with "filled / size" (lobby, jackpots page). The
  *     machines draw their own (the Apple Tree, the Treasure Chest, the Fuel Tank) from onRender.
@@ -316,14 +316,6 @@
     return held ? Promise.resolve(data) : refresh();
   }
 
-  // The machine's sats / whole-coin switch: the game displays follow it at once.
-  if (G) G.onChange(function () {
-    document.querySelectorAll("[data-jackpot]").forEach(function (node) {
-      if (!gameUnits(node) || node._jpSats == null || node.classList.contains("jp-won")) return;
-      var key = node.getAttribute("data-jackpot");
-      node._jpTarget = node._jpSats; paintAmount(node, node._jpSats); describe(node, key, node._jpSats);
-    });
-  });
 
   window.TNC_Jackpots = { refresh: refresh, render: render, hold: hold, release: release,
                           collect: collect, collectorDone: collectorDone, onRender: onRender, get data() { return data; } };

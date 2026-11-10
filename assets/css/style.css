@@ -863,21 +863,6 @@ html.is-fullscreen, html.is-fullscreen body { overflow: hidden; height: 100%; }
 .fb-time { color: var(--tc-felt-300); font-size: .74rem; white-space: nowrap; }
 .fb-time:empty { display: none; }
 
-/* tSats / tBCH switch (game machines) */
-.unit-switch {
-  display: inline-flex; align-items: center; padding: 3px; gap: 0; cursor: pointer; min-height: 40px;
-  border: 1px solid var(--gold-dark); border-radius: 999px; background: #2a0a10;
-  font: 700 .8rem/1 var(--body); color: rgba(255,240,214,.75);
-}
-.us-opt { padding: 8px 14px; border-radius: 999px; transition: background .15s, color .15s; }
-.unit-switch[aria-checked="false"] .us-opt[data-u="sat"],
-.unit-switch[aria-checked="true"] .us-opt[data-u="bch"] {
-  background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, var(--gold-dark)); color: #2a1c02;
-}
-.unit-switch:hover { border-color: var(--gold); }
-.unit-switch:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
-/* tBCH values are longer (0.00012340): shrink the meters a little. */
-.machine.unit-bch .ro-value { font-size: .8em; letter-spacing: 0; }
 
 @media (max-width: 600px) {
   .fb-inner { padding: 8px 16px; gap: 6px 10px; }
@@ -1465,11 +1450,6 @@ body.is-fullscreen .px-machine { width: auto; }
 /* Withdrawals total */
 .pay-total-amount { font-family: var(--mono) !important; font-weight: 500 !important; letter-spacing: 0 !important; color: var(--tc-net) !important; text-shadow: none !important; }
 
-/* The machine's tBCH sats / tBCH switch */
-.unit-switch { border-color: var(--tc-felt-700); background: var(--tc-felt-950); font: 500 .8rem/1 var(--display); color: var(--tc-felt-300); }
-.unit-switch[aria-checked="false"] .us-opt[data-u="sat"],
-.unit-switch[aria-checked="true"] .us-opt[data-u="bch"] { background: var(--tc-ivory); color: var(--tc-felt-900); }
-.unit-switch:hover { border-color: var(--tc-felt-300); }
 
 /* ═══════════════════════ Two coins (D46): tBTC orange, tBCH mint ═══════════════════════
    Any element with data-coin (and <html>, for the coin selected in the header) sets --tc-net. */

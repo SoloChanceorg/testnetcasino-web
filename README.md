@@ -139,8 +139,7 @@ wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in
 The API works in sats of a coin (1 coin = 100,000,000 sats). Following the brand kit, every amount is shown in sats and written
 **tBTC sats** or **tBCH sats** (`assets/js/units.js`; `coin` defaults to the selected one): bonuses, bets, wins, balances,
 jackpots, each withdrawal, the tables (the column header names the unit). Only the faucet bar, and the withdrawals page's
-totals, show whole coins. The withdraw form takes a whole number of sats. Inside a game machine the credit can also be switched
-to whole coins (the switch under the machine; remembered in `localStorage`, display only). Bets are always whole sats. On the machines the unit is set in Poppins, since
+totals, show whole coins. The withdraw form takes a whole number of sats. The games show sats only. Bets are always whole sats. On the machines the unit is set in Poppins, since
 the sign font has capitals only and the ticker keeps its lowercase t.
 
 ## Returning coins
@@ -224,7 +223,7 @@ ever shows what the server sent:
 
 - **GRAND, MAJOR and MINOR are prize amounts** (`amount`), like real progressive displays: every
   `[data-jackpot="grand" | "major:<id>" | "minor:<id>"]` counts up smoothly to each new reading. `data-jackpot-units="bch8"`
-  is sats of the selected coin (lobby, jackpots page); `"game"` follows the machine's sats / whole-coin switch.
+  and `"game"` are both sats of the selected coin (lobby and jackpots page, machines).
 - When a `cycle` goes up between two readings, someone won it: the amount flashes "WON!" and then shows the new, smaller one.
 - The target ranges are never shown (a surprise). Only a win's Verify details show its range, because the check needs it.
 - GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
@@ -349,7 +348,7 @@ start (no WebGL), the page says so with a "Try again" button.
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
 - The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
   bit on MEGA and TOP PRIZE wins, and when the collector fills; the canvas also shakes. Shorter with reduced motion.
-- Outside the canvas, in HTML: the unit switch, sound, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
+- Outside the canvas, in HTML: sound, the fairness link, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
   Screen readers get the display text through a live region.
 - For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
   `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine every jackpot reading.
@@ -484,7 +483,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111b`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111c`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
@@ -497,7 +496,7 @@ Node 22+ only, no dependencies; the site itself still has no build step.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:
   real game configs and real spin results from the backend's test vectors) and checks: shared blocks in sync, every local
-  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpots (machine rows and the unit switch, jackpots won by someone
+  link resolves, every page loads without errors or sideways scroll, a spin in each game, the full-screen fit, reels stopping one by one and the STOP press, the jackpots (machine rows in sats, jackpots won by someone
   else, a jackpot spin with Minor and Major wins and no spoiler, lobby, jackpots page with Verify), the
   withdrawals total, the leaderboards jump, the account withdraw lock, the fairness verifier (version 3 and 2 spins) and the
   jackpot checker. Exit code 0 = all passed. `fixtures/meters.json` holds the backend's jackpot vectors.

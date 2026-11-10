@@ -137,9 +137,7 @@
       '<div class="px-stage" id="px-stage"><div class="px-machine" id="slot-machine" role="application" aria-label="' + esc(game.name) + ' slot machine. Press Space to spin and to stop the reels.">' +
         '<div class="px-canvas" id="px-canvas"><i class="px-corner c0"></i><i class="px-corner c1"></i><i class="px-corner c2"></i><i class="px-corner c3"></i></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div></div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
-      '<section class="panel m-extras" aria-label="Credit unit and account"><div class="m-util">' +
-        '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in ' + TICKER + '">' +
-          '<span class="us-opt" data-u="sat">' + SATS + '</span><span class="us-opt" data-u="bch">' + TICKER + '</span></button>' +
+      '<section class="panel m-extras" aria-label="Sound and fairness"><div class="m-util">' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
         '</section>' +
@@ -148,7 +146,7 @@
         '<ol class="history" id="history"><li class="history-empty">No spins yet. The reels are warm.</li></ol></section>';
     var stageEl = document.getElementById("px-stage"), machineEl = document.getElementById("slot-machine");
     var hostEl = document.getElementById("px-canvas"), historyEl = document.getElementById("history");
-    var srLive = document.getElementById("sr-live"), unitSw = document.getElementById("unit-switch"), soundBtn = document.getElementById("px-sound");
+    var srLive = document.getElementById("sr-live"), soundBtn = document.getElementById("px-sound");
     machineEl.classList.add("px-" + game.theme);
 
     if (document.fonts && document.fonts.load) {
@@ -675,8 +673,6 @@
     function credit(sats, token, ms) { if (sats <= 0) return; var from = balShown; balShown += sats; countUp(balRO.v, from, balShown, ms, token, false); }
     function syncBalance() { balShown = currentBalance(); balRO.v.text = num(balShown); }
     function renderUnit() {
-      var inBch = !!GU && GU.get() === "bch";
-      unitSw.setAttribute("aria-checked", inBch ? "true" : "false");
       balRO.u.text = winRO.u.text = unit();
       balRO.v.text = num(balShown); winRO.v.text = num(winShown);
       Object.keys(JR).forEach(function (k) { paintJp(JR[k]); });
@@ -1365,7 +1361,6 @@
       if (t && t.closest && t.closest("details, .paytable")) return;
       e.preventDefault(); press();
     });
-    if (GU) { unitSw.addEventListener("click", function () { sfx.chip(); GU.toggle(); }); GU.onChange(renderUnit); } else unitSw.hidden = true;
     function renderSound() { var m = sfx.isMuted(); soundBtn.textContent = m ? "🔇 Sound off" : "🔊 Sound on"; soundBtn.setAttribute("aria-pressed", m ? "false" : "true"); }
     soundBtn.addEventListener("click", function () { sfx.setMuted(!sfx.isMuted()); renderSound(); if (!sfx.isMuted()) sfx.win(); });
     if (Auth) {
