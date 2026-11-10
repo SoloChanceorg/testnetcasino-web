@@ -145,7 +145,7 @@ the sign font has capitals only and the ticker keeps its lowercase t.
 
 ## Returning coins
 
-The lobby and every game page end with a "Return to the house" panel asking players to send their Testnet4 coins back once they have
+The lobby ends with a "Return to the house" panel asking players to send their Testnet4 coins back once they have
 had enough fun, so the faucet keeps running. One house address per coin (tBTC first), each shown as code with a Copy button:
 
 - tBTC: `tb1qm2xvvwdv4xtxcagg2xtfy45kj58506sy8fyx2c`
@@ -465,7 +465,7 @@ assets/js/faucet.js   Live faucet totals bar (GET /faucet)
 assets/js/units.js    The selected coin (TNC_Coin) and amount formatting: sats of a coin everywhere, whole coins in the faucet bar
 assets/js/btcaddr.js  Bitcoin Testnet4 address checks, and TNC_Address for both coins
 assets/js/jackpots.js Jackpot amounts, Minor coin pots and the latest wins (GET /jackpots, lobby, games, jackpots page)
-assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
+assets/js/copy.js     Copy buttons ([data-copy]); the lobby's house return and donation addresses
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
 assets/js/config.js   apiBase
 assets/js/api.js      API client: the only place with endpoint paths
@@ -484,7 +484,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110n`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111b`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
