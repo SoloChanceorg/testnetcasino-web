@@ -57,17 +57,17 @@ nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, hol
 
 | | Cabinet | Display | Spin | Bet |
 |---|---|---|---|---|
-| 🍒 Fruit Orchard | Wooden fruit-stand crate, striped awning with string lights, hanging sign | Chalkboard | Pull **lever** | Price tags (1/10/100/500/MAX), crate − / +, chalk field to type any amount |
-| 🐚 Deep Sea | Riveted brass submarine hull, porthole reel window, brass nameplate | Sonar screen | Brass **DIVE** button | Rotary **dial** (drag, scroll, ◀ ▶ or arrow keys; tap a number), amount field in the knob |
-| 🌙 Cosmic Voyage | PixiJS starship cockpit: neon cabinet, a console sloping toward the player (see PixiJS machine) | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
+| 🍒 Fruit Orchard | Wooden fruit stand: striped awning with string lights, board walls, a wooden counter | Chalkboard | Round red apple **SPIN** key | Ten hanging **price tags**, crate − / + around a chalk slate |
+| 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Rotary **BET DIAL** (a ridged brass knob; tap a number), ◀ ▶ keys |
+| 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
 
-− / + and the dial and throttle move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Any whole amount from 1 to 1,000 can be typed. Space spins on every machine.
+All three are drawn with PixiJS (see Machines). The bet controls move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Space spins on every machine.
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
 lands the remaining reels at once. That is display only: the result is already fixed by the server. After a win the machine
 waits for the win animations to finish, plus half a second, before the next spin can start.
 Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
-Each machine has a full-screen button next to its sound button: the site header, nav and paytable are hidden and the machine is scaled
-to fit the screen (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
+Each machine has a full-screen button in its top-right corner: the site header, nav and paytable are hidden and the machine is sized
+to fit the screen, 10px from the edges (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
 The BCH Testnet4 coin (`assets/img/bch-testnet4.svg`) drifts through every venue's animated background, rains down in the win coin
 showers and marks tBCH in the UI (balance chip, wallet sign-in, Withdraw step, lobby and sign-in tab icon).
 Respects `prefers-reduced-motion` and works down to 360px wide.
@@ -138,8 +138,8 @@ The contract is `docs/API.md` in testnetcasino-service. `assets/js/api.js` is th
 
 ## Playing a game
 
-`assets/js/slot.js` holds no game math. On load it reads `GET /games/{id}/config` (symbols, paytable, features, paylines, stats)
-and builds the machine and the paytable from it. A spin sends `POST /spins { gameId, bet, requestId }` with a new
+No game math runs in the browser. On load `assets/js/slot.js` reads `GET /games/{id}/config` (symbols, paytable, features,
+paylines, stats), builds the paytable and loads the machine (see Machines), which is built from the same config. A spin sends `POST /spins { gameId, bet, requestId }` with a new
 `crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
 The reels start turning at once and land one by one on the server's result (a stop request only shortens the wait). The response's `steps[]` are then animated in order:
 `spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
@@ -147,7 +147,7 @@ The reels start turning at once and land one by one on the server's result (a st
 `collect`, `rewardStart` and `holdAndWin` (see Jackpots and Collectors below). Every win is shown in sats
 exactly as the server sent it, and the balance is set to the response's `balance` at the end.
 
-Signed-out visitors see the machine with a "Sign in to play" button. Errors show the server's message
+Signed-out visitors see the machine with SIGN IN on its spin key. Errors show the server's message
 (`insufficient_funds`, `invalid_bet`, `rate_limited`, ...); a 401 means the session ended and shows the sign-in button.
 
 ## Jackpots
@@ -255,29 +255,31 @@ wheel at **RTP 100%** (its own RTP; the slots stay at 110%). A round every real 
   enter a seed, round id and chips) to recompute everything. `fairness.html#roulette-<id>` loads a round directly.
 - The ledger shows `roulette_bet`, `roulette_refund` and `roulette_win` on the account page.
 
-## PixiJS machine
+## Machines
 
-Cosmic Voyage plays on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`, MIT, kept in the repo
-so the site does not depend on a CDN; about 240 KB gzipped, loaded only on that page). Its HTML machine was removed. Fruit
-Orchard and Deep Sea still use the HTML machines in `slot.js` until they are ported, then those go too. `slot.js` picks the
-machine by theme (`PIXI_THEMES`); if PixiJS cannot start (no WebGL), the page says so with a "Try again" button.
+Every game plays on a machine drawn entirely with **PixiJS 8** (`assets/vendor/pixi-8.22.0.min.js`, MIT, kept in the repo
+so the site does not depend on a CDN; about 240 KB gzipped, loaded only on the game pages). `slot.js` loads PixiJS, the engine
+`assets/js/pixi-machine.js` and the game's skin `assets/js/pixi-<theme>.js` (`orchard`, `deepsea`, `cosmic`); if PixiJS cannot
+start (no WebGL), the page says so with a "Try again" button.
 
-- One canvas holds the whole machine: GRAND / MAJOR / MINOR, the cabinet and title, the reels (motion blur, landing with a
-  bounce), the Fuel Tank (waving fuel), the display, win lines, banners, coin and emoji particles, the Warp Ladder and the
-  Star Map Wheel. Static art is painted with Canvas 2D into textures (gradients, glows) and moved by PixiJS.
-- **The cockpit console** (WIN, BALANCE, LAUNCH, THRUST) is drawn flat into a render texture every frame and shown on a
-  `PerspectiveMesh`, so it slopes toward the player: narrower at the back, a slab edge in front. LAUNCH is a hexagonal key
-  standing up from it (side walls, glowing socket) that sinks when pressed; WIN and BALANCE are recessed screens; the bet
-  lever runs in a sunken slot with raised ▲ ▼ keys. Taps are mapped back to the flat deck through the inverse homography.
-- The same steps as the HTML machines, from the same server responses (free spins, the bonus, a jackpot won in the game, fuel
-  cells into the tank, the Hyperdrive reward). Space spins and stops the reels; there is no typed bet.
+- **The engine** is shared: the jackpot rows, the reels (motion blur, landing with a bounce, one by one, STOP), win lines,
+  held and expanding wilds, multiplier badges, banners, coin and emoji particles, the display, the stage for bonus games, a
+  prize wheel and a pick game, the collector's level, the console in perspective, full screen and pointer mapping. It plays
+  the server's `steps[]` exactly as before.
+- **A skin** draws the game's own machine and plays its own shows: Fruit Orchard (the stand, the Apple Tree turning green,
+  price tags, Harvest Pick baskets, the golden apples), Deep Sea (the hull, the Treasure Chest filling with coins, the BET
+  DIAL, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic Voyage (the cockpit, the Fuel Tank, the
+  THRUST lever, the Warp Ladder, the Star Map Wheel).
+- Static art is painted with Canvas 2D into textures (gradients, glows, wood grain, rivets) and moved by PixiJS.
+- **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
+  `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
+  sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
 - The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
-  bit on MEGA and TOP PRIZE wins, and when the tank fills; the canvas also shakes. Shorter with reduced motion.
-- Full screen: the button in the cabinet's top-right corner; the canvas grows to fill the screen.
-- Outside the canvas, in HTML: the unit switch, sound, the paytable and rules (`TNC_Slot.paytableSection`, shared with the
-  HTML machines) and Recent spins. Screen readers get the display text through a live region.
-- `window.TNC_PixiState()` reports what the machine shows (for the smoke test). `TNC_Jackpots.onRender(fn)` gives non-HTML
-  displays every jackpot reading.
+  bit on MEGA and TOP PRIZE wins, and when the collector fills; the canvas also shakes. Shorter with reduced motion.
+- Outside the canvas, in HTML: the unit switch, sound, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
+  Screen readers get the display text through a live region.
+- For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
+  `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine every jackpot reading.
 
 ## Account and withdrawals
 
@@ -369,8 +371,10 @@ jackpots.html         The jackpots now, their seed hashes and the latest 20 wins
 withdrawals.html      Every withdrawal the faucet has sent, with the total (CSP-protected)
 legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
-assets/css/style.css  "Vegas Casino" theme + per-game cabinet skins (.theme-orchard / -deepsea / -cosmic)
-assets/js/slot.js     UI: loads the game config, sends POST /spins and animates the returned steps
+assets/css/style.css  "Vegas Casino" theme + per-game worlds and lobby cards (.theme-orchard / -deepsea / -cosmic)
+assets/js/slot.js     Game page: loads the game config, the paytable, then PixiJS and the machine
+assets/js/pixi-machine.js  The machine engine (PixiJS): reels, the spin's steps, stages, console in perspective
+assets/js/pixi-orchard.js, pixi-deepsea.js, pixi-cosmic.js  Each game's machine (skin)
 assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio files), mute saved per browser
 assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
 assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
@@ -396,7 +400,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110e`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

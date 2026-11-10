@@ -29,7 +29,6 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 const FIX = path.join(HERE, "fixtures");
 const GAMES = ["fruit-orchard", "deep-sea", "cosmic-voyage"];
-const HTML_GAMES = ["fruit-orchard", "deep-sea"];   // Cosmic Voyage plays on the PixiJS machine (its own tests below)
 const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "jackpots.html", "withdrawals.html",
   ...GAMES.map((g) => `games/${g}.html`), "games/roulette.html"];
 const CONFIGS = Object.fromEntries(GAMES.map((g) => [g, fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")]));
@@ -257,63 +256,70 @@ try {
     }
   }
 
-  /* ═══ 4. A spin in each game, then the full-screen fit ═══ */
-  for (const g of HTML_GAMES) {
-    resetApi(); signIn(500000);
-    const v = SPINS[g];
-    api.spinQueue.push(v);
-    await open(`games/${g}.html`, 1280);
-    // Measured once the page has settled: the signed-in account chip can wrap the nav bar onto a second line.
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && !!document.querySelector(".auth-user")`);
-    await sleep(300);
-    const before = await ev(`Math.round(document.getElementById("spin-btn").getBoundingClientRect().top + scrollY)`);
-    await ev(`(() => { const b = document.getElementById("bet-input"); b.value = ${v.bet}; b.dispatchEvent(new Event("change")); document.getElementById("spin-btn").click(); })()`);
-    await sleep(500);
-    const done = await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, 60000);
-    const after = await ev(`({ spinTop: Math.round(document.getElementById("spin-btn").getBoundingClientRect().top + scrollY),
-      meter: document.getElementById("meter-bal").textContent, wins: document.querySelectorAll("#breakdown .bd-item").length,
-      header: TNC_Auth.balance })`);
-    const problems = [];
-    if (!done) problems.push("spin did not finish");
-    if (after.header !== api.balance) problems.push(`balance ${after.header} != server ${api.balance}`);
-    if (after.meter.replace(/\D/g, "") !== String(api.balance)) problems.push(`meter shows ${after.meter}`);
-    if (v.totalWin > 0 && !after.wins) problems.push("no wins listed under the reels");
-    if (after.spinTop !== before) problems.push(`spin button moved ${after.spinTop - before}px`);
-    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: a spin plays and settles the balance`, !problems.length, problems.join("; "));
-
+  /* ═══ 4. The machines (PixiJS): jackpots and the collector, tSats / tBCH, a spin, full screen, phone ═══ */
+  // The whole machine is a canvas; TNC_PixiState() reports what it shows, TNC_PixiBet() sets the bet,
+  // Space spins (and stops), TNC_PixiGo() presses a stage's button (or Auto) like a player would.
+  const THEME = { "fruit-orchard": "orchard", "deep-sea": "deepsea", "cosmic-voyage": "cosmic" };
+  const CFG = Object.fromEntries(GAMES.map((g) => [g, JSON.parse(CONFIGS[g])]));
+  async function openMachine(g, width = 1280) {
+    await open(`games/${g}.html`, width);
+    return until(`typeof TNC_PixiState === "function" && TNC_PixiState().theme === "${THEME[g]}" && !!document.querySelector("#px-canvas canvas")`, 15000);
+  }
+  const space = `document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))`;
+  for (const g of GAMES) {
+    const problems = [], i = GAMES.indexOf(g), c = COLLECTOR[g];
+    const major = (45678 + i).toLocaleString("en-US"), minor = (2310 + i).toLocaleString("en-US");
+    resetApi(); signIn();
+    if (!(await openMachine(g))) { check(`${g} (PixiJS machine) builds`, false); continue; }
+    const idle = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tSats" && s.jackpots.major === "${major} tSats"
+      && s.jackpots.minor === "${minor} tSats" && s.tank.filled === ${c.filled} && s.tank.size === ${c.size}; })()
+      && /RTP110% in all/.test(document.querySelector(".paytable .facts").textContent) && !/Must hit|before it is full|reaches its limit|faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
+      && !document.querySelector("#slot-machine .reels-window")`, 8000);
+    if (!idle) problems.push("idle: " + JSON.stringify(await ev(`TNC_PixiState()`)));
+    await ev(`document.getElementById("unit-switch").click()`);
+    const bch = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "0.00121994 tBCH" && s.jackpots.minor === "${(0.0000231 + i * 1e-8).toFixed(8)} tBCH"; })()`, 3000);
+    if (!bch) problems.push("tBCH: " + JSON.stringify((await ev(`TNC_PixiState()`)).jackpots));
+    await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
+    // Full screen: the canvas fills the screen with 10 px on the side that runs out first.
     await ev(`document.body.classList.add("is-fullscreen"); document.documentElement.classList.add("is-fullscreen"); scrollTo(0, 0); dispatchEvent(new Event("resize"))`);
     await sleep(400);
-    const fit = await ev(`(() => { const m = document.getElementById("slot-machine"), r = m.getBoundingClientRect(), b = { t: r.top, l: r.left, r: r.right, b: r.bottom };
-      (function w(p) { for (let el = p.firstElementChild; el; el = el.nextElementSibling) { if (el.hidden) continue; const cs = getComputedStyle(el);
-        if (cs.display === "none" || cs.visibility === "hidden") continue; const q = el.getBoundingClientRect();
-        if (q.width || q.height) { b.t = Math.min(b.t, q.top); b.l = Math.min(b.l, q.left); b.r = Math.max(b.r, q.right); b.b = Math.max(b.b, q.bottom); }
-        if (cs.overflowX === "visible" && cs.overflowY === "visible") w(el); } })(m);
-      return { top: b.t, left: b.l, right: innerWidth - b.r, bottom: innerHeight - b.b, overflow: getComputedStyle(document.documentElement).overflow }; })()`);
-    const tight = Math.min(fit.top, fit.left, fit.right, fit.bottom);
-    check(`${g}: full screen fits after a spin`, tight >= 6 && tight <= 14 && fit.overflow === "hidden", `tightest gap ${Math.round(tight)}px`);
-    await ev(`document.body.classList.remove("is-fullscreen", "fs-no-jukebox"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
+    const fs = await ev(`(() => { const r = document.querySelector("#px-canvas canvas").getBoundingClientRect(); return { l: r.left, t: r.top, r: innerWidth - r.right, b: innerHeight - r.bottom }; })()`);
+    if (!(Math.min(fs.t, fs.b) >= 6 && Math.min(fs.t, fs.b) <= 14 && fs.l >= 6)) problems.push("full screen: " + JSON.stringify(fs));
+    await ev(`document.body.classList.remove("is-fullscreen"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
+    // A spin (Space), with the bet of the test vector: the wins shown, the balance settled
+    const v = SPINS[g];
+    resetApi(); signIn(500000); api.spinQueue.push(v);
+    await openMachine(g);
+    await ev(`window.__px = { wins: 0 }; setInterval(() => { const s = TNC_PixiState(); window.__px.wins = Math.max(window.__px.wins, s.wins); if (s.stage) TNC_PixiGo(); }, 50);
+      TNC_PixiBet(${v.bet}); ${space}`);
+    await sleep(300);
+    const done = await until(`!TNC_PixiState().busy`, 60000);
+    const st = await ev(`({ px: window.__px, bal: TNC_Auth.balance, shown: TNC_PixiState().balance, hist: document.querySelectorAll("#history li").length })`);
+    if (!done) problems.push("spin did not finish");
+    if (st.bal !== api.balance) problems.push(`balance ${st.bal} != server ${api.balance}`);
+    if (st.shown.replace(/\D/g, "") !== String(api.balance)) problems.push(`balance shows ${st.shown}`);
+    if (v.totalWin > 0 && !st.px.wins) problems.push("no win shown on the reels");
+    if (!st.hist) problems.push("nothing in recent spins");
+    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    resetApi(); signIn();
+    if (!(await openMachine(g, 375))) problems.push("phone: not built " + JSON.stringify(await ev(`({ text: document.getElementById("app").textContent.slice(0, 200) })`)) + pageErrors.slice(0, 2).join(" | "));
+    else if (!(await until(`document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 8000))) problems.push("phone: sideways scroll");
+    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} (tSats / tBCH), RTP 110%, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
   }
 
-  /* ═══ 4a. Reels stop one by one; STOP (button or Space) lands them early; a win holds the next spin ═══ */
+  /* ═══ 4a. Reels stop one by one; STOP (Space) lands them early; a win holds the next spin ═══ */
   {
     resetApi(); signIn(500000);
     const v = SPINS["deep-sea"];   // one phase, a line win
     api.spinQueue.push(v, v);
     // Full motion for this page: the suite otherwise forces reduced motion, which shortens every timing.
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
-    await open("games/deep-sea.html", 1280);
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled`);
-    // Record when each reel lands (its bounce) and when the machine is ready again.
-    await ev(`(() => { window.__t = { land: [], ready: 0 };
-      document.querySelectorAll(".reel-strip").forEach((s, i) => new MutationObserver(() => {
-        if (s.classList.contains("bounce") && window.__t.land[i] == null) window.__t.land[i] = performance.now(); }).observe(s, { attributes: true, attributeFilter: ["class"] }));
-      const b = document.getElementById("spin-btn");
-      new MutationObserver(() => { if (b.getAttribute("aria-busy") === "false") window.__t.ready = performance.now(); }).observe(b, { attributes: true, attributeFilter: ["aria-busy"] });
-      const i = document.getElementById("bet-input"); i.value = ${v.bet}; i.dispatchEvent(new Event("change"));
-      window.__t.start = performance.now(); b.click(); })()`);
+    await openMachine("deep-sea");
+    await sleep(300);
+    const watch = `window.__t = { ready: 0, start: performance.now() }; clearInterval(window.__iv); window.__iv = setInterval(() => { if (!TNC_PixiState().busy && performance.now() - window.__t.start > 400) { window.__t.ready = performance.now(); clearInterval(window.__iv); } }, 20);`;
+    await ev(`TNC_PixiBet(${v.bet}); ${watch} ${space}`);
     await until(`window.__t.ready > 0`, 20000);
-    const a = await ev(`window.__t`);
+    const a = await ev(`({ ...window.__t, land: TNC_PixiState().landed })`);
     const gaps = a.land.slice(1).map((t, i) => Math.round(t - a.land[i]));
     const hold = Math.round(a.ready - Math.max(...a.land));
     check("deep-sea: reels stop one by one", a.land.length === 5 && gaps.every((x) => x >= 300),
@@ -321,105 +327,64 @@ try {
     check("deep-sea: a win holds the next spin until its animations end", hold >= 1100, `ready ${hold} ms after the last reel`);
 
     // Second spin: STOP after 300 ms with Space.
-    await ev(`(() => { window.__t = { land: [], ready: 0, start: performance.now() }; document.getElementById("spin-btn").click(); })()`);
+    await ev(`${watch} ${space}`);
     await sleep(300);
-    const label = await ev(`document.getElementById("spin-sub").textContent + " / " + document.getElementById("spin-btn").disabled`);
-    await ev(`(() => { window.__t.stop = performance.now(); document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true })); })()`);
+    const label = await ev(`TNC_PixiState().keySub + " / " + TNC_PixiState().keyOff`);
+    await ev(`window.__t.stop = performance.now(); ${space}`);
     await until(`window.__t.ready > 0`, 20000);
-    const b = await ev(`window.__t`);
+    const b = await ev(`({ ...window.__t, land: TNC_PixiState().landed })`);
     const after = Math.round(Math.max(...b.land) - b.stop);
     const bal = await ev(`TNC_Auth.balance`);
     check("deep-sea: STOP lands the reels at once (display only)", label === "STOP / false" && b.land.length === 5 && after < 800 && bal === api.balance,
-      `button "${label}", last reel ${after} ms after Space, balance ${bal}`);    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+      `key "${label}", last reel ${after} ms after Space, balance ${bal}`);
+    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   }
 
-  /* ═══ 4b. Jackpots and the collector on the machines; won or filled by someone else ═══ */
-  const SIZES = Object.fromEntries(GAMES.map((g) => [g, JSON.parse(CONFIGS[g]).collector.size]));
-  for (const g of HTML_GAMES) {
-    resetApi(); signIn();
-    await open(`games/${g}.html`, 1280);
-    // At the very top of the machine: GRAND, then MAJOR and MINOR side by side, all amounts in the machine's
-    // unit (tSats by default), no limits. Right of the reels, about 1.5 reels wide: the collector screen with
-    // "filled / size" (a pile of floor(filled/size of 15) items, the Fuel Tank a level).
-    const i = GAMES.indexOf(g), major = (45678 + i).toLocaleString("en-US"), minor = (2310 + i).toLocaleString("en-US"), c = COLLECTOR[g];
-    const rows = await until(`(() => { const top = document.getElementById("slot-machine").firstElementChild, rows = top ? top.querySelectorAll(".jp-row") : [];
-      const txt = (r, sel) => (r.querySelector(sel) || {}).textContent;
-      const cl = document.querySelector('.reel-bay > .collector-screen[data-collector="${g}"]'), rw = document.getElementById("reels-window").getBoundingClientRect();
-      const cs = cl && cl.getBoundingClientRect(), ratio = cs && cs.width / (rw.width / 5), pair = top.querySelector(".jp-pair");
-      const tank = cl && cl.querySelector(".cl-level"), items = cl ? cl.querySelectorAll(".cl-pile .cl-item").length : -1;
-      return top.classList.contains("jp-rows") && rows.length === 3
-        && rows[0].matches(".jp-row-grand") && txt(rows[0], '[data-jackpot="grand"]') === "121,994 tSats"
-        && pair && rows[1].matches(".jp-row-major") && txt(rows[1], '[data-jackpot="major:${g}"]') === "${major} tSats"
-        && rows[2].matches(".jp-row-minor") && txt(rows[2], '[data-jackpot="minor:${g}"]') === "${minor} tSats"
-        && Math.abs(rows[1].getBoundingClientRect().top - rows[2].getBoundingClientRect().top) < 2
-        && !/Must hit|before it is full|reaches its limit|10,000|50,000|2,500,000/.test(top.textContent + document.querySelector(".paytable").textContent)
-        && /RTP110% in all/.test(document.querySelector(".paytable .facts").textContent) && !/faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
-        && cl && cl.getAttribute("role") === "meter" && +cl.getAttribute("aria-valuenow") === ${c.filled} && +cl.getAttribute("aria-valuemax") === ${c.size}
-        && cl.querySelector(".cl-count").textContent === "${c.filled} / ${c.size}"
-        && (tank ? tank.style.getPropertyValue("--fill") === "${(c.filled / c.size * 100).toFixed(2)}%" : items === ${Math.floor(c.filled / c.size * 15)})
-        && cs.left >= rw.right && Math.abs(cs.height - rw.height) < 2 && ratio > 1.2 && ratio < 1.8; })()`);
-    await ev(`document.getElementById("unit-switch").click()`);
-    const bch = await ev(`document.querySelector('.jp-rows [data-jackpot="grand"]').textContent === "0.00121994 tBCH" && document.querySelector('.jp-rows [data-jackpot="minor:${g}"]').textContent === "${(0.0000231 + i * 1e-8).toFixed(8)} tBCH"`);
-    await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
-    check(`${g}: GRAND, MAJOR and MINOR amounts (tSats / tBCH switch), collector screen right of the reels, RTP 110%, no limits shown`, rows && bch);
-  }
+  /* ═══ 4b. A jackpot won and the collector filled by someone else ═══ */
   {
     // Someone else wins the Deep Sea Major and fills its Treasure Chest: the cycles go up between two readings.
     resetApi(); signIn();
-    await open("games/deep-sea.html", 1280);
-    await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "45,679 tSats"`);
+    await openMachine("deep-sea");
+    await until(`TNC_PixiState().jackpots.major === "45,679 tSats"`);
     api.jackpots.games["deep-sea"].major = { amount: 2410, cycle: 3, seedHash: "d".repeat(64) };
     api.jackpots.games["deep-sea"].collector = { filled: 2, size: 109, cycle: 10 };
     await ev(`TNC_Jackpots.refresh()`);
-    const flash = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "WON!" && document.querySelector('[data-collector="deep-sea"]').classList.contains("cl-is-full")`, 3000);
-    const after = await until(`document.querySelector('[data-jackpot="major:deep-sea"]').textContent === "2,410 tSats" && document.querySelector('[data-collector="deep-sea"] .cl-count').textContent === "2 / 109"
-      && !document.querySelector('[data-collector="deep-sea"]').classList.contains("cl-is-full") && document.querySelectorAll('[data-collector="deep-sea"] .cl-item').length === 0`, 4000);
-    // Phones: the collector screen sits under the reels as a strip; MAJOR and MINOR stack.
-    resetApi(); signIn();
-    await open("games/deep-sea.html", 375);
-    const strip = await until(`(() => { const cl = document.querySelector(".collector-screen").getBoundingClientRect(), rw = document.getElementById("reels-window").getBoundingClientRect();
-      const r = document.querySelectorAll(".jp-pair .jp-row");
-      return cl.top >= rw.bottom && Math.abs(cl.width - rw.width) < 2 && cl.height < 100 && document.querySelectorAll(".collector-screen .cl-item").length === 5
-        && r[1].getBoundingClientRect().top > r[0].getBoundingClientRect().bottom - 1; })()`);
-    check("jackpot won and collector filled by someone else: WON! then the new Major, FULL! then from empty; strip on phones", flash && after && strip,
-      `flash ${!!flash}, after ${!!after}, strip ${!!strip}`);
+    const flash = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.major === "WON!" && s.tank.full && s.tank.filled === 109; })()`, 3000);
+    const after = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.major === "2,410 tSats" && !s.tank.full && s.tank.filled === 2 && s.tank.size === 109; })()`, 4000);
+    check("jackpot won and collector filled by someone else: WON! then the new Major, FULL! then from empty", flash && after, `flash ${!!flash}, after ${!!after}`);
   }
 
-  // Plays one queued spin on a game page and records what the machine showed on the way.
+  // Plays one queued spin on a machine and records what it showed on the way (the stages pressed through TNC_PixiGo).
   async function playQueued(g, v, opts = {}) {
-    await open(`games/${g}.html`, 1280);
-    await until(`!!document.getElementById("spin-btn") && !document.getElementById("spin-btn").disabled && document.querySelector('[data-jackpot="major:${g}"]').textContent === "${(45678 + GAMES.indexOf(g)).toLocaleString("en-US")} tSats"`);
+    await openMachine(g);
+    await until(`TNC_PixiState().jackpots.major === "${(45678 + GAMES.indexOf(g)).toLocaleString("en-US")} tSats"`);
     const callsBefore = api.jackpotCalls;
-    await ev(`(() => { const R = window.__rec = { jp: 0, col: 0, clams: 0, wheel: null, pearls: 0, sign: [], lcd: [], banner: [], full: false, count: [] };
-      const fxl = document.getElementById("cell-fx"), cl = document.querySelector(".collector-screen");
-      new MutationObserver(() => {
-        R.jp = Math.max(R.jp, fxl.querySelectorAll(".ov-jackpot").length); R.col = Math.max(R.col, fxl.querySelectorAll(".ov-collect").length);
-        R.clams = Math.max(R.clams, document.querySelectorAll(".clam").length); R.pearls = Math.max(R.pearls, document.querySelectorAll(".hw-cell.pearl").length);
-        const w = document.querySelector(".star-wheel .win-seg"); if (w) R.wheel = +w.getAttribute("data-i");
-        const sg = document.getElementById("fs-sign").textContent; if (sg && R.sign[R.sign.length - 1] !== sg) R.sign.push(sg);
-        const t = document.getElementById("lcd-main").textContent; if (R.lcd[R.lcd.length - 1] !== t) R.lcd.push(t);
-        const bt = document.getElementById("wb-title").textContent + " | " + document.getElementById("wb-amount").textContent; if (document.getElementById("win-banner").classList.contains("show") && R.banner[R.banner.length - 1] !== bt) R.banner.push(bt);
-        if (cl) { if (cl.classList.contains("cl-is-full")) R.full = true; const ct = cl.querySelector(".cl-count").textContent; if (R.count[R.count.length - 1] !== ct) R.count.push(ct); }
-        // The jackpot stages: open the clams and spin the wheel like a player would.
-        const clam = document.querySelector(".clam:not(:disabled)"); if (clam && !R.clicking) { R.clicking = true; setTimeout(() => { R.clicking = false; const c2 = document.querySelector(".clam:not(:disabled)"); if (c2) c2.click(); }, 120); }
-        const wb = document.getElementById("wheel-btn"); if (wb && !wb.disabled) wb.click();
-      }).observe(document.getElementById("slot-machine"), { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "style"] });
-      const b = document.getElementById("bet-input"); b.value = ${v.bet}; b.dispatchEvent(new Event("change")); document.getElementById("spin-btn").click(); })()`);
+    await ev(`(() => { const R = window.__rec = { jp: 0, col: 0, picks: 0, pearls: 0, wheel: null, stage: false, sign: [], lcd: [], banner: [], full: false, count: [] };
+      setInterval(() => { const s = TNC_PixiState();
+        R.jp = Math.max(R.jp, s.jpShown); R.col = Math.max(R.col, s.colShown); R.picks = Math.max(R.picks, s.picks); R.pearls = Math.max(R.pearls, s.pearls);
+        if (s.wheel != null) R.wheel = s.wheel; if (s.stage) { R.stage = true; TNC_PixiGo(); }
+        if (R.sign[R.sign.length - 1] !== s.featBar) R.sign.push(s.featBar);
+        if (R.lcd[R.lcd.length - 1] !== s.lcd) R.lcd.push(s.lcd);
+        if (s.banner && R.banner[R.banner.length - 1] !== s.banner) R.banner.push(s.banner);
+        if (s.tank.full) R.full = true; const ct = s.tank.filled + " / " + s.tank.size; if (R.count[R.count.length - 1] !== ct) R.count.push(ct);
+      }, 40);
+      TNC_PixiBet(${v.bet}); })()`);
+    await ev(space);
     let spoiler = null;
     if (opts.spoilerCheck) {
       await sleep(500);
       await ev(`TNC_Jackpots.refresh()`);   // a poll while the reels turn must not give the win away
       await sleep(250);
-      spoiler = await ev(`document.querySelector('[data-jackpot="major:${g}"]').textContent + " / " + document.querySelector('[data-jackpot="minor:${g}"]').textContent`);
+      spoiler = await ev(`TNC_PixiState().jackpots.major + " / " + TNC_PixiState().jackpots.minor`);
     }
-    const done = await until(`document.getElementById("spin-btn").getAttribute("aria-busy") === "false"`, opts.timeout || 90000);
+    await sleep(300);
+    const done = await until(`!TNC_PixiState().busy`, opts.timeout || 120000);
     await sleep(300);
     const st = await ev(`({ rec: window.__rec, header: TNC_Auth.balance, history: [...document.querySelectorAll("#history li")].map(l => l.textContent),
-      count: (document.querySelector(".collector-screen .cl-count") || {}).textContent })`);
+      count: TNC_PixiState().tank.filled + " / " + TNC_PixiState().tank.size })`);
     return { done, spoiler, ...st, calls: api.jackpotCalls - callsBefore };
   }
-  const SIGN = { orchard: "fruit-orchard", deepsea: "deep-sea", cosmic: "cosmic-voyage" };
-  for (const g of HTML_GAMES) {
+  for (const g of GAMES) {
     // A jackpot won in the game: its own show (golden apples, the oyster's clam pick, the Star Map Wheel),
     // then the celebration in tBCH; nothing on the jackpots gives it away while the reels turn.
     resetApi(); signIn(500000);
@@ -427,11 +392,11 @@ try {
     api.spinQueue.push(v);
     const r = await playQueued(g, v, { spoilerCheck: true });
     const problems = [];
-    const i = GAMES.indexOf(g);
+    const i = GAMES.indexOf(g), type = CFG[g].jackpot.type;
     if (r.spoiler !== `${(45678 + i).toLocaleString("en-US")} tSats / ${(2310 + i).toLocaleString("en-US")} tSats`) problems.push(`jackpots showed ${r.spoiler} while the reels turned`);
     if (r.rec.jp !== jst.cells.length) problems.push(`${r.rec.jp} jackpot symbols drawn, expected ${jst.cells.length}`);
-    if (g === "deep-sea" && r.rec.clams !== 7) problems.push(`${r.rec.clams} clams`);
-    if (g === "cosmic-voyage" && r.rec.wheel !== jst.slice) problems.push(`wheel stopped on ${r.rec.wheel}, expected ${jst.slice}`);
+    if (type === "clams" && r.rec.picks !== (jst.picks || []).length) problems.push(`${r.rec.picks} clams opened, expected ${(jst.picks || []).length}`);
+    if (type === "wheel" && r.rec.wheel !== jst.slice) problems.push(`wheel stopped on ${r.rec.wheel}, expected ${jst.slice}`);
     if (!r.rec.banner.some((b) => b === `${tier} JACKPOT! | 0.00003290 tBCH`)) problems.push("banners: " + JSON.stringify(r.rec.banner));
     if (!r.done) problems.push("spin did not finish");
     if (r.header !== api.balance) problems.push(`balance ${r.header} != server ${api.balance}`);
@@ -440,18 +405,18 @@ try {
     const collect = v.steps.find((x) => x.type === "collect");
     if (collect && (r.rec.col !== collect.cells.length || !r.rec.count.includes(`${COLLECTOR[g].filled + collect.cells.length} / ${COLLECTOR[g].size}`))) problems.push(`collect: ${r.rec.col} symbols, counts ${JSON.stringify(r.rec.count)}`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: ${jst.tier} jackpot won in the game (${{ apples: "golden apples", clams: "clam pick", wheel: "Star Map Wheel" }[JSON.parse(CONFIGS[g]).jackpot.type]}), celebration in tBCH, no spoiler`, !problems.length, problems.join("; "));
+    check(`${g}: ${jst.tier} jackpot won in the game (${{ apples: "golden apples", clams: "clam pick", wheel: "Star Map Wheel" }[type]}), celebration in tBCH, no spoiler`, !problems.length, problems.join("; "));
   }
-  for (const g of HTML_GAMES) {
+  for (const g of GAMES) {
     // The spin that fills the collector: the symbols fly in, FULL!, the reward at its own bet, then from empty.
     resetApi(); signIn(500000);
-    const v = SPINS["reward-" + g], rw = v.reward, cfg = JSON.parse(CONFIGS[g]), R = cfg.collector.reward;
+    const v = SPINS["reward-" + g], rw = v.reward, cfg = CFG[g], R = cfg.collector.reward;
     api.spinQueue.push(v);
     const r = await playQueued(g, v);
     const problems = [];
     if (!r.done) problems.push("spin did not finish");
     if (r.header !== api.balance) problems.push(`balance ${r.header} != server ${api.balance}`);
-    if (!r.rec.full) problems.push("the meter never showed FULL!");
+    if (!r.rec.full) problems.push("the collector never showed FULL!");
     if (!r.rec.banner.some((b) => b.startsWith(cfg.collector.name.toUpperCase() + " FULL!"))) problems.push("banners: " + JSON.stringify(r.rec.banner.slice(0, 4)));
     if (R.type === "freeSpins") {
       if (!r.rec.sign.some((t) => t.includes(R.name.toUpperCase()) && (!R.lockedWild || t.includes("LOCKED")))) problems.push("feature sign: " + JSON.stringify(r.rec.sign.slice(-3)));
@@ -462,47 +427,31 @@ try {
     }
     if (r.count !== `0 / ${COLLECTOR[g].size}`) problems.push(`collector shows ${r.count} after the reward`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tSats, then the meter starts again`, !problems.length, problems.join("; "));
+    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tSats, then the collector starts again`, !problems.length, problems.join("; "));
   }
   {
-    // Cosmic Voyage: the PixiJS machine. It builds, shows the jackpots and the Fuel Tank, plays a plain spin, a jackpot
-    // spin and a reward spin from the same steps (Space to spin), settles the balance, has the paytable, fits full
-    // screen and a phone.
+    // The bonus games, from steps the fake server adds to a plain spin: Harvest Pick, Ship's Wheel, Warp Ladder.
+    const BONUS = {
+      "fruit-orchard": { type: "bonus", order: [2, 5, 10, 0, 1, 3, 0, 2, 15, 1, 5, 0], picks: 4, prize: 17 },
+      "deep-sea": { type: "bonus", index: 7, prize: 50 },
+      "cosmic-voyage": { type: "bonus", boosts: [true, true, false], prize: CFG["cosmic-voyage"].bonus.levels[2] }
+    };
     const problems = [];
-    const P = "games/cosmic-voyage.html";
-    resetApi(); signIn();
-    await open(P, 1280);
-    const idle = await until(`typeof TNC_PixiState === "function" && (() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tSats" && s.jackpots.major === "45,680 tSats"
-      && s.jackpots.minor === "2,312 tSats" && s.tank.filled === ${COLLECTOR["cosmic-voyage"].filled} && s.tank.size === ${COLLECTOR["cosmic-voyage"].size}; })()
-      && !document.querySelector("#slot-machine .reels-window") && /RTP110% in all/.test(document.querySelector(".paytable .facts").textContent)`, 15000);
-    if (!idle) problems.push("idle: " + JSON.stringify(await ev(`typeof TNC_PixiState === "function" ? TNC_PixiState() : null`)));
-    await ev(`document.body.classList.add("is-fullscreen"); document.documentElement.classList.add("is-fullscreen"); scrollTo(0, 0); dispatchEvent(new Event("resize"))`);
-    await sleep(400);
-    const fs = await ev(`(() => { const r = document.querySelector("#px-canvas canvas").getBoundingClientRect(); return { l: r.left, t: r.top, r: innerWidth - r.right, b: innerHeight - r.bottom }; })()`);
-    if (!(Math.min(fs.t, fs.b) >= 6 && Math.min(fs.t, fs.b) <= 14 && fs.l >= 6)) problems.push("full screen: " + JSON.stringify(fs));
-    await ev(`document.body.classList.remove("is-fullscreen"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
-    for (const [name, v] of [["spin", SPINS["cosmic-voyage"]], ["jackpot", { ...SPINS["jackpot-cosmic-voyage"], jackpotWin: 3290 }], ["reward", SPINS["reward-cosmic-voyage"]]]) {
-      resetApi(); signIn(500000); api.spinQueue.push(v);
-      await open(P, 1280);
-      if (!(await until(`typeof TNC_PixiState === "function" && !!document.querySelector("#px-canvas canvas")`, 15000))) { problems.push(name + ": not built"); continue; }
-      await sleep(400);
-      await ev(`window.__px = { banners: [], stage: false }; setInterval(() => { const s = TNC_PixiState(); if (s.banner && window.__px.banners[window.__px.banners.length - 1] !== s.banner) window.__px.banners.push(s.banner); if (s.stage) window.__px.stage = true; }, 50);
-        document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))`);
-      await sleep(300);
-      // The stages wait for a press or start by themselves; press their buttons through the state instead of waiting.
-      const done = await until(`!TNC_PixiState().busy`, 120000);
-      const st = await ev(`({ px: window.__px, bal: TNC_Auth.balance, tank: TNC_PixiState().tank })`);
-      if (!done) problems.push(name + ": did not finish");
-      if (st.bal !== api.balance) problems.push(`${name}: balance ${st.bal} != ${api.balance}`);
-      if (name === "jackpot" && !(st.px.stage && st.px.banners.some((b) => b === "MINOR JACKPOT! | 0.00003290 tBCH"))) problems.push("jackpot: " + JSON.stringify(st.px));
-      if (name === "reward" && !(st.px.banners.some((b) => /^FUEL TANK FULL!/.test(b)) && st.px.banners.some((b) => /^HYPERDRIVE!/.test(b)) && st.tank.filled === 0)) problems.push("reward: " + JSON.stringify(st));
-      if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    for (const g of GAMES) {
+      resetApi(); signIn(500000);
+      const base = SPINS[g], b = { ...BONUS[g], win: Math.floor(BONUS[g].prize * base.bet) };
+      const v = { ...base, steps: [...base.steps.filter((x) => x.type === "spin"), b], totalWin: base.totalWin + b.win };
+      api.spinQueue.push(v);
+      const r = await playQueued(g, v);
+      if (!r.done) problems.push(`${g}: did not finish`);
+      if (r.header !== api.balance) problems.push(`${g}: balance ${r.header} != server ${api.balance}`);
+      if (!r.rec.stage) problems.push(`${g}: no bonus stage`);
+      if (g === "fruit-orchard" && r.rec.picks !== 4) problems.push(`${g}: ${r.rec.picks} baskets opened`);
+      if (g === "deep-sea" && r.rec.wheel !== 7) problems.push(`${g}: wheel stopped on ${r.rec.wheel}`);
+      if (!r.rec.lcd.some((t) => t.includes(CFG[g].bonus.name + " paid"))) problems.push(`${g}: lcd ${JSON.stringify(r.rec.lcd.slice(-3))}`);
+      if (pageErrors.length) problems.push(`${g}: errors: ` + pageErrors.slice(0, 2).join(" | "));
     }
-    resetApi(); signIn();
-    await open(P, 375);
-    const phone = await until(`typeof TNC_PixiState === "function" && document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 15000);
-    if (!phone) problems.push("phone: sideways scroll or not built");
-    check("cosmic-voyage (PixiJS machine): jackpots and Fuel Tank, a spin, a jackpot on the Star Map Wheel and the Hyperdrive reward from the same steps, balance, paytable, full screen, phone", !problems.length, problems.join("; "));
+    check("bonus games on the machines: Harvest Pick, Ship's Wheel, Warp Ladder (the server's outcome, the balance settled)", !problems.length, problems.join("; "));
   }
   {
     resetApi();

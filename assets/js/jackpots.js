@@ -18,9 +18,8 @@
  *     smoothly to each new reading. Units: data-jackpot-units="bch8" is tBCH with 8 decimals (lobby,
  *     jackpots page); "game" follows the machine's tSats / tBCH switch.
  *   - The COLLECTOR is every game's shared fill meter (`filled` of `size` collect symbols):
- *     [data-collector="<gameId>"]. On the machines it is the screen beside the reels
- *     (.collector-screen: the Apple Tree grows leaves, the Treasure Chest fills with coins, the Fuel
- *     Tank fills up); elsewhere a small bar. Both show "filled / size".
+ *     [data-collector="<gameId>"], a small bar with "filled / size" (lobby, jackpots page). The
+ *     machines draw their own (the Apple Tree, the Treasure Chest, the Fuel Tank) from onRender.
  *   - When a `cycle` goes up between two readings, someone won (a short "WON!", then the new, smaller
  *     amount) or filled the collector ("FULL!", then it starts again empty).
  * Values are only ever what the server sent: nothing is predicted between readings.
@@ -118,18 +117,8 @@
   }
 
   /* ═══════════════ COLLECTOR: the shared fill meter ═══════════════ */
-  // On the machines (.collector-screen) the meter is a picture: items settle into a pile of 15 spots
-  // (a pyramid of rows 5, 4, 3, 2, 1, or on phones a strip of 8 + 7; CSS places them from the same
-  // spot numbers): leaves make the Apple Tree's crown, coins fill the Treasure Chest. The Fuel Tank
-  // fills like a tank. Shown: floor(filled / size of 15), so the pile is complete only when full.
-  // Elsewhere: a bar. Both with "filled / size".
-  var SPOTS = 15, ITEMS = { orchard: "🍃", deepsea: "🪙", cosmic: "" };   // cosmic: a tank, no pile
+  // A bar with "filled / size" (the machines draw their own collector).
   var NAMES = { "fruit-orchard": "Apple Tree", "deep-sea": "Treasure Chest", "cosmic-voyage": "Fuel Tank" };
-  var SPOT = [];
-  for (var r = 0; r < 5; r++) for (var c = 0; c < 5 - r; c++) SPOT.push({ pr: r, pc: c });
-  SPOT.forEach(function (o, k) { o.sr = k % 2; o.sc = Math.floor(k / 2); });
-  function isScreen(node) { return node.classList.contains("collector-screen"); }
-  function themeOf(node) { var m = /\bcl-(orchard|deepsea|cosmic)\b/.exec(node.className); return m ? m[1] : "orchard"; }
   function collName(node) { return node.getAttribute("data-collector-name") || NAMES[node.getAttribute("data-collector")] || "Collector"; }
 
   function buildCollector(node) {
@@ -137,38 +126,20 @@
     node.setAttribute("role", "meter");
     node.setAttribute("aria-valuemin", "0");
     node.setAttribute("aria-label", collName(node) + ", shared by all players");
-    var cl = { count: node.querySelector(".cl-count") };
-    if (isScreen(node)) {
-      cl.item = ITEMS[themeOf(node)];
-      if (cl.item) cl.pile = node.querySelector(".cl-pile");
-      else cl.level = node.querySelector(".cl-level");
-    } else {
-      node.textContent = "";
-      node.classList.add("cl-bar");
-      var track = el("span", "cl-track");
-      cl.level = el("span", "cl-level");
-      track.appendChild(cl.level);
-      node.appendChild(track);
-      cl.count = el("span", "cl-count");
-      node.appendChild(cl.count);
-    }
+    var cl = {};
+    node.textContent = "";
+    node.classList.add("cl-bar");
+    var track = el("span", "cl-track");
+    cl.level = el("span", "cl-level");
+    track.appendChild(cl.level);
+    node.appendChild(track);
+    cl.count = el("span", "cl-count");
+    node.appendChild(cl.count);
     node._cl = cl;
     return cl;
   }
-  // The pile: add the missing items (falling in one after another) or take extra ones away.
-  function pileTo(cl, count, animate) {
-    var pile = cl.pile, have = pile.children.length;
-    for (var k = have; k < count; k++) {
-      var it = el("span", "cl-item", cl.item), o = SPOT[k];
-      it.style.cssText = "--pr:" + o.pr + ";--pc:" + o.pc + ";--sr:" + o.sr + ";--sc:" + o.sc + ";";
-      if (animate && !reduce) { it.classList.add("cl-drop"); it.style.animationDelay = ((k - have) * 0.12) + "s"; }
-      pile.appendChild(it);
-    }
-    while (pile.children.length > count) pile.removeChild(pile.lastChild);
-  }
-  function paintCollector(node, filled, size, animate) {
+  function paintCollector(node, filled, size) {
     var cl = buildCollector(node), f = Math.max(0, Math.min(size, filled)), share = size > 0 ? f / size : 0;
-    if (cl.pile) pileTo(cl, Math.min(SPOTS, Math.floor(share * SPOTS)), animate);
     if (cl.level) cl.level.style.setProperty("--fill", (share * 100).toFixed(2) + "%");
     if (cl.count) cl.count.textContent = f.toLocaleString("en-US") + " / " + size.toLocaleString("en-US");
     node.setAttribute("aria-valuemax", String(size));
@@ -193,7 +164,7 @@
       node._clState = s;
       if (old && s.cycle > old.cycle) {   // filled by someone (it played its reward): FULL!, then from empty
         paintCollector(node, old.size, old.size, true);
-        flashFull(node, function () { if (node._cl.pile) pileTo(node._cl, 0, false); paintCollector(node, node._clState.filled, node._clState.size, true); });
+        flashFull(node, function () { paintCollector(node, node._clState.filled, node._clState.size, true); });
         return;
       }
       if (node.classList.contains("cl-is-full")) return;   // the FULL! ends on the newest state
@@ -216,7 +187,6 @@
       var old = node._clState || { cycle: 0, size: 0 };
       node.classList.remove("cl-is-full");
       node._clState = { filled: 0, size: old.size, cycle: old.cycle + 1 };
-      if (node._cl && node._cl.pile) pileTo(node._cl, 0, false);
       paintCollector(node, 0, old.size || 1, false);
     });
   }

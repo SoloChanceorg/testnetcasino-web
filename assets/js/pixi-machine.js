@@ -1,21 +1,25 @@
 /*
- * TestnetCasino.com: the slot machine drawn with PixiJS (preview, Cosmic Voyage first).
+ * TestnetCasino.com: the slot machines drawn with PixiJS (the engine).
  *
  * The whole machine is one canvas: the jackpot rows, the cabinet, the reels, the collector,
- * the display, the readouts, the LAUNCH button and the bet throttle, the banners, the particles
- * and the bonus and jackpot stages. slot.js loads PixiJS and this file for the themes it supports.
+ * the display, the readouts, the spin key and the bet control, the banners, the particles
+ * and the bonus and jackpot stages. slot.js loads PixiJS, this file and the game's skin.
  *
- * Since D43 it is Cosmic Voyage's only machine (slot.js picks it for the themes in PIXI_THEMES);
- * the paytable and rules come from slot.js (TNC_Slot.paytableSection), the same as the HTML machines.
+ * The engine is shared by every game: the reels, the spin and its steps, win lines, banners,
+ * particles, the stage, the console in perspective (and taps mapped back to it), full screen,
+ * the jackpot rows and the collector's level. Each game has a skin (pixi-<theme>.js) that
+ * registers with TNC_PixiMachine.skin(theme, skin): its colours and words, the cabinet, the
+ * collector, the controls on the console, the bonus game and the jackpot show.
+ * The paytable and rules come from slot.js (TNC_Slot.paytableSection).
  *
- * Same contract as slot.js: every outcome comes from POST /spins as `steps[]`, and this file only
- * animates them (paid spin and respins, multiplier wilds, free spins, the Warp Ladder bonus, a
- * jackpot won on the Star Map Wheel, fuel cells into the Fuel Tank, the Hyperdrive reward).
- * Randomness here is cosmetic only (blurred symbols while the reels turn, particles).
+ * Same contract as before: every outcome comes from POST /spins as `steps[]`, and this file only
+ * animates them (paid spin and respins, expanding and multiplier wilds, sticky and locked wilds,
+ * free spins, the bonus, a jackpot won in the game, collect symbols into the collector, its reward).
+ * Randomness here is cosmetic only (blurred symbols while the reels turn, particles, closed picks).
  *
  * Static art is painted with Canvas 2D into textures (gradients, glows, rounded panels); PixiJS
  * moves it. The canvas sits in a 3D stage, so the whole machine can tilt (CSS) on MINOR and up.
- * SPACE (or the LAUNCH button) spins, and stops the reels while they turn.
+ * SPACE (or the spin key) spins, and stops the reels while they turn.
  *
  * Depends on: PixiJS 8 (window.PIXI), api.js, auth.js, units.js, jackpots.js (onRender),
  *             audio.js (TNC_sfx, optional).
@@ -28,25 +32,16 @@
   // Room around the machine inside the canvas: the console flares wider than the cabinet at its front
   // edge, and the neon glows; PX/PT/PB keep all of it inside the canvas (nothing cut at the corners).
   var PX = 22, PT = 10, PB = 14, VW = W + 2 * PX, VH = H + PT + PB;
-  var CW = 100, CH = 100, GAP = 6;       // one reel cell; GAP: the metal divider between two reels
+  var CW = 100, CH = 100, GAP = 6;       // one reel cell; GAP: the divider between two reels
   var RX = 46, RY = 300;                 // top left of the reels
+  var FY = 736;                          // the fold: the cabinet's upper body above, the console below
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   var SIGN = '"Bungee", "Poppins", sans-serif', MONO = '"SF Mono", ui-monospace, Menlo, Consolas, monospace';
   var LADDER = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
   var LINE_COLORS = [0xffd166, 0x06d6a0, 0xef476f, 0x4cc9f0, 0xf78c6b, 0xc86bff, 0x83e377, 0xff99c8, 0xf9c74f, 0x90e0ef];
   var TIER_NAMES = { minor: "MINOR", major: "MAJOR", grand: "GRAND" };
   var SPIN_RETRIES = 3;
-
-  // Per theme: colours and words. Cosmic Voyage only for now.
-  var THEMES = {
-    cosmic: {
-      title: "COSMIC ★ VOYAGE", spin: "LAUNCH", bet: "THRUST",
-      bg: ["#1d0c44", "#0c0526"], neon: "#9a6bff", neon2: "#2ec5ff", text: "#e0eaff", accent: "#ffd166",
-      card: ["#f6f3ff", "#d9d1f3"], burst: ["⭐", "✨", "🌟", "💫", "🪐"],
-      quips: ["Lost signal. Try again!", "Nothing but dark matter.", "Houston, no win.", "Recalibrating the thrusters…"],
-      welcome: "Welcome, commander! Set the thrust and press LAUNCH", twist: "ALL WINS ×3"
-    }
-  };
+  var SKINS = {};
 
   var noop = function () {};
   var sfx = window.TNC_sfx || {};
@@ -59,7 +54,6 @@
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function hex(c) { return parseInt(c.slice(1), 16); }
   function newRequestId() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     var b = new Uint8Array(16); crypto.getRandomValues(b);
@@ -70,7 +64,8 @@
     out: function (t) { return 1 - Math.pow(1 - t, 3); },
     inOut: function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; },
     back: function (t) { var c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
-    in: function (t) { return t * t * t; }
+    in: function (t) { return t * t * t; },
+    wheel: function (t) { return 1 - Math.pow(1 - t, 4); }
   };
 
   /* ═══════════════ Painted art (Canvas 2D -> textures) ═══════════════ */
@@ -90,6 +85,11 @@
     stops.forEach(function (c, i) { g.addColorStop(i / (stops.length - 1), c); });
     return g;
   }
+  function hgrad(x, x0, x1, stops) {
+    var g = x.createLinearGradient(x0, 0, x1, 0);
+    stops.forEach(function (c, i) { g.addColorStop(i / (stops.length - 1), c); });
+    return g;
+  }
   function rr(x, px, py, w, h, r) { x.beginPath(); x.roundRect(px, py, w, h, r); }
   // The inverse of the homography that maps the unit square to the quad q = [TL, TR, BR, BL] (x, y pairs,
   // Heckbert): apply it to (x, y, 1) and divide by the third value to get (u, v) in 0..1.
@@ -101,11 +101,18 @@
     return [E * I - F * Hh, C * Hh - B * I, B * F - C * E, F * G - D * I, A * I - C * G, C * D - A * F, D * Hh - E * G, B * G - A * Hh, A * E - B * D];
   }
   function applyInverse(m, x, y) { var w = m[6] * x + m[7] * y + m[8]; return { u: (m[0] * x + m[1] * y + m[2]) / w, v: (m[3] * x + m[4] * y + m[5]) / w }; }
+  // The forward homography: (u, v) in the unit square -> the point in the quad q.
+  function quadPoint(q, u, v) {
+    var dx1 = q[2] - q[4], dx2 = q[6] - q[4], dx3 = q[0] - q[2] + q[4] - q[6], dy1 = q[3] - q[5], dy2 = q[7] - q[5], dy3 = q[1] - q[3] + q[5] - q[7];
+    var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
+    var a = q[2] - q[0] + gg * q[2], b = q[6] - q[0] + hh * q[6], d = q[3] - q[1] + gg * q[3], e = q[7] - q[1] + hh * q[7], w = gg * u + hh * v + 1;
+    return { x: (a * u + b * v + q[0]) / w, y: (d * u + e * v + q[1]) / w };
+  }
 
   /* ═══════════════ Build ═══════════════ */
   async function build(root, id, game) {
     var api = window.TNC_API, Auth = window.TNC_Auth, GU = window.TNC_Units && window.TNC_Units.game;
-    var T = THEMES[game.theme] || THEMES.cosmic;
+    var skin = SKINS[game.theme], T = skin.theme;
     var REELS = game.engine.reels || 5, ROWS = game.engine.rows || 3, PAYLINES = game.engine.paylines;
     var syms = game.symbols, K = { wild: -1, scatter: -1, bonus: -1, top: -1 };
     syms.forEach(function (s, i) { if (s.kind) K[s.kind] = i; else K.top = i; });
@@ -138,6 +145,7 @@
     var stageEl = document.getElementById("px-stage"), machineEl = document.getElementById("slot-machine");
     var hostEl = document.getElementById("px-canvas"), historyEl = document.getElementById("history");
     var srLive = document.getElementById("sr-live"), unitSw = document.getElementById("unit-switch"), soundBtn = document.getElementById("px-sound");
+    machineEl.classList.add("px-" + game.theme);
 
     if (document.fonts && document.fonts.load) {
       try { await Promise.race([Promise.all([document.fonts.load("40px Bungee"), document.fonts.ready]), sleep(1500)]); } catch (e) {}
@@ -226,12 +234,31 @@
       return view;
     }
     function setOff(view, off) { view._off = off; view.alpha = off ? 0.45 : 1; view.cursor = off ? "default" : "pointer"; }
+    function emojiTex(e, size, glow) {
+      return texOf(size, size, function (g, w, h) {
+        g.font = Math.round(size * 0.78) + "px " + EMOJI; g.textAlign = "center"; g.textBaseline = "middle";
+        if (glow) { g.shadowColor = glow; g.shadowBlur = size * 0.2; }
+        g.fillText(e, w / 2, h / 2 + size * 0.04);
+      });
+    }
 
     /* ═══ Layers ═══ */
     var L = {};
     ["back", "jackpots", "cabinet", "reels", "lines", "fx", "panel", "stage", "banner", "particles"].forEach(function (k) {
       L[k] = new PIXI.Container(); world.addChild(L[k]);
     });
+
+    // The kit: what a skin draws with and reads (filled in as the machine is built).
+    var RW = REELS * CW + (REELS - 1) * GAP, RH = ROWS * CH;
+    var TX = RX + RW + 26, TW = W - 20 - TX - 6, TY = RY - 12, TH = RH + 24;   // the collector's box, right of the reels
+    var kit = {
+      W: W, H: H, RX: RX, RY: RY, CW: CW, CH: CH, GAP: GAP, RW: RW, RH: RH, REELS: REELS, ROWS: ROWS, FY: FY,
+      TX: TX, TY: TY, TW: TW, TH: TH, LADDER: LADDER, TIER_NAMES: TIER_NAMES, EMOJI: EMOJI, SIGN: SIGN, MONO: MONO,
+      game: game, id: id, syms: syms, K: K, FS: FS, BON: BON, JPC: JPC, COL: COL, S: S, T: T,
+      app: app, L: L, PIXI: PIXI, sfx: sfx, reduce: reduce, R: R, ease: ease,
+      paint: paint, texOf: texOf, grad: grad, hgrad: hgrad, rr: rr, txt: txt, animate: animate, sleep: sleep, rnd: rnd,
+      fmt: fmt, amt: amt, num: num, unit: unit, fmtMult: fmtMult, emojiTex: emojiTex, button: button, setOff: setOff
+    };
 
     /* ═══ Jackpot rows: GRAND, then MAJOR and MINOR ═══ */
     var JR = {};
@@ -251,9 +278,10 @@
       L.jackpots.addChild(c);
       JR[key] = { c: c, val: val, sats: null, cycle: null, shown: null, won: false };
     }
+    // The GRAND looks the same on every machine (it is shared); MAJOR and MINOR take the game's colours.
     jpRow("grand", 20, 8, 720, 64, "GRAND", ["#3a0a12", "#14040a", "#ff4d5e", "#ffb3bb", "#fff1d0"], true);
-    jpRow("major", 20, 80, 356, 50, "MAJOR", ["#2a1260", "#160a36", "#9a6bff", "#e0c3ff", "#e0c3ff"]);
-    jpRow("minor", 384, 80, 356, 50, "MINOR", ["#0b2a4a", "#071a30", "#2ec5ff", "#9ff0ff", "#9ff0ff"]);
+    jpRow("major", 20, 80, 356, 50, "MAJOR", T.jp.major);
+    jpRow("minor", 384, 80, 356, 50, "MINOR", T.jp.minor);
     function paintJp(r) { if (r.shown != null && !r.won) r.val.text = num(Math.round(r.shown)) + " " + unit(); }
     function jpTo(r, sats, cycle) {
       if (r.cycle != null && cycle > r.cycle) {   // won (by someone, or our own spin): WON!, then the new amount
@@ -268,52 +296,28 @@
       r.sats = sats; r.cycle = cycle;
     }
 
-    /* ═══ Cabinet ═══ */
-    // The cabinet's upper body, from its cut top corners down to the fold (FY), where it bends forward
-    // into the console (see Deck): one body, one neon outline.
-    var FY = 736;
-    L.cabinet.addChild(paint(W - 20, FY - 140 + 2, function (g, w, h) {
-      function outline() { g.beginPath(); g.moveTo(6, h); g.lineTo(6, 40); g.lineTo(40, 6); g.lineTo(w - 40, 6); g.lineTo(w - 6, 40); g.lineTo(w - 6, h); }
-      outline(); g.closePath(); g.shadowColor = T.neon; g.shadowBlur = 28;
-      g.fillStyle = grad(g, 0, h, [T.bg[0], T.bg[1]]); g.fill(); g.shadowBlur = 0;
-      g.save(); g.clip(); g.globalAlpha = 0.08; g.strokeStyle = T.neon2; g.lineWidth = 1;   // grid lines
-      for (var y = 20; y < h; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
-      for (var x0 = 14; x0 < w; x0 += 28) { g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, h); g.stroke(); }
-      g.restore();
-      outline(); g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();   // open at the bottom
-    })).position.set(10, 140);
-    var title = txt(T.title, { fontSize: 50, fill: "#f2e6ff", letterSpacing: 3,
-      dropShadow: { color: T.neon, blur: 18, distance: 0, alpha: 1 }, stroke: { color: "#2a0f5a", width: 3 } });
-    title.position.set(W / 2, 196);
-    L.cabinet.addChild(title);
+    /* ═══ Cabinet: the skin's upper body (from y 140 to the fold), title, reel window frame ═══ */
+    skin.cabinet(kit);
     // The feature bar (or, in free spins, the free-spin sign)
-    var featBar = new PIXI.Container(); featBar.position.set(W / 2, 252); L.cabinet.addChild(featBar);
+    var featBar = new PIXI.Container(); featBar.position.set(W / 2, T.featY || 252); L.cabinet.addChild(featBar);
     function setFeatBar(s, hot) {
       featBar.removeChildren();
-      var t = txt(s, { fontSize: 15, fill: hot ? "#2a1c02" : "#cfe0ff", letterSpacing: 1.5 });
+      var F = T.feat, t = txt(s, { fontSize: 15, fill: hot ? F.hotText : F.text, letterSpacing: 1.5 });
       var w = Math.min(700, t.width + 40);
       featBar.addChild(paint(w, 34, function (g) {
-        rr(g, 1, 1, w - 2, 32, 9); g.fillStyle = hot ? grad(g, 0, 34, ["#fff1c4", "#ffd166"]) : "rgba(46,197,255,.08)"; g.fill();
-        g.lineWidth = 1.5; g.strokeStyle = hot ? "#fff6dc" : "rgba(46,197,255,.55)"; g.stroke();
+        rr(g, 1, 1, w - 2, 32, 9); g.fillStyle = hot ? grad(g, 0, 34, F.hot) : F.fill; g.fill();
+        g.lineWidth = 1.5; g.strokeStyle = hot ? F.hotStroke : F.stroke; g.stroke();
       }));
       featBar.children[0].position.set(-w / 2, -17);
+      if (t.width > 660) t.scale.set(660 / t.width);
       featBar.addChild(t);
     }
     var FEATURES = syms[K.wild].emoji + " " + game.featureName.toUpperCase() + "   " + syms[K.scatter].emoji + " " + FS.name.toUpperCase() + "   " + syms[K.bonus].emoji + " " + BON.name.toUpperCase();
     setFeatBar(FEATURES);
 
-    // The reel window (frame) and the collector's tank
-    var RW = REELS * CW + (REELS - 1) * GAP, RH = ROWS * CH;
-    L.cabinet.addChild(paint(RW + 24, RH + 24, function (g, w, h) {
-      g.shadowColor = T.neon2; g.shadowBlur = 18; rr(g, 4, 4, w - 8, h - 8, 14); g.fillStyle = "#05030f"; g.fill();
-      g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();
-    })).position.set(RX - 12, RY - 12);
-    var TX = RX + RW + 26, TW = W - 20 - TX - 6, TY = RY - 12, TH = RH + 24;
-    var tank = new PIXI.Container(); tank.position.set(TX, TY); L.cabinet.addChild(tank);
-
     /* ═══ Symbols: printed straight on the reel strip (no card); specials keep a glow and their ribbon ═══ */
     var GLOWS = { wild: "rgba(255,190,70,.75)", scatter: "rgba(245,197,66,.45)", bonus: "rgba(90,220,120,.4)" };
-    var SYMTEX = syms.map(function (s, i) {
+    var SYMTEX = syms.map(function (s) {
       var kind = s.kind;
       return texOf(CW, CH, function (g, w, h) {
         if (kind) {
@@ -322,7 +326,7 @@
           g.fillStyle = rg; g.fillRect(0, 0, w, h);
         }
         g.font = "58px " + EMOJI; g.textAlign = "center"; g.textBaseline = "middle";
-        g.shadowColor = "rgba(40,20,90,.3)"; g.shadowBlur = 5; g.shadowOffsetY = 3;
+        g.shadowColor = T.reel.symShadow; g.shadowBlur = 5; g.shadowOffsetY = 3;
         g.fillText(s.emoji, w / 2, h / 2 + (kind ? -7 : 1));
         if (kind) {
           g.shadowBlur = 0; g.shadowOffsetY = 0;
@@ -335,13 +339,7 @@
         }
       });
     });
-    function emojiTex(e, size, glow) {
-      return texOf(size, size, function (g, w, h) {
-        g.font = Math.round(size * 0.78) + "px " + EMOJI; g.textAlign = "center"; g.textBaseline = "middle";
-        if (glow) { g.shadowColor = glow; g.shadowBlur = size * 0.2; }
-        g.fillText(e, w / 2, h / 2 + size * 0.04);
-      });
-    }
+    kit.SYMTEX = SYMTEX;
     // Blurred look while turning: random symbols by their weights
     var pickers = [];
     for (var pc = 0; pc < REELS; pc++) {
@@ -396,7 +394,7 @@
       this.box.removeChildren(); this.sprites = []; this.cells = [];
       var list = [pickers[this.c]()].concat(col);
       for (var k = 0; k < F; k++) list.push(pickers[this.c]());
-      var items = list.map(function (sym, j) {
+      var items = list.map(function (sym) {
         var s = new PIXI.Sprite(SYMTEX[sym]); s.anchor.set(0.5); s.x = CW / 2; self.box.addChild(s); return s;
       });
       this.cells = items.slice(1, 1 + ROWS);
@@ -407,16 +405,17 @@
         self.blur.strengthY = 0; self.setStatic(col);
       });
     };
-    // Each reel: a light strip (under the symbols), drum shading over it, metal dividers between the reels.
+    // Each reel: a light strip (under the symbols), drum shading over it, dividers between the reels.
+    var RC = T.reel;
     var stripTex = texOf(CW, RH, function (g, w, h) {
       var lg = g.createLinearGradient(0, 0, w, 0);
-      lg.addColorStop(0, "#c9bfec"); lg.addColorStop(0.18, "#ece7fb"); lg.addColorStop(0.5, "#fbfaff"); lg.addColorStop(0.82, "#ece7fb"); lg.addColorStop(1, "#c9bfec");
+      lg.addColorStop(0, RC.strip[0]); lg.addColorStop(0.18, RC.strip[1]); lg.addColorStop(0.5, RC.strip[2]); lg.addColorStop(0.82, RC.strip[1]); lg.addColorStop(1, RC.strip[0]);
       g.fillStyle = lg; g.fillRect(0, 0, w, h);
     });
     var drumTex = texOf(CW, RH, function (g, w, h) {
-      var vg = g.createLinearGradient(0, 0, 0, h);
-      vg.addColorStop(0, "rgba(18,6,48,.62)"); vg.addColorStop(0.2, "rgba(18,6,48,0)"); vg.addColorStop(0.46, "rgba(255,255,255,.10)");
-      vg.addColorStop(0.54, "rgba(255,255,255,.10)"); vg.addColorStop(0.8, "rgba(18,6,48,0)"); vg.addColorStop(1, "rgba(18,6,48,.62)");
+      var vg = g.createLinearGradient(0, 0, 0, h), sh = "rgba(" + RC.shade + ",";
+      vg.addColorStop(0, sh + ".62)"); vg.addColorStop(0.2, sh + "0)"); vg.addColorStop(0.46, "rgba(255,255,255,.10)");
+      vg.addColorStop(0.54, "rgba(255,255,255,.10)"); vg.addColorStop(0.8, sh + "0)"); vg.addColorStop(1, sh + ".62)");
       g.fillStyle = vg; g.fillRect(0, 0, w, h);
     });
     for (var sb = 0; sb < REELS; sb++) { var strip = new PIXI.Sprite(stripTex); strip.position.set(RX + sb * (CW + GAP), RY); reelsBox.addChild(strip); }
@@ -424,8 +423,8 @@
     for (var ri = 0; ri < REELS; ri++) reels.push(new Reel(ri));
     for (var sd = 0; sd < REELS; sd++) { var drum = new PIXI.Sprite(drumTex); drum.position.set(RX + sd * (CW + GAP), RY); reelsBox.addChild(drum); }
     var dividerTex = texOf(GAP + 4, RH, function (g, w, h) {
-      var lg = g.createLinearGradient(0, 0, w, 0);
-      lg.addColorStop(0, "#1a0b3d"); lg.addColorStop(0.35, "#b9a6ff"); lg.addColorStop(0.5, "#f3eeff"); lg.addColorStop(0.65, "#8a73d9"); lg.addColorStop(1, "#1a0b3d");
+      var D = RC.divider, lg = g.createLinearGradient(0, 0, w, 0);
+      lg.addColorStop(0, D[0]); lg.addColorStop(0.35, D[1]); lg.addColorStop(0.5, D[2]); lg.addColorStop(0.65, D[3]); lg.addColorStop(1, D[0]);
       g.fillStyle = lg; g.fillRect(0, 0, w, h);
       var vg = g.createLinearGradient(0, 0, 0, h);
       vg.addColorStop(0, "rgba(0,0,0,.5)"); vg.addColorStop(0.25, "rgba(0,0,0,0)"); vg.addColorStop(0.75, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)");
@@ -433,144 +432,94 @@
     });
     for (var dv = 1; dv < REELS; dv++) { var div = new PIXI.Sprite(dividerTex); div.position.set(RX + dv * (CW + GAP) - GAP - 2, RY); L.reels.addChild(div); }
     // The window's inner edge: a soft shadow all round and a thin lit rim, so the drums sit inside the frame.
-    var bezel = paint(RW + 8, RH + 8, function (g, w, h) {
+    var bezel = paint(RW + 8, RH + 8, function (g) {
       g.save(); rr(g, 4, 4, RW, RH, REEL_R); g.clip();
-      g.shadowColor = "rgba(8,2,30,.9)"; g.shadowBlur = 16; g.lineWidth = 14; g.strokeStyle = "#000";
+      g.shadowColor = RC.inner; g.shadowBlur = 16; g.lineWidth = 14; g.strokeStyle = "#000";
       rr(g, -3, -3, RW + 14, RH + 14, REEL_R + 7); g.stroke();
       g.restore();
-      rr(g, 4.5, 4.5, RW - 1, RH - 1, REEL_R); g.lineWidth = 1.5; g.strokeStyle = "rgba(190,170,255,.55)"; g.stroke();
+      rr(g, 4.5, 4.5, RW - 1, RH - 1, REEL_R); g.lineWidth = 1.5; g.strokeStyle = RC.rim; g.stroke();
     });
     bezel.position.set(RX - 4, RY - 4); L.reels.addChild(bezel);
     app.ticker.add(function (tk) { var dt = Math.min(50, tk.deltaMS); reels.forEach(function (r) { r.tick(dt); }); });   // speed: px per ms
     function cellXY(c, r) { return { x: RX + c * (CW + GAP) + CW / 2, y: RY + r * CH + CH / 2 }; }
+    kit.cellXY = cellXY;
     for (var gc = 0; gc < REELS; gc++) { var col0 = []; for (var gr = 0; gr < ROWS; gr++) col0.push(pickers[gc]()); grid.push(col0); reels[gc].setStatic(col0); }
 
-    /* ═══ The collector: the Fuel Tank ═══ */
+    /* ═══ The collector (the skin draws it; its level is TANK.level, 0..1) ═══ */
     var TANK = { filled: 0, size: COL ? COL.size : 1, cycle: null, level: 0, full: false };
-    var tankGlass = paint(TW, TH, function (g, w, h) {
-      g.shadowColor = T.neon; g.shadowBlur = 16; rr(g, 4, 4, w - 8, h - 8, 10); g.fillStyle = "rgba(10,6,30,.92)"; g.fill();
-      g.shadowBlur = 0; g.lineWidth = 2.5; g.strokeStyle = T.neon; g.stroke();
-    });
-    tank.addChild(tankGlass);
-    var tankName = txt(COL ? COL.name.toUpperCase() : "", { fontSize: 13, fill: "#9ff0ff", letterSpacing: 1.5 }); tankName.position.set(TW / 2, 22); tank.addChild(tankName);
-    var TIN = { x: 28, y: 44, w: TW - 56, h: TH - 92 };
-    tank.addChild(paint(TIN.w + 8, TIN.h + 8, function (g, w, h) {
-      rr(g, 3, 3, w - 6, h - 6, 18); g.fillStyle = "rgba(0,0,0,.55)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.8)"; g.stroke();
-    })).position.set(TIN.x - 4, TIN.y - 4);
-    var fuel = new PIXI.Graphics(); tank.addChild(fuel);
-    var fuelMask = new PIXI.Graphics().roundRect(TIN.x, TIN.y, TIN.w, TIN.h, 15).fill(0xffffff); tank.addChild(fuelMask); fuel.mask = fuelMask;
-    var marks = new PIXI.Graphics();
-    for (var mk = 1; mk < 10; mk++) marks.moveTo(TIN.x + 4, TIN.y + TIN.h * mk / 10).lineTo(TIN.x + 14, TIN.y + TIN.h * mk / 10);
-    marks.stroke({ width: 1.5, color: 0x9ff0ff, alpha: 0.5 }); tank.addChild(marks);
-    var tankIcon = new PIXI.Sprite(emojiTex(COL ? COL.emoji : "⛽", 40)); tankIcon.anchor.set(0.5); tankIcon.position.set(TW / 2, TIN.y + 24); tankIcon.alpha = 0.9; tank.addChild(tankIcon);
-    var tankCount = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 15, fill: "#fff6dc" }); tankCount.position.set(TW / 2, TH - 26); tank.addChild(tankCount);
-    var tankFull = txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#000", width: 3 } });
-    tankFull.position.set(TW / 2, TIN.y + TIN.h / 2); tankFull.visible = false; tank.addChild(tankFull);
-    var wave = 0;
-    app.ticker.add(function (tk) {
-      wave += tk.deltaMS / 400;
-      var lvl = TANK.level, top = TIN.y + TIN.h * (1 - lvl);
-      fuel.clear();
-      if (lvl <= 0) return;
-      fuel.moveTo(TIN.x, TIN.y + TIN.h);
-      for (var x = 0; x <= TIN.w; x += 4) fuel.lineTo(TIN.x + x, top + Math.sin(wave + x / 9) * 2.5);
-      fuel.lineTo(TIN.x + TIN.w, TIN.y + TIN.h).closePath().fill({ color: 0x2ec5ff, alpha: 0.9 });
-      fuel.rect(TIN.x, top + 6, TIN.w, 3).fill({ color: 0x9ff0ff, alpha: 0.6 });
-      if (TANK.full) tankFull.scale.set(1 + Math.sin(wave * 3) * 0.06);
-    });
+    kit.TANK = TANK;
+    var tank = new PIXI.Container(); tank.position.set(TX, TY); L.cabinet.addChild(tank);
+    var col = skin.collector(kit, tank);   // { count(filled, size), flash(on), target(): {x, y} in the machine }
     function paintTank(filled, size, animateIt) {
       TANK.filled = filled; TANK.size = size;
-      tankCount.text = fmt(filled) + " / " + fmt(size);
+      col.count(filled, size);
       var to = size ? Math.min(1, filled / size) : 0, from = TANK.level;
       if (!animateIt || reduce) { TANK.level = to; return; }
       animate(1200, function (p) { TANK.level = from + (to - from) * p; });
     }
-    function tankFlash(on) { TANK.full = on; tankFull.visible = on; tankGlass.tint = on ? 0xffe9a8 : 0xffffff; }
+    function tankFlash(on) { TANK.full = on; col.flash(on); }
     if (!COL) tank.visible = false;
 
     /* ═══ Display (LCD) ═══ */
+    var LC = T.lcd;
     L.cabinet.addChild(paint(668, 84, function (g, w, h) {
-      rr(g, 2, 2, w - 4, h - 4, 10); g.fillStyle = "rgba(4,18,30,.92)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.6)"; g.stroke();
+      if (LC.frame) LC.frame(g, w, h);
+      else { rr(g, 2, 2, w - 4, h - 4, 10); g.fillStyle = LC.bg; g.fill(); g.lineWidth = 2; g.strokeStyle = LC.border; g.stroke(); }
     })).position.set(46, 632);
-    var lcdMain = txt("", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 21, fill: "#9ff0ff",
-      dropShadow: { color: "#2ec5ff", blur: 8, distance: 0, alpha: 0.8 } });
+    var lcdMain = txt("", { fontFamily: LC.font || '"Courier New", monospace', fontWeight: "700", fontSize: 21, fill: LC.text,
+      dropShadow: { color: LC.glow, blur: 8, distance: 0, alpha: 0.8 } });
     lcdMain.position.set(W / 2, 662);
-    var lcdSub = txt("", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 14, fill: "#7fb8d6" });
+    var lcdSub = txt("", { fontFamily: LC.font || '"Courier New", monospace', fontWeight: "700", fontSize: 14, fill: LC.sub });
     lcdSub.position.set(W / 2, 698);
     L.cabinet.addChild(lcdMain, lcdSub);
     var srTimer = 0;
     function setLcd(main, hot) {
       lcdMain.text = main;
-      lcdMain.style.fill = hot ? "#ffe79a" : "#9ff0ff";
+      lcdMain.style.fill = hot ? LC.hot : LC.text;
       lcdMain.scale.set(1);
       if (lcdMain.width > 640) lcdMain.scale.set(640 / lcdMain.width);   // one line, shrunk to fit
       renderLcdSub();
       var plain = String(main).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim();
       clearTimeout(srTimer); srLive.textContent = ""; srTimer = setTimeout(function () { srLive.textContent = plain; }, 60);
     }
+    kit.setLcd = setLcd;
+    kit.setLcdSub = function (s) { lcdSub.text = s; };
 
-    /* ═══ Deck: readouts, LAUNCH, throttle, on the cabinet's console sloping toward the player ═══
+    /* ═══ Deck: readouts, the spin key, the bet control, on the cabinet's console sloping toward the player ═══
        The deck is drawn flat into a render texture every frame and shown on a PerspectiveMesh:
-       a little wider at the front, like a cockpit console. Keys stand
-       up from it (their side walls face the player), screens and the lever's slot are sunk into it.
-       Taps are mapped back through the same projection to the flat deck. */
+       a little wider at the front, like a console. Keys stand up from it (their side walls face the
+       player), screens and slots are sunk into it. Taps are mapped back through the same projection. */
     // The console is the cabinet's lower body: from the fold it slopes toward the player across the
     // cabinet's full width, its sides continuing the cabinet's, flaring a little toward the front edge.
     // DW × DH: the controls' area, drawn at OX inside the full console width DWF.
     // The console's side lines start exactly on the cabinet's (cabinet x 10, its outline 6 px in).
-    var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 22;
+    var DW = 700, CX0 = 14.5, DWF = W - 2 * CX0, OX = 20 - (CX0 - 10), DH = 300, FLARE = 22, BASE_H = 28;
     var deckRoot = new PIXI.Container(), deck = new PIXI.Container(); deck.x = OX;
     var Q = [CX0, FY, CX0 + DWF, FY, CX0 + DWF + FLARE, FY + DH, CX0 - FLARE, FY + DH];   // TL, TR, BR, BL
+    Object.assign(kit, { DW: DW, DWF: DWF, DH: DH, OX: OX, Q: Q, BASE_H: BASE_H, deck: deck });
     // The cabinet's base: the console's front edge, facing the player, with the hint printed on it
-    var BASE_H = 28;
-    L.panel.addChild(paint(W, BASE_H + 10, function (g) {
-      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[4], 0); g.lineTo(Q[4] - 10, BASE_H); g.lineTo(Q[6] + 10, BASE_H); g.closePath();
-      g.fillStyle = grad(g, 0, BASE_H, ["#2a1660", "#0b0522"]); g.fill();
-      g.lineWidth = 3; g.strokeStyle = T.neon; g.shadowColor = T.neon; g.shadowBlur = 14;
-      g.beginPath(); g.moveTo(Q[6], 0); g.lineTo(Q[6] + 10, BASE_H); g.lineTo(Q[4] - 10, BASE_H); g.lineTo(Q[4], 0); g.stroke();
-      g.shadowBlur = 0; g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Q[6] + 4, 1.5); g.lineTo(Q[4] - 4, 1.5); g.stroke();
-    })).position.set(0, Q[5] - 1);
-    var hint = txt("Press " + T.spin + " · or press Space key", { fontFamily: "Poppins, sans-serif", fontWeight: "600", fontSize: 13, fill: "#cbb8ff", letterSpacing: 0.5 });
+    L.panel.addChild(paint(W, BASE_H + 10, function (g) { skin.base(kit, g); })).position.set(0, Q[5] - 1);
+    var hint = txt("Press " + T.spin + " · or press Space key", { fontFamily: "Poppins, sans-serif", fontWeight: "600", fontSize: 13, fill: T.hint, letterSpacing: 0.5 });
     hint.position.set(W / 2, Q[5] - 1 + BASE_H / 2 + 1); L.panel.addChild(hint);
-    // The console surface (painted flat, seen in perspective): the cabinet's material, lit a little more
-    // where it faces up, a crease of light along the fold, the outline down its sides and along the front.
-    deckRoot.addChild(paint(DWF, DH, function (g, w, h) {
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h - 16); g.quadraticCurveTo(w, h, w - 16, h); g.lineTo(16, h); g.quadraticCurveTo(0, h, 0, h - 16); g.closePath();
-      g.fillStyle = grad(g, 0, h, ["#24104f", "#170a3a", "#0c0526"]); g.fill();
-      g.save(); g.clip();
-      g.globalAlpha = 0.08; g.strokeStyle = T.neon2; g.lineWidth = 1;                                  // the cabinet's grid
-      for (var y = 14; y < h; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
-      for (var x0 = 4; x0 < w; x0 += 28) { g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, h); g.stroke(); }
-      g.globalAlpha = 0.05; g.strokeStyle = "#ffffff";                                                  // brushed metal
-      for (var y2 = 6; y2 < h; y2 += 5) { g.beginPath(); g.moveTo(0, y2); g.lineTo(w, y2); g.stroke(); }
-      g.globalAlpha = 1;
-      var fold = g.createLinearGradient(0, 0, 0, 22);                                                   // the fold: lit edge, then shade
-      fold.addColorStop(0, "rgba(220,200,255,.35)"); fold.addColorStop(0.12, "rgba(220,200,255,.08)"); fold.addColorStop(0.25, "rgba(0,0,0,.35)"); fold.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = fold; g.fillRect(0, 0, w, 22);
-      g.strokeStyle = "rgba(0,0,0,.4)"; g.lineWidth = 2;                                                // panel seams
-      [OX + 252, OX + 528].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
-      g.strokeStyle = "rgba(179,136,255,.16)"; g.lineWidth = 1;
-      [OX + 254, OX + 530].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
-      g.restore();
-      g.beginPath(); g.moveTo(1.5, 0); g.lineTo(1.5, h - 16); g.quadraticCurveTo(1.5, h - 1.5, 16, h - 1.5); g.lineTo(w - 16, h - 1.5); g.quadraticCurveTo(w - 1.5, h - 1.5, w - 1.5, h - 16); g.lineTo(w - 1.5, 0);
-      g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();   // the outline continues: sides and front, open at the fold
-    }));
+    // The console surface (painted flat, seen in perspective)
+    deckRoot.addChild(paint(DWF, DH, function (g, w, h) { skin.surface(kit, g, w, h); }));
     deckRoot.addChild(deck);
     // A recessed screen: dark glass sunk into the panel, its upper inner wall in shadow, a lit lip below.
-    function recess(w, h, r) {
+    kit.recess = function (w, h, r, c) {
+      c = c || T.recess;
       return paint(w + 8, h + 8, function (g) {
-        rr(g, 4, 6, w, h, r); g.fillStyle = "rgba(255,255,255,.18)"; g.fill();                  // lit lower lip
-        rr(g, 4, 4, w, h, r); g.fillStyle = "#04020e"; g.fill();
+        rr(g, 4, 6, w, h, r); g.fillStyle = c.lip || "rgba(255,255,255,.18)"; g.fill();                  // lit lower lip
+        rr(g, 4, 4, w, h, r); g.fillStyle = c.glass || "#04020e"; g.fill();
         g.save(); rr(g, 4, 4, w, h, r); g.clip();
         g.shadowColor = "rgba(0,0,0,.95)"; g.shadowBlur = 14; g.shadowOffsetY = 8;               // inner shadow from the top wall
         g.lineWidth = 16; rr(g, -4, -4, w + 16, h + 16, r + 6); g.strokeStyle = "#000"; g.stroke();
-        g.shadowColor = "rgba(46,197,255,.35)"; g.shadowBlur = 18; g.shadowOffsetY = 0; g.lineWidth = 2; rr(g, 4, 4, w, h, r); g.stroke();
+        g.shadowColor = c.glow; g.shadowBlur = 18; g.shadowOffsetY = 0; g.lineWidth = 2; rr(g, 4, 4, w, h, r); g.stroke();
         g.restore();
-        rr(g, 4, 4, w, h, r); g.lineWidth = 1.5; g.strokeStyle = "rgba(154,107,255,.6)"; g.stroke();
+        rr(g, 4, 4, w, h, r); g.lineWidth = 1.5; g.strokeStyle = c.rim; g.stroke();
       });
-    }
+    };
     // A raised key: a top face and side walls toward the player (depth px), with a contact shadow.
-    function keyArt(w, h, r, depth, top, wall) {
+    kit.keyArt = function (w, h, r, depth, top, wall) {
       return paint(w + 12, h + depth + 14, function (g) {
         g.shadowColor = "rgba(0,0,0,.7)"; g.shadowBlur = 10; g.shadowOffsetY = 4;
         rr(g, 6, 6 + depth, w, h, r); g.fillStyle = wall[1]; g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
@@ -578,147 +527,57 @@
         rr(g, 6, 6, w, h, r); g.fillStyle = grad(g, 6, 6 + h, top); g.fill();
         g.lineWidth = 1.5; g.strokeStyle = "rgba(255,255,255,.55)"; g.stroke();
       });
-    }
+    };
+    kit.sinkKey = function (set, depth) {   // a small key: down, then back up
+      return animate(R(90), function (p) { set(depth * p); }, ease.out).then(function () { return animate(R(160), function (p) { set(depth * (1 - p)); }, ease.out); });
+    };
+    // A readout: a recessed screen with its label, value and unit.
+    kit.readout = function (label, x, y, o) {
+      o = o || {};
+      var w = o.w || 212, h = o.h || 112, c = new PIXI.Container(); c.position.set(x, y);
+      var sc = kit.recess(w, h, o.r || 12); sc.position.set(-4, -4); c.addChild(sc);
+      var l = txt(label, { fontSize: 14, fill: T.readout.label, letterSpacing: 3 }); l.position.set(w / 2, 20);
+      var v = txt("0", { fontFamily: o.font || MONO, fontWeight: "700", fontSize: o.size || 36, fill: T.readout.value, dropShadow: { color: T.readout.glow, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(w / 2, h * 0.535);
+      var u = txt(unit(), { fontSize: 12, fill: T.readout.unit }); u.position.set(w / 2, h - 18);
+      c.addChild(l, v, u); deck.addChild(c);
+      return { v: v, u: u, c: c };
+    };
 
     // Hit areas on the flat deck (the mesh maps taps back to them)
     var deckHits = [];
-    function deckHit(x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); }
-
-    // WIN and BALANCE: recessed screens
-    function readout(label, x, y) {
-      var c = new PIXI.Container(); c.position.set(x, y);
-      var sc = recess(212, 112, 12); sc.position.set(-4, -4); c.addChild(sc);
-      var l = txt(label, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 3 }); l.position.set(106, 20);
-      var v = txt("0", { fontFamily: MONO, fontWeight: "700", fontSize: 36, fill: "#ffffff", dropShadow: { color: T.neon, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(106, 60);
-      var u = txt(unit(), { fontSize: 12, fill: "#8f86b8" }); u.position.set(106, 94);
-      c.addChild(l, v, u); deck.addChild(c);
-      return { v: v, u: u };
-    }
-    var winRO = readout("WIN", 22, 22), balRO = readout("BALANCE", 22, 156);
-    var winShown = 0, balShown = currentBalance();
-
-    // LAUNCH: a hexagonal key standing up from the console; it sinks when pressed.
-    function hexPath(g, cx, cy, r) { g.beginPath(); for (var i = 0; i < 6; i++) { var a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); } g.closePath(); }
-    var LDEPTH = 18, LR = 74;
-    var launch = new PIXI.Container(); launch.position.set(390, 130); deck.addChild(launch);
-    var launchWell = paint(260, 260, function (g) {                // the socket in the console
-      hexPath(g, 130, 130 + LDEPTH, LR + 14); g.fillStyle = "#07031a"; g.fill();
-      g.lineWidth = 3; g.strokeStyle = "rgba(255,79,216,.55)"; g.shadowColor = "#ff4fd8"; g.shadowBlur = 22; g.stroke();
-    });
-    launchWell.anchor.set(0.5); launch.addChild(launchWell);
-    var launchWalls = paint(260, 260, function (g) {               // the key's side walls
-      for (var d = LDEPTH; d >= 0; d--) { hexPath(g, 130, 130 + d, LR); g.fillStyle = d > LDEPTH * 0.55 ? "#2a0838" : "#5a1470"; g.fill(); }
-      g.lineWidth = 2; g.strokeStyle = "rgba(255,180,240,.35)"; hexPath(g, 130, 130 + LDEPTH, LR); g.stroke();
-    });
-    launchWalls.anchor.set(0.5); launch.addChild(launchWalls);
-    var launchTop = new PIXI.Container(); launch.addChild(launchTop);
-    var launchCap = paint(240, 240, function (g) {
-      hexPath(g, 120, 120, LR);
-      var rg = g.createRadialGradient(120, 80, 8, 120, 120, 112); rg.addColorStop(0, "#ffc4f4"); rg.addColorStop(0.45, "#e040c8"); rg.addColorStop(1, "#6a1fb8");
-      g.fillStyle = rg; g.fill(); g.lineWidth = 4; g.strokeStyle = "#ffd6f6"; g.stroke();
-      g.save(); hexPath(g, 120, 120, LR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(120, 62, 70, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
-    });
-    launchCap.anchor.set(0.5); launchTop.addChild(launchCap);
-    var launchLabel = txt(T.spin, { fontSize: 26, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
-    launchLabel.y = -6;
-    var launchSub = txt("", { fontSize: 12, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 22;
-    launchTop.addChild(launchLabel, launchSub);
-    // The key's states, like the HTML machine's 3D buttons:
-    //   idle: still, with a shine sweeping across the cap and a half press every 4.2 s (an invitation);
-    //   pressed (spin or STOP, by click, tap or Space): sinks fully, then springs back;
-    //   while the spin plays: stays half pressed and glows;
-    //   off (the bet is more than the balance): still and grey.
-    // The cap follows a spring toward its target depth, so every change overshoots a little and settles.
-    // A sprite (alpha) mask: the console is drawn into a texture without a stencil, where shape masks fail.
-    var capMask = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 3); g.fillStyle = "#fff"; g.fill(); });
-    capMask.anchor.set(0.5); launchTop.addChild(capMask);
-    var capShine = new PIXI.Graphics().poly([-14, -LR - 20, 22, -LR - 20, 14, LR + 20, -22, LR + 20]).fill({ color: 0xffffff, alpha: 0.55 });
-    capShine.mask = capMask; launchTop.addChildAt(capShine, launchTop.getChildIndex(launchLabel));
-    var capGlow = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 2); g.fillStyle = "#ffffff"; g.fill(); });
-    capGlow.anchor.set(0.5); capGlow.blendMode = "add"; capGlow.alpha = 0; launchTop.addChildAt(capGlow, 1);
+    kit.deckHit = function (x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); };
+    // The spin key's depth: a spring toward its target (pressed: all the way; while the spin plays: half;
+    // idle: a half press now and then, an invitation; off: up). The skin draws the key at that depth.
     var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0;
-    app.ticker.add(function (tk) {
-      var dt = Math.min(40, tk.deltaMS), now = performance.now();
+    kit.keyState = function () { return { busy: busy, off: !!(ctl && ctl.key && ctl.key._off) && !busy, t: keyT, x: keyX }; };
+    kit.keySpring = function (depth, dt) {
+      var now = performance.now(), off = !!(ctl && ctl.key && ctl.key._off) && !busy, target;
       keyT += dt;
-      var off = !!launch._off && !busy, target;
-      if (now < keyPressUntil) target = LDEPTH - 2;               // pressed: all the way down
-      else if (busy) target = LDEPTH * 0.55;                       // the spin plays: half pressed
+      if (now < keyPressUntil) target = depth - 2;
+      else if (busy) target = depth * 0.55;
       else if (off || reduce) target = 0;
-      else {                                                       // idle: a half press now and then
+      else {
         var p = (keyT % 4200) / 4200;
-        target = p < 0.7 ? 0 : p < 0.78 ? LDEPTH * 0.5 * (p - 0.7) / 0.08 : p < 0.86 ? LDEPTH * 0.5 * (1 - (p - 0.78) / 0.08) : 0;
+        target = p < 0.7 ? 0 : p < 0.78 ? depth * 0.5 * (p - 0.7) / 0.08 : p < 0.86 ? depth * 0.5 * (1 - (p - 0.78) / 0.08) : 0;
       }
       keyV += ((target - keyX) * 0.0009 - keyV * 0.032) * dt;     // spring (about 15% overshoot)
       keyX += keyV * dt;
-      launchTop.y = keyX;
-      // glow while the spin plays, grey when off, shine sweep when idle
-      capGlow.alpha = busy && !reduce ? 0.10 + 0.12 * (0.5 + 0.5 * Math.sin(keyT / 140)) : busy ? 0.12 : 0;
-      launchTop.tint = off ? 0x8c8c99 : 0xffffff;
-      launch.alpha = off ? 0.8 : 1;
-      launchWell.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(keyT / 140) : 0.75 + Math.sin(keyT / 600) * 0.25;
-      var sp = (keyT % 3600) / 3600;
-      capShine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
-      capShine.x = -LR * 1.4 + LR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
-    });
-    function sinkKey(set, depth) {   // a small key: down, then back up
-      return animate(R(90), function (p) { set(depth * p); }, ease.out).then(function () { return animate(R(160), function (p) { set(depth * (1 - p)); }, ease.out); });
-    }
-    function pressLaunch() { keyPressUntil = performance.now() + 120; }
-    deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { press(); });
+      return keyX;
+    };
+    function pressKey() { keyPressUntil = performance.now() + 120; }
+    kit.press = function () { press(); };
+    kit.setBet = function (v) { if (!busy) { sfx.chip(); setBet(v); } };
+    kit.stepBet = function (d) { stepBet(d); };
+    kit.busy = function () { return busy; };
+    kit.bet = function () { return bet; };
+    kit.playBet = function () { return playBet; };
+    kit.feature = function () { return feature; };
 
-    // THRUST: the bet ladder 1 ... 1,000 as an aircraft throttle: a T-handle on a shaft rising from a gate
-    // slot sunk into the console, a detent notch at every step; ▲ ▼ keys below. Pulled back (low thrust) the
-    // handle leans toward the player, pushed forward it stands up over the slot.
-    var SLX = 93;   // the slot's centre line
-    var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
-    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
-    var slot = recess(12, 200, 6); slot.position.set(SLX - 10, 22); thr.addChild(slot);
-    var slotFill = paint(6, 190, function (g) { rr(g, 0, 0, 6, 190, 3); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.9; g.fill(); });
-    slotFill.position.set(SLX - 3, 31); thr.addChild(slotFill);
-    var detents = new PIXI.Graphics();
-    LADDER.forEach(function (v, i) { var y = 214 - i * 20; detents.moveTo(SLX + 10, y).lineTo(SLX + 18, y).moveTo(SLX - 18, y).lineTo(SLX - 10, y); });
-    detents.stroke({ width: 2, color: 0x9a86e0, alpha: 0.7 }); thr.addChild(detents);
-    var thrMarks = LADDER.map(function (v, i) {
-      var y = 214 - i * 20, m = txt(String(v), { fontFamily: MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
-      m.anchor.set(1, 0.5); m.position.set(SLX - 24, y); thr.addChild(m);
-      deckHit(556 + 4, 12 + y - 10, 120, 20, null, function () { if (!busy) { sfx.chip(); setBet(v); } });
-      return m;
-    });
-    // The lever: a collar in the slot, a shaft, and the T-handle (a ribbed grip with glowing end caps).
-    var thrKnob = new PIXI.Container(); thrKnob.x = SLX; thr.addChild(thrKnob);
-    var leverShadow = new PIXI.Graphics(), leverShaft = new PIXI.Graphics(); thrKnob.addChild(leverShadow, leverShaft);
-    var collar = paint(26, 14, function (g) { g.beginPath(); g.ellipse(13, 7, 11, 5.5, 0, 0, Math.PI * 2); g.fillStyle = grad(g, 2, 12, ["#cdbcff", "#4b3a8a"]); g.fill(); });
-    collar.anchor.set(0.5); thrKnob.addChild(collar);
-    var grip = paint(60, 30, function (g) {
-      g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 6; g.shadowOffsetY = 4;
-      rr(g, 7, 6, 46, 16, 8); g.fillStyle = grad(g, 6, 22, ["#f4efff", "#b9a6ff", "#5a3fb0"]); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      g.strokeStyle = "rgba(60,30,120,.45)"; g.lineWidth = 1.2;                                   // ribs
-      for (var x = 17; x <= 43; x += 4) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, 20); g.stroke(); }
-      [[7, "#ff4fd8"], [47, "#ff4fd8"]].forEach(function (c) {                                    // glowing end caps
-        rr(g, c[0], 6, 6, 16, 3); g.fillStyle = c[1]; g.shadowColor = c[1]; g.shadowBlur = 8; g.fill(); g.shadowBlur = 0;
-      });
-      g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, 8.5); g.lineTo(46, 8.5); g.stroke();   // highlight
-    });
-    grip.anchor.set(0.5, 0.47); thrKnob.addChild(grip);
-    function drawLever(i) {   // i: 0 (1 tSat, pulled back) .. 9 (1000, pushed forward)
-      var reach = 24 - 14 * (i / (LADDER.length - 1));   // how far the handle leans toward the player
-      leverShadow.clear().roundRect(-3, 2, 6, reach + 4, 3).fill({ color: 0x000000, alpha: 0.35 });
-      leverShaft.clear().roundRect(-3, 0, 6, reach, 3).fill(0xbfb3e6).roundRect(-3, 0, 2, reach, 1).fill({ color: 0xffffff, alpha: 0.6 });
-      grip.y = reach; grip.scale.y = 0.85 + 0.15 * (1 - i / (LADDER.length - 1));
-    }
-    drawLever(3);
-    var betVal = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(70, 270); thr.addChild(betVal);
-    function smallKey(label, x) {
-      var k = new PIXI.Container(); k.position.set(x, 270);
-      var art = keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); k.addChild(art);
-      var top = new PIXI.Container(); var t = txt(label, { fontSize: 15, fill: "#fff" }); t.y = -1; top.addChild(t); k.addChild(top);
-      k._sink = function () { sinkKey(function (v) { art.y = v; top.y = v; }, 5); };
-      thr.addChild(k);
-      return k;
-    }
-    var betDown = smallKey("▼", 16), betUp = smallKey("▲", 124);
-    deckHit(556 - 2, 12 + 254, 40, 34, betDown, function () { betDown._sink(); stepBet(-1); });
-    deckHit(556 + 106, 12 + 254, 40, 34, betUp, function () { betUp._sink(); stepBet(1); });
+    // The skin's controls: { win, bal (readouts), key (the spin key's view), setBet(bet, index), update(s), points() }
+    var ctl = null;
+    ctl = skin.deck(kit, deck);
+    var winRO = ctl.win, balRO = ctl.bal;
+    var winShown = 0, balShown = currentBalance();
 
     // The console in perspective
     var deckRT = PIXI.RenderTexture.create({ width: DWF, height: DH, resolution: Math.min(2, (window.devicePixelRatio || 1) * 1.25) });
@@ -740,15 +599,8 @@
     deckMesh.eventMode = "static";
     deckMesh.on("pointertap", function (e) { var h = hitAt(e); if (h) h.fn(); });
     deckMesh.on("pointermove", function (e) { deckMesh.cursor = hitAt(e) ? "pointer" : "default"; });
-
-    // For tests: the panel point where a deck control is drawn.
-    function deckPoint(x, y) {   // flat deck -> panel (the forward homography)
-      var u = (x + OX) / DWF, v = y / DH, q = Q;
-      var dx1 = q[2] - q[4], dx2 = q[6] - q[4], dx3 = q[0] - q[2] + q[4] - q[6], dy1 = q[3] - q[5], dy2 = q[7] - q[5], dy3 = q[1] - q[3] + q[5] - q[7];
-      var det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
-      var a = q[2] - q[0] + gg * q[2], b = q[6] - q[0] + hh * q[6], d = q[3] - q[1] + gg * q[3], e = q[7] - q[1] + hh * q[7], w = gg * u + hh * v + 1;
-      return { x: (a * u + b * v + q[0]) / w, y: (d * u + e * v + q[1]) / w };
-    }
+    // For tests: the panel point where a deck control is drawn (flat deck -> panel).
+    function deckPoint(x, y) { return quadPoint(Q, (x + OX) / DWF, y / DH); }
 
     /* ═══ State ═══ */
     var busy = false, feature = null, presentToken = 0, settle = 0;
@@ -760,14 +612,7 @@
     function setBet(v) {
       bet = clampBet(v);
       try { sessionStorage.setItem("tnc.bet." + id, String(bet)); } catch (e) {}
-      var i = ladderIndex(bet);
-      thrMarks.forEach(function (m, k) { m.style.fill = k === i ? "#ffffff" : "#8f86b8"; });
-      animate(R(220), (function (from, fromI) { return function (p) {
-        thrKnob.y = from + (214 - i * 20 - from) * p; drawLever(fromI + (i - fromI) * p);
-        slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y;
-      }; })(thrKnob.y || 214, thrKnob._i == null ? i : thrKnob._i));
-      thrKnob._i = i;
-      betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
+      ctl.setBet(bet, ladderIndex(bet));
       updateControls();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
     }
@@ -779,13 +624,12 @@
       if (next !== bet) { sfx.chip(); setBet(next); setLcd("Bet " + fmt(bet) + " tSats. Press " + T.spin + "!"); }
     }
     function cantAfford() { return signedIn() && currentBalance() < bet; }
-    var authKnown = !Auth;
+    var authKnown = !Auth, keySub = "";
     function updateControls() {
       var out = authKnown && !signedIn(), canStop = busy && reelsTurning && !stopReq;
-      launch._off = (busy && !canStop) || (!busy && cantAfford());   // its look follows in the key's ticker
-      launchSub.text = canStop ? "STOP" : busy ? (feature ? "FREE SPINS" : "GOOD LUCK") : out ? "SIGN IN" : "BET " + fmt(bet);
-      [betUp, betDown].forEach(function (b) { setOff(b, busy); });
-      thrMarks.forEach(function (m) { m.alpha = busy ? 0.55 : 1; });
+      ctl.key._off = (busy && !canStop) || (!busy && cantAfford());   // its look follows in the key's ticker
+      keySub = canStop ? "STOP" : busy ? (feature ? "FREE SPINS" : "GOOD LUCK") : out ? "SIGN IN" : "BET " + fmt(bet);
+      ctl.update({ busy: busy, canStop: canStop, out: out, feature: feature, bet: bet, sub: keySub });
     }
     function renderLcdSub() {
       lcdSub.text = feature
@@ -795,12 +639,13 @@
     }
     function showReady() {
       if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get " + amt(10000) + "."); return; }
-      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "Out of credit. Claim your daily bonus to play on." : "Lower your thrust: balance is " + amt(b) + ".", true); }
+      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "Out of credit. Claim your daily bonus to play on." : T.lower + ": balance is " + amt(b) + ".", true); }
     }
     function renderFeature() {
       if (!feature) { setFeatBar(FEATURES); return; }
       setFeatBar((feature.reward ? feature.emoji + " " + feature.name.toUpperCase() : syms[K.scatter].emoji + " FREE SPINS") + "   " + feature.left + " LEFT" +
-        (feature.mult > 1 ? "   WINS ×" + feature.mult : "") + (feature.locked ? "   " + syms[K.wild].emoji + " LOCKED" : "") + "   WON " + amt(feature.total), true);
+        (feature.mult > 1 ? "   WINS ×" + feature.mult : "") + (feature.locked ? "   " + syms[K.wild].emoji + " LOCKED" : "") +
+        (feature.sticky ? "   " + syms[K.wild].emoji + " STICKY " + feature.sticky : "") + "   WON " + amt(feature.total), true);
     }
 
     /* ═══ Meters ═══ */
@@ -894,8 +739,8 @@
       fixedLayer.removeChildren();
       keys.forEach(function (k) {
         var p = k.split(","), xy = cellXY(+p[0], +p[1]), s = new PIXI.Sprite(SYMTEX[K.wild]);
-        // a lit patch of strip under it, so the locked wild covers the symbols turning beneath
-        fixedLayer.addChild(new PIXI.Graphics().rect(xy.x - CW / 2, xy.y - CH / 2, CW, CH).fill(0xfff4d6));
+        // a lit patch of strip under it, so the held wild covers the symbols turning beneath
+        fixedLayer.addChild(new PIXI.Graphics().rect(xy.x - CW / 2, xy.y - CH / 2, CW, CH).fill(RC.fixed));
         s.anchor.set(0.5); s.position.set(xy.x, xy.y); fixedLayer.addChild(s);
         var glow = new PIXI.Graphics().roundRect(xy.x - CW / 2 + 2, xy.y - CH / 2 + 2, CW - 4, CH - 4, 12).stroke({ width: 4, color: 0xffd166 });
         fixedLayer.addChild(glow);
@@ -918,6 +763,7 @@
         return s;
       });
     }
+    kit.overlayCells = overlayCells;
 
     /* ═══ Particles (coins and emoji), over the whole machine ═══ */
     var coinTex = texOf(40, 40, function (g) {
@@ -961,6 +807,7 @@
         if (k >= n) clearInterval(t);
       }, Math.max(16, ms / (n / 4)));
     }
+    kit.emit = emit; kit.rain = rain;
 
     /* ═══ Whole-machine moves: shake (canvas) and tilt (CSS 3D on the canvas) ═══ */
     function shake(ms, power) {
@@ -975,13 +822,14 @@
       clearTimeout(tilt.t);
       tilt.t = setTimeout(function () { machineEl.classList.remove("px-tilt-" + kind); }, 3400);
     }
+    kit.shake = shake; kit.tilt = tilt;
 
     /* ═══ Banners ═══ */
     var banner = new PIXI.Container(); banner.position.set(W / 2, RY + RH / 2); banner.visible = false; L.banner.addChild(banner);
     var rays = new PIXI.Graphics();
     for (var rk = 0; rk < 16; rk++) { var a0 = rk * Math.PI / 8, a1 = a0 + Math.PI / 16; rays.moveTo(0, 0).lineTo(Math.cos(a0) * 420, Math.sin(a0) * 420).lineTo(Math.cos(a1) * 420, Math.sin(a1) * 420).closePath(); }
     rays.fill({ color: 0xffd166, alpha: 0.18 });
-    var bannerBack = new PIXI.Graphics().roundRect(-300, -110, 600, 220, 26).fill({ color: 0x0a0418, alpha: 0.82 }).stroke({ width: 4, color: 0xffd166 });
+    var bannerBack = new PIXI.Graphics().roundRect(-300, -110, 600, 220, 26).fill({ color: T.bannerBg, alpha: 0.82 }).stroke({ width: 4, color: 0xffd166 });
     var bannerTitle = txt("", { fontSize: 58, fill: "#ffe79a", stroke: { color: "#7a3d00", width: 6 }, dropShadow: { color: "#ff9d00", blur: 22, distance: 0, alpha: 1 }, letterSpacing: 2 });
     bannerTitle.y = -34;
     var bannerAmt = txt("", { fontFamily: MONO, fontWeight: "800", fontSize: 42, fill: "#ffffff", dropShadow: { color: T.neon2, blur: 14, distance: 0, alpha: 1 } });
@@ -996,7 +844,7 @@
       bannerTitle.scale.set(1); bannerAmt.scale.set(1);
       var tw = PIXI.CanvasTextMetrics.measureText(title, bannerTitle.style).width, w = Math.max(420, Math.min(700, tw + 80));
       if (tw > w - 50) bannerTitle.scale.set((w - 50) / tw);
-      bannerBack.clear().roundRect(-w / 2, -110, w, 220, 26).fill({ color: 0x0a0418, alpha: 0.82 }).stroke({ width: 4, color: 0xffd166 });
+      bannerBack.clear().roundRect(-w / 2, -110, w, 220, 26).fill({ color: T.bannerBg, alpha: 0.82 }).stroke({ width: 4, color: 0xffd166 });
       banner.visible = true; banner.alpha = 1; banner.scale.set(0.2);
       animate(R(500), function (p) { banner.scale.set(0.2 + 0.8 * p); }, ease.back);
     }
@@ -1004,30 +852,127 @@
       if (!banner.visible) return;
       animate(R(250), function (p) { banner.alpha = 1 - p; }).then(function () { banner.visible = false; banner.alpha = 1; });
     }
+    kit.showBanner = showBanner; kit.hideBanner = hideBanner;
 
-    /* ═══ Stage (bonus, jackpot wheel): a panel over the cabinet ═══ */
+    /* ═══ Stage (bonus, jackpot show, Hold & Win): a panel over the cabinet ═══ */
     var stage = new PIXI.Container(); stage.visible = false; L.stage.addChild(stage);
+    var ST = T.stage;
     function openStage(titleText, subText) {
       stage.removeChildren(); stage.visible = true; stage.alpha = 0;
       stage.addChild(paint(W - 60, 900, function (g, w, h) {
-        g.shadowColor = T.neon; g.shadowBlur = 30; rr(g, 6, 6, w - 12, h - 12, 26);
-        var rg = g.createRadialGradient(w / 2, 120, 20, w / 2, h / 2, h * 0.7); rg.addColorStop(0, "#2a1260"); rg.addColorStop(1, "#07041a");
-        g.fillStyle = rg; g.fill(); g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = T.neon2; g.stroke();
+        g.shadowColor = ST.glow; g.shadowBlur = 30; rr(g, 6, 6, w - 12, h - 12, 26);
+        var rg = g.createRadialGradient(w / 2, 120, 20, w / 2, h / 2, h * 0.7); rg.addColorStop(0, ST.bg[0]); rg.addColorStop(1, ST.bg[1]);
+        g.fillStyle = rg; g.fill(); g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = ST.stroke; g.stroke();
+        if (ST.decor) ST.decor(g, w, h);
       })).position.set(30, 150);
       var t = txt(titleText, { fontSize: 44, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 16, distance: 0, alpha: 1 } }); t.position.set(W / 2, 214);
-      var s = txt(subText || "", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 18, fill: "#7dff8a", wordWrap: true, wordWrapWidth: 620, align: "center" }); s.position.set(W / 2, 262);
+      if (t.width > 640) t.scale.set(640 / t.width);
+      var s = txt(subText || "", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 18, fill: ST.sub, wordWrap: true, wordWrapWidth: 620, align: "center" }); s.position.set(W / 2, 262);
       stage.addChild(t, s);
       animate(R(350), function (p) { stage.alpha = p; });
-      return { sub: s };
+      return { sub: s, root: stage };
     }
     function closeStage() { return animate(R(300), function (p) { stage.alpha = 1 - p; }).then(function () { stage.visible = false; stage.removeChildren(); }); }
-    function stageButton(label, y, onTap) {
-      var b = new PIXI.Container(); b.position.set(W / 2, y);
-      var bg = paint(280, 64, function (g, w, h) { rr(g, 2, 2, w - 4, h - 4, 16); g.fillStyle = grad(g, 0, h, ["#ff6b81", "#b0102a"]); g.fill(); g.lineWidth = 3; g.strokeStyle = "#ffe79a"; g.stroke(); });
-      bg.anchor.set(0.5); b.addChild(bg, txt(label, { fontSize: 24, fill: "#fff" }));
+    function stageButton(label, y, onTap, x, w) {
+      var b = new PIXI.Container(); b.position.set(x || W / 2, y);
+      var bw = w || 280, B = ST.button;
+      var bg = paint(bw, 64, function (g, w, h) { rr(g, 2, 2, w - 4, h - 4, 16); g.fillStyle = grad(g, 0, h, B.slice(0, 2)); g.fill(); g.lineWidth = 3; g.strokeStyle = B[2]; g.stroke(); });
+      bg.anchor.set(0.5); var t = txt(label, { fontSize: 24, fill: "#fff" }); if (t.width > bw - 30) t.scale.set((bw - 30) / t.width);
+      b.addChild(bg, t);
       stage.addChild(b);
       return button(b, function () { setOff(b, true); onTap(); });
     }
+    kit.openStage = openStage; kit.closeStage = closeStage; kit.stageButton = stageButton;
+    kit.stageOpen = function () { return stage.visible; };
+    // A prize wheel on the stage, stopping on slice `idx` (the server's): o = { labels, fills, textFills,
+    // rim, line, bg, glow, hub (emoji), radius, y, font, labelAt (0..1 of the radius), pointer, button, turning, done(idx) }
+    kit.wheel = function (o, idx, ui) {
+      return new Promise(function (resolve) {
+        var n = o.labels.length, seg = Math.PI * 2 / n, RAD = o.radius || 230, Y = o.y || 600, PAD = o.handles ? 64 : 20;
+        var wheel = paint(RAD * 2 + PAD, RAD * 2 + PAD, function (g, w) {
+          var c = w / 2;
+          if (o.handles) {   // a ship's wheel: spokes through the rim ending in turned handles
+            for (var hk = 0; hk < o.handles; hk++) {
+              var ha = hk * Math.PI * 2 / o.handles, hx = Math.cos(ha), hy = Math.sin(ha);
+              g.lineCap = "round"; g.lineWidth = 12; g.strokeStyle = o.handleColor[1];
+              g.beginPath(); g.moveTo(c + hx * (RAD - 6), c + hy * (RAD - 6)); g.lineTo(c + hx * (RAD + 18), c + hy * (RAD + 18)); g.stroke();
+              g.beginPath(); g.arc(c + hx * (RAD + 22), c + hy * (RAD + 22), 10, 0, Math.PI * 2); g.fillStyle = o.handleColor[0]; g.fill();
+              g.lineWidth = 2; g.strokeStyle = o.handleColor[1]; g.stroke();
+            }
+          }
+          g.shadowColor = o.glow; g.shadowBlur = 24; g.beginPath(); g.arc(c, c, RAD, 0, Math.PI * 2); g.fillStyle = o.bg; g.fill(); g.shadowBlur = 0;
+          o.labels.forEach(function (label, i) {
+            var a0 = -Math.PI / 2 + i * seg, a1 = a0 + seg;
+            g.beginPath(); g.moveTo(c, c); g.arc(c, c, RAD - 8, a0, a1); g.closePath(); g.fillStyle = o.fills[i]; g.fill();
+            g.lineWidth = 2; g.strokeStyle = o.line; g.stroke();
+            g.save(); g.translate(c, c); g.rotate(a0 + seg / 2 + Math.PI / 2);
+            g.font = (o.font || "24px ") + SIGN.split(",")[0]; g.textAlign = "center"; g.fillStyle = o.textFills ? o.textFills[i] : "#fff"; g.fillText(label, 0, -RAD * (o.labelAt || 0.6)); g.restore();
+          });
+          if (o.studs) for (var k = 0; k < n; k++) { var a = -Math.PI / 2 + k * seg; g.beginPath(); g.arc(c + Math.cos(a) * (RAD - 4), c + Math.sin(a) * (RAD - 4), 5, 0, Math.PI * 2); g.fillStyle = o.studs; g.fill(); }
+          g.lineWidth = 10; g.strokeStyle = o.rim; g.beginPath(); g.arc(c, c, RAD - 4, 0, Math.PI * 2); g.stroke();
+          g.beginPath(); g.arc(c, c, 34, 0, Math.PI * 2); g.fillStyle = o.bg; g.fill(); g.lineWidth = 4; g.strokeStyle = o.line; g.stroke();
+        });
+        wheel.anchor.set(0.5); wheel.position.set(W / 2, Y); stage.addChild(wheel);
+        var hub = new PIXI.Sprite(emojiTex(o.hub, 50)); hub.anchor.set(0.5); hub.position.copyFrom(wheel.position); stage.addChild(hub);
+        var pointer = new PIXI.Graphics().poly([-22, 0, 22, 0, 0, 40]).fill(o.pointer || 0xff4d5e).stroke({ width: 3, color: 0xffffff });
+        pointer.position.set(W / 2, Y - RAD - 26); stage.addChild(pointer);
+        var started = false, go = stageButton(o.button || "SPIN THE WHEEL", Y + 320, spinIt);
+        kit._stageGo = spinIt;
+        function spinIt() {
+          if (started) return; started = true; setOff(go, true); kit._stageGo = null;
+          ui.sub.text = o.turning || "The wheel is turning…";
+          var target = Math.PI * 2 * 5 + (Math.PI * 2 - (idx + 0.5) * seg) + (Math.random() - 0.5) * seg * 0.6, last = -1;
+          animate(R(4600), function (p) {
+            wheel.rotation = target * p;
+            var s = Math.floor(wheel.rotation / seg); if (s !== last) { last = s; sfx.wheelTick(); }
+          }, ease.wheel).then(function () {
+            sfx.wheelStop(); kit.wheelStopped = idx;
+            ui.sub.text = o.done(idx);
+            emit(40, W / 2, Y - 220, { emoji: true });
+            setTimeout(resolve, R(1100));
+          });
+        }
+        setTimeout(function () { if (!started && stage.visible) spinIt(); }, reduce ? 1200 : 9000);
+      });
+    };
+    // A pick on the stage: `n` closed items; each tap (or Auto) opens the next of the server's outcomes.
+    // o = { n, cols, x0, y0, dx, dy, closed(i) -> view, open(view, i, k, last) (k: the k-th opened, -1 for the
+    // ones left closed), outcomes (array, in order), auto (label), autoMs, onDone }
+    kit.pick = function (o) {
+      return new Promise(function (resolve) {
+        var items = [], opened = 0, done = false, autoTimer = null;
+        for (var i = 0; i < o.n; i++) {
+          var v = o.closed(i), cx = o.x0 + (i % o.cols) * o.dx + (o.shift && Math.floor(i / o.cols) % 2 ? o.shift : 0), cy = o.y0 + Math.floor(i / o.cols) * o.dy;
+          v.position.set(cx, cy); stage.addChild(v);
+          (function (v) { button(v, function () { reveal(v); }); })(v);
+          items.push(v);
+        }
+        function reveal(v) {
+          if (done || v._open) return;
+          v._open = true; v.cursor = "default";
+          var k = opened++, last = opened >= o.outcomes.length;
+          o.open(v, o.outcomes[k], k, last);
+          if (!last) return;
+          done = true; clearInterval(autoTimer); kit._stageGo = null;
+          var rest = items.filter(function (x) { return !x._open; });
+          setTimeout(function () { rest.forEach(function (x, j) { x._open = true; o.open(x, null, -1 - j, false); }); }, R(500));
+          setTimeout(resolve, R(1500));
+        }
+        function auto() {
+          if (done || autoTimer) return;   // already opening by itself
+          if (autoBtn) setOff(autoBtn, true);
+          kit._stageGo = null;
+          autoTimer = setInterval(function () {
+            var left = items.filter(function (x) { return !x._open; });
+            if (!left.length || done) return clearInterval(autoTimer);
+            reveal(left[rnd(left.length)]);
+          }, reduce ? 200 : (o.autoMs || 600));
+        }
+        var autoBtn = o.auto ? stageButton(o.auto, o.autoY || 960, auto, o.autoX, 240) : null;
+        kit._stageGo = auto;
+        setTimeout(function () { if (!done && !opened && stage.visible) auto(); }, reduce ? 1500 : 12000);   // by itself if left idle
+      });
+    };
 
     /* ═══ Celebration of an amount ═══ */
     var TIERS = { none: 0, win: 700, big: 1400, mega: 2200, jackpot: 3200 };
@@ -1053,11 +998,12 @@
     }
     function requestStop() {
       if (!reelsTurning || stopReq) return;
-      stopReq = true; sfx.press(); pressLaunch();
+      stopReq = true; sfx.press(); pressKey();
       if (stopWake) stopWake();
       updateControls();
     }
-    function startReels() { reelsTurning = true; stopReq = false; updateControls(); reels.forEach(function (r) { r.start(); }); sfx.startSpinLoop(); }
+    var landLog = [];   // for tests: when each reel landed
+    function startReels() { reelsTurning = true; stopReq = false; landLog = []; updateControls(); reels.forEach(function (r) { r.start(); }); sfx.startSpinLoop(); }
     async function stopAll(target) {
       var seen = 0, landings = [];
       for (var i = 0; i < REELS; i++) {
@@ -1068,7 +1014,7 @@
         } else if (i > 0) await (stopReq ? sleep(R(70)) : stoppable(R(420)));
         var n = target[i].filter(function (k) { return k === K.scatter; }).length;
         landings.push(reels[i].land(target[i], stopReq ? R(200) : R(560)).then((function (idx, cnt, has) {
-          return function () { sfx.reelStop(idx); if (has) sfx.scatter(cnt); };
+          return function () { landLog.push(performance.now()); sfx.reelStop(idx); if (has) sfx.scatter(cnt); };
         }(i, seen + n, n > 0))));
         seen += n;
       }
@@ -1079,7 +1025,7 @@
     }
 
     /* ═══ One spin step (the paid spin or a free spin; several phases = respins) ═══ */
-    var firstGrid = null;
+    var firstGrid = null, wins = [];
     function phaseItems(ph) {
       var items = (ph.lines || []).map(function (w) { return { type: "line", w: w, sats: w.win }; });
       if (ph.scatter && ph.scatter.win > 0) items.push({ type: "scatter", w: ph.scatter, sats: ph.scatter.win });
@@ -1104,15 +1050,16 @@
       var free = !!st.free, token = ++presentToken;
       if (!prespun) { hideBanner(); clearWins(); overLayer.removeChildren(); winRO.v.text = "0"; winShown = 0; }
       if (free) {
-        if (feature.played > 0 && st.multiplier > feature.mult) { setLcd((feature.reward ? feature.name : "Hyperspace") + ": wins ×" + st.multiplier + "!", true); sfx.feature(); }
+        if (feature.played > 0 && st.multiplier > feature.mult) { setLcd((feature.reward ? feature.name : T.fsShort) + ": wins ×" + st.multiplier + "!", true); sfx.feature(); }
         feature.played = st.freeSpin; feature.left = st.spinsLeft; feature.mult = st.multiplier;
         renderFeature(); setLcd("Free spin " + feature.played + "… good luck!");
       }
       var roundTotal = 0, lastTier = "none", phases = st.phases || [];
       for (var pi = 0; pi < phases.length; pi++) {
         var ph = phases[pi], fixedKeys = (ph.fixed || []).map(function (rc) { return rc[0] + "," + rc[1]; });
-        if (pi > 0) { token = ++presentToken; hideBanner(); clearWins(); setLcd("Lucky respin " + pi + "…", true); sfx.feature(); await sleep(R(900)); }
+        if (pi > 0) { token = ++presentToken; hideBanner(); clearWins(); setLcd("Lucky respin " + pi + ": " + fixedKeys.length + " " + syms[K.wild].emoji + " stay put…", true); sfx.feature(); await sleep(R(900)); }
         if (pi === 0) overLayer.removeChildren();
+        if (feature && (FS.sticky || feature.sticky)) { feature.sticky = fixedKeys.length; renderFeature(); }
         showFixed(fixedKeys);
         if (!(prespun && pi === 0)) { sfx.spinStart(); startReels(); await stoppable(R(pi ? 600 : 1000)); }
         await stopAll(ph.grid);
@@ -1128,6 +1075,7 @@
         }
         var p = phaseItems(ph), t = tierOf(ph, p.total);
         roundTotal += p.total; lastTier = t.tier;
+        wins = p.items;
         highlight(p.items, token);
         if (!p.items.length) {
           if (!ph.bonusCells) { setLcd(free ? "No win on this free spin." : T.quips[rnd(T.quips.length)]); sfx.noWin(); }
@@ -1144,7 +1092,7 @@
       return WAIT[lastTier];
     }
 
-    /* ═══ Bonus: the Warp Ladder (Cosmic Voyage) ═══ */
+    /* ═══ Bonus (the skin's game) ═══ */
     async function runBonus(st) {
       var token = ++presentToken;
       await sleep(R(700));
@@ -1153,7 +1101,7 @@
       setLcd(syms[K.bonus].emoji + " " + BON.name + " bonus!", true); sfx.bonusStart();
       emit(30, W / 2, RY + RH, { emoji: true });
       await sleep(R(2000)); hideBanner(); clearWins();
-      if (BON.type === "ladder") await playLadder(st); else await playGenericBonus(st);
+      await skin.bonus(kit, st);
       await closeStage();
       token = ++presentToken;
       var won = st.win, tier = won >= playBet * 50 ? "mega" : won >= playBet * 10 ? "big" : won > 0 ? "win" : "none";
@@ -1165,57 +1113,10 @@
       if (token === presentToken) hideBanner();
       settle = won > 0 ? SETTLE_MS : 0;
     }
-    function playLadder(st) {
-      return new Promise(function (resolve) {
-        var lv = BON.levels, ui = openStage("🛰️ " + BON.name.toUpperCase(), "Ignite the engines and climb!");
-        var rows = lv.map(function (v, i) {
-          var y = 860 - i * 62, c = new PIXI.Container(); c.position.set(330, y);
-          var bg = new PIXI.Graphics(); c.addChild(bg);
-          var n = txt(String(i + 1), { fontSize: 18, fill: "#8f86b8" }); n.position.set(-210, 0);
-          var t = txt(fmt(v) + "×", { fontSize: 26, fill: "#ffd166" }); t.position.set(-40, 0);
-          var s = txt("≈ " + amt(Math.floor(playBet * v * S)), { fontFamily: MONO, fontSize: 15, fill: "#8f86b8" }); s.anchor.set(1, 0.5); s.position.set(220, 0);
-          c.addChild(n, t, s); stage.addChild(c);
-          return { c: c, bg: bg };
-        });
-        var rocket = new PIXI.Sprite(emojiTex("🚀", 90)); rocket.anchor.set(0.5); rocket.position.set(640, 860); rocket.rotation = -Math.PI / 4; stage.addChild(rocket);
-        var level = 0;
-        function mark(fail) {
-          rows.forEach(function (r, i) {
-            r.bg.clear().roundRect(-230, -26, 460, 52, 12).fill(i === level ? (fail ? 0x7a0d17 : 0x6a2fe0) : i < level ? 0x163a2a : 0x0c0826)
-              .stroke({ width: 2, color: i === level ? 0xffffff : 0x4b3a8a });
-          });
-        }
-        mark();
-        var started = false;
-        var go = stageButton("IGNITE", 960, run);
-        async function run() {
-          if (started) return; started = true; setOff(go, true);
-          var boosts = st.boosts || [];
-          for (var k = 0; k < boosts.length; k++) {
-            ui.sub.text = "Boosting to level " + (level + 2) + "…";
-            await animate(R(700), function (p) { rocket.x = 640 + Math.sin(p * 40) * 3; }, ease.lin);
-            if (boosts[k]) {
-              level++; mark(); sfx.ladderUp(level);
-              var y0 = rocket.y; await animate(R(350), function (p) { rocket.y = y0 - 62 * p; });
-              ui.sub.text = "Level " + (level + 1) + ": " + fmt(lv[level]) + "×!";
-              emit(10, rocket.x, rocket.y + 30, { power: 8, cone: 3 });
-            } else {
-              mark(true); sfx.ladderFail(); shake(R(400), 8);
-              ui.sub.text = "Engines cut out at level " + (level + 1) + ": " + fmt(lv[level]) + "×";
-              await sleep(R(900)); return resolve();
-            }
-          }
-          ui.sub.text = "TOP OF THE LADDER! " + fmt(lv[level]) + "×";
-          await sleep(R(900)); resolve();
-        }
-        setTimeout(function () { if (!started) run(); }, reduce ? 1500 : 12000);
-      });
-    }
-    async function playGenericBonus(st) { openStage(BON.name.toUpperCase(), "Prize: " + fmtMult(st.prize) + "×"); await sleep(R(1800)); }
 
     /* ═══ Free spins and rewards ═══ */
     async function startFeature(spins) {
-      feature = { left: spins, played: 0, total: 0, mult: FS.progressive ? FS.progressive.start : (FS.multiplier || 1) };
+      feature = { left: spins, played: 0, total: 0, sticky: 0, mult: FS.progressive ? FS.progressive.start : (FS.multiplier || 1) };
       updateControls(); renderFeature();
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner("FREE SPINS!", spins + " SPINS · " + T.twist);
@@ -1237,17 +1138,34 @@
     async function startReward(st) {
       var Rw = COL.reward;
       playBet = st.bet || bet;
-      feature = { left: st.spins, played: 0, total: 0, mult: Math.max(1, Rw.multiplier || 1), reward: true, name: Rw.name, emoji: COL.emoji, locked: Rw.lockedWild || null };
+      feature = { left: st.spins, played: 0, total: 0, sticky: 0, mult: Math.max(1, Rw.multiplier || 1), reward: true, name: Rw.name, emoji: COL.emoji, locked: Rw.lockedWild || null };
       updateControls(); renderFeature();
       var token = ++presentToken; hideBanner(); clearWins();
-      showBanner(Rw.name.toUpperCase() + "!", st.spins + " SPINS" + (Rw.rise ? " · RISING ×" : ""));
+      showBanner(Rw.name.toUpperCase() + "!", st.spins + " SPINS" + (Rw.multiplier > 1 ? " · WINS ×" + Rw.multiplier : Rw.rise ? " · RISING ×" : ""));
       setLcd(Rw.name + ": " + st.spins + " free spins at " + fmt(playBet) + " tSats!", true); sfx.freeSpins();
-      emit(50, TX + TW / 2, TY + 40, { emoji: true });
+      var tp = col.target(); emit(50, tp.x, tp.y, { emoji: true });
       await sleep(R(2400)); if (token === presentToken) hideBanner();
     }
-    function rewardDone() { playBet = bet; tankFlash(false); paintTank(0, TANK.size, false); TANK.cycle = (TANK.cycle || 0) + 1; }
+    function rewardDone() {
+      playBet = bet; tankFlash(false); paintTank(0, TANK.size, false); TANK.cycle = (TANK.cycle || 0) + 1;
+      if (window.TNC_Jackpots && TNC_Jackpots.collectorDone) TNC_Jackpots.collectorDone(id);
+    }
+    // A Hold & Win reward (the skin's board), then its win.
+    async function playHoldAndWin(st) {
+      var Rw = COL.reward, b = st.bet || bet;
+      playBet = b;
+      await skin.holdAndWin(kit, st, b);
+      await closeStage();
+      var token = ++presentToken, won = st.win || 0;
+      var tier = won >= b * 50 ? "mega" : won >= b * 10 ? "big" : won > 0 ? "win" : "none";
+      setLcd(Rw.name + " paid " + fmtMult(st.prize) + "× = " + amt(won), won > 0);
+      if (won > 0) celebrate(won, tier === "win" ? "big" : tier, token, Rw.name.toUpperCase() + "!");
+      addHistory(Rw.name, won, won, tier);
+      settle = won > 0 ? 2800 + SETTLE_MS : 0;
+      await sleep(R(2600)); if (token === presentToken) hideBanner();
+    }
 
-    /* ═══ A jackpot won in the game: 3 🌠, the Star Map Wheel, the celebration ═══ */
+    /* ═══ A jackpot won in the game: the symbols, the skin's show, the celebration ═══ */
     var JP = {
       minor: { title: "MINOR JACKPOT!", ms: 3200, coins: 80, shake: 10, color: "#9ff0ff" },
       major: { title: "MAJOR JACKPOT!", ms: 4400, coins: 160, shake: 16, color: "#e0c3ff" },
@@ -1260,58 +1178,17 @@
       for (var c = 0; c < REELS; c++) reels[c].setStatic(firstGrid[c]);
       grid = firstGrid; clearWins(); return true;
     }
+    var jpShown = 0;   // for tests: jackpot symbols drawn over the cells
     async function showJackpot(st) {
       var token = ++presentToken;
       hideBanner(); clearWins(); overLayer.removeChildren();
       if (backToFirstGrid()) { setLcd("Back to your spin…"); await sleep(R(500)); }
-      overlayCells(st.cells, emojiTex(JPC.emoji, 96, "#ffd166"), 90, 260);
+      kit.jpSprites = overlayCells(st.cells, emojiTex(JPC.emoji, 96, "#ffd166"), 90, JPC.type === "apples" ? 260 : 220);
+      jpShown = st.cells.length;
       sfx.scatter(st.cells.length);
-      setLcd(st.cells.length + " " + JPC.emoji + " shooting stars! The " + JPC.name + " spins.", true);
-      await sleep(R(1700));
-      await playStarWheel(st);
-      await closeStage();
+      await skin.jackpot(kit, st);
+      if (stage.visible) await closeStage();
       await celebrateJackpot(st, token);
-    }
-    function playStarWheel(st) {
-      return new Promise(function (resolve) {
-        var ui = openStage("🌠 " + JPC.name.toUpperCase(), "Spin the wheel for your jackpot!");
-        var slices = JPC.slices, n = slices.length, seg = Math.PI * 2 / n, RAD = 230;
-        var cols = { minor: "#1f6fb2", major: "#7b3fe4", grand: "#e0313f" };
-        var wheel = paint(RAD * 2 + 20, RAD * 2 + 20, function (g, w) {
-          var c = w / 2;
-          g.shadowColor = T.neon2; g.shadowBlur = 24; g.beginPath(); g.arc(c, c, RAD, 0, Math.PI * 2); g.fillStyle = "#120a2e"; g.fill(); g.shadowBlur = 0;
-          slices.forEach(function (t, i) {
-            var a0 = -Math.PI / 2 + i * seg, a1 = a0 + seg;
-            g.beginPath(); g.moveTo(c, c); g.arc(c, c, RAD - 8, a0, a1); g.closePath(); g.fillStyle = cols[t]; g.fill();
-            g.lineWidth = 2; g.strokeStyle = "#9ff0ff"; g.stroke();
-            g.save(); g.translate(c, c); g.rotate(a0 + seg / 2 + Math.PI / 2);
-            g.font = "24px " + SIGN.split(",")[0]; g.textAlign = "center"; g.fillStyle = "#fff"; g.fillText(TIER_NAMES[t], 0, -RAD * 0.6); g.restore();
-          });
-          g.lineWidth = 10; g.strokeStyle = T.neon; g.beginPath(); g.arc(c, c, RAD - 4, 0, Math.PI * 2); g.stroke();
-          g.beginPath(); g.arc(c, c, 34, 0, Math.PI * 2); g.fillStyle = "#120a2e"; g.fill(); g.lineWidth = 4; g.strokeStyle = "#9ff0ff"; g.stroke();
-        });
-        wheel.anchor.set(0.5); wheel.position.set(W / 2, 600); stage.addChild(wheel);
-        var hub = new PIXI.Sprite(emojiTex("🌠", 50)); hub.anchor.set(0.5); hub.position.copyFrom(wheel.position); stage.addChild(hub);
-        var pointer = new PIXI.Graphics().poly([-22, 0, 22, 0, 0, 40]).fill(0xff4d5e).stroke({ width: 3, color: 0xffffff });
-        pointer.position.set(W / 2, 600 - RAD - 26); stage.addChild(pointer);
-        var started = false, go = stageButton("SPIN THE WHEEL", 920, spinIt);
-        function spinIt() {
-          if (started) return; started = true; setOff(go, true);
-          ui.sub.text = "The stars are turning…";
-          var idx = st.slice != null ? st.slice : slices.indexOf(st.tier);
-          var target = Math.PI * 2 * 5 + (Math.PI * 2 - (idx + 0.5) * seg) + (Math.random() - 0.5) * seg * 0.6, last = -1;
-          animate(R(4600), function (p) {
-            wheel.rotation = target * p;
-            var s = Math.floor(wheel.rotation / seg); if (s !== last) { last = s; sfx.wheelTick(); }
-          }, function (t) { return 1 - Math.pow(1 - t, 4); }).then(function () {
-            sfx.wheelStop();
-            ui.sub.text = "The wheel stops on the " + TIER_NAMES[st.tier] + " JACKPOT!";
-            emit(40, W / 2, 380, { emoji: true });
-            setTimeout(resolve, R(1100));
-          });
-        }
-        setTimeout(function () { if (!started && stage.visible) spinIt(); }, reduce ? 1200 : 9000);
-      });
     }
     async function celebrateJackpot(st, token) {
       var tier = st.tier || st.pool, c = JP[tier] || JP.major, win = st.win || 0;
@@ -1325,7 +1202,7 @@
       emit(Math.round(c.coins / 2), W / 2, RY + RH, { emoji: true, power: 20, spread: 400 });
       rain(c.coins, R(c.ms * 0.6));
       setLcd(c.title + " " + bchs, true);
-      lcdSub.text = "Won with the " + JPC.name + ".";
+      lcdSub.text = JPC ? "Won with the " + JPC.name + "." : "A jackpot, on top of the game's win.";
       addHistory(tier + " jackpot", win, win, "jackpot");
       await sleep(R(c.ms));
       if (token === presentToken) hideBanner();
@@ -1333,15 +1210,17 @@
       settle = SETTLE_MS;
     }
 
-    /* ═══ Collect symbols: onto their cells, then into the Fuel Tank ═══ */
+    /* ═══ Collect symbols: onto their cells, then into the collector ═══ */
+    var colShown = 0;   // for tests: collect symbols drawn over the cells
     async function playCollect(st) {
       if (!COL || !st.cells || !st.cells.length) { if (st.filled != null) paintTank(st.filled, st.size, true); return; }
       if (backToFirstGrid()) await sleep(R(400));
-      var tex = emojiTex(COL.emoji, 64, "#9ff0ff");
+      var tex = emojiTex(COL.emoji, 64, T.collectGlow);
       var items = overlayCells(st.cells, tex, 52, 140, true);
+      colShown = Math.max(colShown, st.cells.length);
       sfx.chip();
       await sleep(R(650 + st.cells.length * 140));
-      var tx = TX + TW / 2, ty = TY + TIN.y + TIN.h * 0.5;
+      var tp = col.target(), tx = tp.x, ty = tp.y;
       await Promise.all(items.map(function (s, k) {
         var x0 = s.x, y0 = s.y, s0 = s.scale.x;
         return sleep(reduce ? 0 : k * 90).then(function () {
@@ -1377,6 +1256,7 @@
         else if (st.type === "jackpot") { await sleep(Math.max(R(900), Math.min(wait, 1500))); if (st.cells && JPC) await showJackpot(st); else await celebrateJackpot(st); wait = 0; }
         else if (st.type === "collect") { await sleep(R(Math.min(wait, 600))); await playCollect(st); wait = st.full ? 0 : wait; }
         else if (st.type === "rewardStart") { await sleep(R(700)); await startReward(st); wait = 0; }
+        else if (st.type === "holdAndWin") { await sleep(R(700)); await playHoldAndWin(st); rewardDone(); wait = 0; }
       }
     }
 
@@ -1400,11 +1280,11 @@
       if (busy) return;
       if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " tSats is more than your " + amt(b) + ".", true); sfx.tilt(); shake(R(400), 8); return; }
       sfx.press();
-      pressLaunch();
+      pressKey();
       busy = true; playBet = bet; updateControls();
       if (window.TNC_Jackpots) TNC_Jackpots.hold();
       ++presentToken; hideBanner(); clearWins(); overLayer.removeChildren();
-      winRO.v.text = "0"; winShown = 0;
+      winRO.v.text = "0"; winShown = 0; wins = [];
       balShown = currentBalance() - bet; balRO.v.text = num(balShown);
       setLcd("Reels spinning… good luck!");
       sfx.spinStart(); startReels();
@@ -1436,6 +1316,7 @@
       var li = document.createElement("li");
       li.className = (win > 0 ? "is-win" : "") + (tier === "big" || tier === "mega" || tier === "jackpot" ? " is-big" : "");
       var line = kind === "bonus" ? syms[K.bonus].emoji + " " + esc(BON.name)
+        : COL && kind === COL.reward.name ? COL.emoji + " " + esc(kind)
         : /jackpot/.test(kind) ? (/grand/.test(kind) ? "🏆 Grand" : /minor/.test(kind) ? "✨ Minor" : "⭐ Major") + " jackpot"
         : grid.map(function (col) { return syms[col[1]].emoji; }).join("");
       li.innerHTML = '<span class="h-line">' + line + '</span><span class="h-kind">' + esc(kind) + '</span><span class="h-amt" data-sats="' + Math.abs(net) +
@@ -1483,9 +1364,24 @@
     renderSound(); renderUnit(); setBet(bet); syncBalance();
     setLcd(T.welcome);
     showReady();
-    // For tests: what the machine is doing.
-    window.TNC_PixiState = function () { var lp = deckPoint(390, 130), up = deckPoint(556 + 124, 12 + 270); return { launchAt: lp, betUpAt: up, keyDepth: Math.round(launchTop.y * 10) / 10, keyOff: !!launch._off, busy: busy, feature: feature, tank: { filled: TANK.filled, size: TANK.size }, jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, bounds: (function () { var b = world.getLocalBounds(); return [Math.round(b.minX), Math.round(b.minY), Math.round(b.maxX), Math.round(b.maxY)]; })() }; };
+    // For tests: what the machine is doing, and a way to press the stage's button (or Auto) at once.
+    window.TNC_PixiState = function () {
+      var pts = ctl.points();
+      return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]), keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
+        busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
+        jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,
+        banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, wins: wins.length, landed: landLog.slice(), turning: reelsTurning,
+        jpShown: jpShown, colShown: colShown, wheel: kit.wheelStopped == null ? null : kit.wheelStopped, picks: kit.picksShown || 0, pearls: kit.pearlsShown || 0, keySub: keySub,
+        bounds: (function () { var b = world.getLocalBounds(); return [Math.round(b.minX), Math.round(b.minY), Math.round(b.maxX), Math.round(b.maxY)]; })() };
+    };
+    window.TNC_PixiGo = function () { if (kit._stageGo) { kit._stageGo(); return true; } return false; };
+    window.TNC_PixiPress = function () { press(); };
+    window.TNC_PixiBet = function (v) { if (!busy) setBet(v); };
   }
 
-  window.TNC_PixiMachine = { build: build, supports: function (game) { return !!THEMES[game.theme] && !!PIXI; } };
+  window.TNC_PixiMachine = {
+    build: build,
+    supports: function (game) { return !!SKINS[game.theme] && !!PIXI; },
+    skin: function (theme, s) { SKINS[theme] = s; }
+  };
 })();
