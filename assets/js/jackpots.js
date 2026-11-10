@@ -9,7 +9,7 @@
  *                     cycle, seed, seedHash, minSats, maxSats, target, startSats (D40/D41 wins: displayScale) } ],
  *     updatedAt }
  *
- * The jackpots are part of the games' RTP (110% in all): every bet adds a share to its game's Minor
+ * The jackpots are part of the games' RTP (101% in all from D45, head starts included): every bet adds a share to its game's Minor
  * and Major and to the shared Grand, and a spin wins them inside the game, by its rules. When is a
  * surprise: the target ranges are never shown.
  *

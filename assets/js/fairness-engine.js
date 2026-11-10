@@ -9,8 +9,9 @@
  *   - slot rules: the same as the backend's frozen reference engine;
  *   - wins: exact BigInt arithmetic, 1 unit = 10^-7 of the bet, each item
  *     rounded to whole sats with one draw when there is a remainder;
- *   - game versions: the API serves the current config (version 4 from D43, before
- *     that version 3). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
+ *   - game versions: the API serves the current config (version 5 from D45, version 4
+ *     from D43, before that version 3). Version 5 is version 4 with its own payScale and
+ *     jackpot chances (101% RTP with everything included). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
  *     2026-11-09) adds two jackpot draws after every other draw: the game's Major,
  *     then the shared Grand (FAIRNESS.md section 4, step 5). Version 4 has version
  *     3's reels with its own payScale, plus the jackpots won in the game and the
@@ -53,21 +54,38 @@
   /* ═══════════════ Game versions ═══════════════ */
   // Version 2's jackpot draws (the same for all three games; frozen, they never change).
   var V2_JACKPOTS = { major: { oneInSats: 730000 }, grand: { oneInSats: 9300000 } };
-  // Versions 1 to 3 paid with these (frozen); version 4 has its own payScale (x 0.96 / 1.0001).
+  // Versions 1 to 3 paid with these (frozen); version 4 and 5 have their own payScale.
   var V3_PAYSCALE = { "fruit-orchard": 1.039426, "deep-sea": 1.043096, "cosmic-voyage": 1.038924 };
+  // Version 4 (D43, 110% with the head starts on top), frozen: its payScale and jackpot chances. Version 5 (D45,
+  // 101% with everything included) has the same reels, symbols, features and collector, only these differ.
+  var V4_PAYSCALE = { "fruit-orchard": 0.997749, "deep-sea": 1.001272, "cosmic-voyage": 0.997267 };
+  var V4_ONE_IN = { minor: 40000, major: 270000, grand: 11500000 };
+  var V4_CONTRIBUTION = { minor: 0.04, major: 0.03, grand: 0.03 };
   var V4_ONLY = ["jackpots", "jackpot", "collector", "rtpParts"];
-  /** The rules a spin of `version` was played with, built from the current config (version 3 or 4). */
+  function copy(o) { var g = {}; Object.keys(o).forEach(function (k) { g[k] = o[k]; }); return g; }
+  /** The rules a spin of `version` was played with, built from the current config (version 3, 4 or 5). */
   function configFor(game, version) {
     version = Number(version || game.version);
-    var ok = version === game.version || (version >= 1 && version <= 3 && (game.version === 3 || (game.version === 4 && V3_PAYSCALE[game.id])));
+    var cur = game.version, known = !!V3_PAYSCALE[game.id];
+    var ok = version === cur || (version >= 1 && version <= 3 && (cur === 3 || (cur >= 4 && known)))
+      || (version === 4 && cur === 5 && known);
     if (!ok) {
-      throw new Error("Game version " + version + " cannot be checked with the version " + game.version + " rules the server serves.");
+      throw new Error("Game version " + version + " cannot be checked with the version " + cur + " rules the server serves.");
     }
-    if (version === game.version && version !== 2) return game;
-    var g = {};
+    if (version === cur && version !== 2) return game;
+    var g;
+    if (version === 4) {   // from version 5
+      g = copy(game);
+      g.version = 4; g.payScale = V4_PAYSCALE[game.id]; g.rtp = 1.1;
+      g.rtpParts = { game: 0.96, collector: 0.04, jackpots: 0.1 };
+      g.jackpot = copy(game.jackpot);
+      ["minor", "major", "grand"].forEach(function (t) { g.jackpot[t] = { oneInSats: V4_ONE_IN[t], contribution: V4_CONTRIBUTION[t] }; });
+      return g;
+    }
+    g = {};
     Object.keys(game).forEach(function (k) { if (V4_ONLY.indexOf(k) === -1) g[k] = game[k]; });
     g.version = version;
-    if (game.version === 4) { g.payScale = V3_PAYSCALE[game.id]; g.rtp = 1.0001; }
+    if (cur >= 4) { g.payScale = V3_PAYSCALE[game.id]; g.rtp = 1.0001; }
     if (version === 2) g.jackpots = V2_JACKPOTS;
     return g;
   }
@@ -525,10 +543,14 @@
   /* ═══════════════ Roulette (FAIRNESS.md section 9) ═══════════════ */
   /**
    * A roulette round from its revealed seed: the stream of section 2 with clientSeed "roulette" and
-   * nonce = round id gives the number (randInt(37)), the spin's length (28 + randInt(5)), then, for
-   * every chip in bet id order that covers the number, the rounding of its payout (stake × 37 / n,
-   * plus 1 sat when randInt(n) < the remainder). bets: [{ amount, numbers }] (chips taken back are not
-   * included). Resolves to { seedHash, number, spinSeconds, payouts } (0 for a chip that lost).
+   * nonce = round id gives the number (randInt(37)) and the spin's length (28 + randInt(5)), then
+   *   rules 2 (D45): the golden ball, golden = randInt(236) == 0; a chip that covers the number pays
+   *     stake × 36 / n, × 10 when golden (no more draws);
+   *   rules 1 (D44): for every chip in bet id order that covers the number, the rounding of its payout
+   *     (stake × 37 / n, plus 1 sat when randInt(n) < the remainder).
+   * bets: [{ amount, numbers }] (chips taken back are not included); rules: the round's "rules" (1 when
+   * absent: rounds from before D45). Resolves to { seedHash, number, spinSeconds, golden (rules 2, else
+   * null), payouts } (0 for a chip that lost).
    */
   // The numbers a chip covers: its `numbers`, or for an outside bet (red, dozen2, column1, ...) by its type.
   var R_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
@@ -546,20 +568,30 @@
     if ((m = /^column([123])$/.exec(t))) return all.filter(function (n) { return (n - 1) % 3 === m[1] - 1; });
     return [];
   }
-  function roulette(seedHex, roundId, bets) {
+  var R_GOLDEN_ONE_IN = 236, R_GOLDEN_MULT = 10n;
+  function roulette(seedHex, roundId, bets, rules) {
     bets = bets || [];
+    rules = Number(rules || 1);
+    if (rules !== 1 && rules !== 2) return Promise.reject(new Error("Unknown roulette rules version " + rules + "."));
     var blocks = 4;
     function attempt() {
       return makeStream(seedHex, "roulette", roundId, blocks).then(function (st) {
         try {
           var number = st.randInt(37), spinSeconds = 28 + st.randInt(5);
+          if (rules === 2) {
+            var golden = st.randInt(R_GOLDEN_ONE_IN) === 0;
+            return { number: number, spinSeconds: spinSeconds, golden: golden, payouts: bets.map(function (b) {
+              var nums = rouletteCovers(b);
+              return nums.indexOf(number) === -1 ? 0 : Number(BigInt(b.amount) * 36n / BigInt(nums.length) * (golden ? R_GOLDEN_MULT : 1n));
+            }) };
+          }
           var payouts = bets.map(function (b) {
             var nums = rouletteCovers(b);
             if (nums.indexOf(number) === -1) return 0;
             var n = BigInt(nums.length), exact = BigInt(b.amount) * 37n, whole = exact / n, rem = exact % n;
             return Number(whole) + (rem > 0n && BigInt(st.randInt(Number(n))) < rem ? 1 : 0);
           });
-          return { number: number, spinSeconds: spinSeconds, payouts: payouts };
+          return { number: number, spinSeconds: spinSeconds, golden: null, payouts: payouts };
         } catch (e) {
           if (e === NEED_MORE && blocks < 4096) { blocks *= 4; return attempt(); }
           throw e;

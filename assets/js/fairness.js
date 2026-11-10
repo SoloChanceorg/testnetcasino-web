@@ -363,7 +363,7 @@
       busy(btn, false);
       if (r.status !== 200 || !r.data || !r.data.round) { out.className = "vf-result is-bad"; out.textContent = api.errorText(r, "That round could not be loaded."); return; }
       var rd = r.data.round;
-      $("rl-seed").value = rd.seed || ""; $("rl-hash").value = rd.seedHash || "";
+      $("rl-seed").value = rd.seed || ""; $("rl-hash").value = rd.seedHash || ""; $("rl-rules").value = String(rd.rules || 1);
       $("rl-bets").value = JSON.stringify((r.data.bets || []).map(function (c) { var b = { type: c.type, amount: c.amount }; if (c.numbers && c.numbers.length) b.numbers = c.numbers; if (c.payout != null) b.payout = c.payout; return b; }));
       $("rl-form")._round = rd;
       if (!rd.seed) { out.textContent = "The seed of round " + id + " is not revealed yet: it is published at the result."; return; }
@@ -380,20 +380,23 @@
       : hash && !/^[0-9a-f]{64}$/.test(hash) ? "The seed hash must be 64 hex characters." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     var rd = $("rl-form")._round && $("rl-form")._round.id === id ? $("rl-form")._round : null;
+    var rules = parseInt($("rl-rules").value, 10) || 2;
     busy(btn, true, "Checking...");
-    Fair.roulette(seedHex, id, bets.map(function (c) { return { amount: c.amount, numbers: Fair.rouletteCovers(c) }; })).then(function (d) {
+    Fair.roulette(seedHex, id, bets.map(function (c) { return { amount: c.amount, numbers: Fair.rouletteCovers(c) }; }), rules).then(function (d) {
       var checks = [];
       if (hash) checks.push([d.seedHash === hash, "SHA-256 of the seed equals the published seed hash"]);
       if (rd && rd.number != null) checks.push([d.number === rd.number, "The seed gives the number the table showed (" + rd.number + ")"]);
       if (rd && rd.spinSeconds != null) checks.push([d.spinSeconds === rd.spinSeconds, "The seed gives the spin's length (" + rd.spinSeconds + " s)"]);
+      if (rd && rules === 2) checks.push([d.golden === !!rd.golden, d.golden ? "The seed gives a golden ball: every win ×10, as the table played it" : "The seed gives no golden ball, as the table played it"]);
       var paid = bets.filter(function (c) { return c.payout != null; });
       if (paid.length) checks.push([bets.every(function (c, i) { return c.payout == null || c.payout === d.payouts[i]; }), "Every payout matches (" + paid.length + " chip" + (paid.length === 1 ? "" : "s") + ")"]);
       var bad = checks.some(function (c) { return !c[0]; });
       out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
-      out.appendChild(el("p", "rv-title", "Round " + id + ": " + d.number + " " + rlColor(d.number) + ", a " + d.spinSeconds + " s spin" +
+      out.appendChild(el("p", "rv-title", "Round " + id + ": " + d.number + " " + rlColor(d.number) + ", a " + d.spinSeconds + " s spin" + (d.golden ? ", 🟡 golden ball (wins ×10)" : "") +
         (checks.length ? (bad ? " ✗ something does not match" : " ✓ every check passed") : "")));
       var dl = el("dl", "seed-list");
-      [["Seed hash (SHA-256)", d.seedHash], ["Number", String(d.number)], ["Spin", d.spinSeconds + " s"]].forEach(function (p) {
+      [["Seed hash (SHA-256)", d.seedHash], ["Number", String(d.number)], ["Spin", d.spinSeconds + " s"],
+        ["Rules", rules === 2 ? "2: stake × 36 / n, golden ball" : "1: stake × 37 / n, rounding draws"]].concat(rules === 2 ? [["Golden ball", d.golden ? "yes: every win ×10" : "no"]] : []).forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       out.appendChild(dl);

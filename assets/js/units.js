@@ -16,6 +16,12 @@
  *   game.value(sats)   "1,234" or "0.00001234"  (meters, unit shown apart)
  *   game.unit()        "tSats" or "tBCH"
  * The preference is a display setting only (localStorage "tnc.gameUnit").
+ *
+ * RTP in running text: pages write the current numbers and mark them, and they are replaced from a game
+ * config (GET /games/{id}/config, public; every machine has the same RTP and parts):
+ *   <span data-rtp>101%</span>                    rtp
+ *   <span data-rtp-part="headStarts">8.5%</span>  rtpParts.game / collector / jackpots / headStarts
+ *   <span data-jp-share="minor">3.36%</span>       jackpot.minor / major / grand .contribution
  */
 (function () {
   "use strict";
@@ -38,6 +44,24 @@
     var s = bch(sats).replace(/0+$/, "");
     return s.replace(/\.$/, "");
   }
+
+  function pct(x) { return String(+(x * 100).toFixed(2)) + "%"; }
+  function fillRtp() {
+    var nodes = document.querySelectorAll("[data-rtp], [data-rtp-part], [data-jp-share]");
+    if (!nodes.length || !window.TNC_API || !window.TNC_API.gameConfig) return;
+    window.TNC_API.gameConfig("fruit-orchard").then(function (r) {
+      var c = r && r.status === 200 && r.data;
+      if (!c || typeof c.rtp !== "number") return;
+      nodes.forEach(function (n) {
+        var part = n.getAttribute("data-rtp-part"), tier = n.getAttribute("data-jp-share"), v = null;
+        if (n.hasAttribute("data-rtp")) v = c.rtp;
+        else if (part) v = c.rtpParts && c.rtpParts[part];
+        else if (tier) v = c.jackpot && c.jackpot[tier] && c.jackpot[tier].contribution;
+        if (typeof v === "number") n.textContent = pct(v);
+      });
+    }).catch(function () {});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fillRtp); else fillRtp();
 
   window.TNC_Units = {
     bch: function (sats) { return ok(sats) ? bch(sats) : "n/a"; },

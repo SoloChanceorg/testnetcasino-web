@@ -100,9 +100,9 @@ for (const m of doc.meters || []) {
 }
 for (const r of doc.roulette || []) {
   checked++;
-  const got = await Fair.roulette(r.seed, r.roundId, r.bets);
-  if (!same({ seedHash: got.seedHash, number: got.number, spinSeconds: got.spinSeconds, payouts: got.payouts },
-             { seedHash: r.seedHash, number: r.number, spinSeconds: r.spinSeconds, payouts: r.payouts })) {
+  const got = await Fair.roulette(r.seed, r.roundId, r.bets, r.rules || 1);
+  if (!same({ seedHash: got.seedHash, number: got.number, spinSeconds: got.spinSeconds, golden: got.golden, payouts: got.payouts },
+             { seedHash: r.seedHash, number: r.number, spinSeconds: r.spinSeconds, golden: r.rules === 2 ? r.golden : null, payouts: r.payouts })) {
     failed++; console.log("ROULETTE MISMATCH round", r.roundId, JSON.stringify(got));
   }
 }

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110h">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110i">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -143,7 +143,7 @@
 
       <section class="panel" id="jackpots" aria-labelledby="mt-title">
         <h2 class="panel-label" id="mt-title">💰 JACKPOTS</h2>
-        <p>The jackpots are part of every machine's 110% RTP: every bet adds 4% to the machine's Minor, 3% to its Major and 3% to the shared Grand. A spin wins them inside the game, by its own seeds: three draws after the free spins (Grand, Major, Minor, each a hit with a chance of bet / one-in), and the highest hit is won. The verifier above replays them too. What a win pays is what the jackpot holds at that moment.</p>
+        <p>The jackpots are part of every machine's <span data-rtp>101%</span> RTP: every bet adds <span data-jp-share="minor">3.36%</span> to the machine's Minor, <span data-jp-share="major">2.52%</span> to its Major and <span data-jp-share="grand">2.52%</span> to the shared Grand, and the head starts after a win (<span data-rtp-part="headStarts">8.5%</span>) are counted in it too. A spin wins them inside the game, by its own seeds: three draws after the free spins (Grand, Major, Minor, each a hit with a chance of bet / one-in), and the highest hit is won. The verifier above replays them too. What a win pays is what the jackpot holds at that moment.</p>
         <ol class="fair-steps">
           <li>After a win the next cycle starts with a <b>head start</b> from the faucet. When a cycle starts, the server draws a secret <b>seed</b> and publishes its SHA-256 hash right away (under "Seed hashes now" on the <a href="jackpots.html">jackpots page</a>).</li>
           <li>The head start comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives two numbers. The first picks a hidden <b>target</b> between the tier's minimum and maximum (small targets more likely), the second the <b>head start</b>, 25% to 75% of the target.</li>
@@ -173,11 +173,14 @@
 
       <section class="panel" id="roulette" aria-labelledby="rl-title">
         <h2 class="panel-label" id="rl-title">🎡 ROULETTE</h2>
-        <p>Every roulette round has its own secret seed. Its SHA-256 hash is published when betting opens, and the seed is revealed at the result. The seed alone fixes the winning number, the length of the spin and the rounding of every payout: the stream above with client seed <code>roulette</code> and the round id as nonce gives the number (<code>randInt(37)</code>), the spin (<code>28 + randInt(5)</code> seconds), then for every chip that covers the number, in bet order, the extra tSat of its fraction. A bet on <i>n</i> numbers pays <code>stake × 37 / n</code> (RTP 100%).</p>
+        <p>Every roulette round has its own secret seed. Its SHA-256 hash is published when betting opens, and the seed is revealed at the result. The seed alone fixes the winning number, the length of the spin and the golden ball: the stream above with client seed <code>roulette</code> and the round id as nonce gives the number (<code>randInt(37)</code>), the spin (<code>28 + randInt(5)</code> seconds), then the golden ball (<code>randInt(236) == 0</code>). A bet on <i>n</i> numbers that wins pays <code>stake × 36 / n</code>, × 10 in a golden round (RTP 101%). The golden ball is drawn when betting closes, so nobody can know it while chips are placed.</p>
+        <p class="auth-hint">Rounds played before the golden ball (rules 1) paid <code>stake × 37 / n</code> with no golden ball: after the spin, every chip that covers the number, in bet order, draws the extra tSat of its fraction (RTP 100%). Each round says which rules it was played under.</p>
         <p class="auth-hint">Load a round from the table by its number, or enter a seed, a round id and the round's chips yourself.</p>
         <form id="rl-form" class="vf-grid" novalidate>
           <div><label class="auth-label" for="rl-id">Round</label>
             <input class="auth-input auth-mono" id="rl-id" type="number" inputmode="numeric" min="1" step="1"></div>
+          <div><label class="auth-label" for="rl-rules">Rules</label>
+            <select class="auth-input" id="rl-rules"><option value="2">2: golden ball, stake × 36 / n</option><option value="1">1: before the golden ball, stake × 37 / n</option></select></div>
           <div class="rl-load"><button type="button" class="btn-gold" id="rl-load">Load this round</button></div>
           <div class="vf-wide"><label class="auth-label" for="rl-seed">Seed (revealed at the result, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="rl-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
@@ -216,14 +219,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110h"></script>
-  <script src="assets/js/api.js?v=20261110h"></script>
-  <script src="assets/js/units.js?v=20261110h"></script>
-  <script src="assets/js/faucet.js?v=20261110h"></script>
-  <script src="assets/js/auth.js?v=20261110h"></script>
-  <script src="assets/js/fairness-engine.js?v=20261110h"></script>
-  <script src="assets/js/fairness.js?v=20261110h"></script>
-  <script src="assets/js/fx.js?v=20261110h"></script>
-  <script src="assets/js/music.js?v=20261110h"></script>
+  <script src="assets/js/config.js?v=20261110i"></script>
+  <script src="assets/js/api.js?v=20261110i"></script>
+  <script src="assets/js/units.js?v=20261110i"></script>
+  <script src="assets/js/faucet.js?v=20261110i"></script>
+  <script src="assets/js/auth.js?v=20261110i"></script>
+  <script src="assets/js/fairness-engine.js?v=20261110i"></script>
+  <script src="assets/js/fairness.js?v=20261110i"></script>
+  <script src="assets/js/fx.js?v=20261110i"></script>
+  <script src="assets/js/music.js?v=20261110i"></script>
 </body>
 </html>

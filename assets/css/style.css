@@ -354,6 +354,7 @@ h1, h2, h3 { font-weight: 400; }
 .gc-pockets .pk-r { background: radial-gradient(circle at 40% 35%, #ef4b5c, #b0142a 70%); }
 .gc-pockets .pk-b { background: radial-gradient(circle at 40% 35%, #444, #111 70%); }
 .gc-pockets .pk-g { background: radial-gradient(circle at 40% 35%, #2fbf6a, #0b7a37 70%); }
+.gc-pockets .pk-gold { border-color: #ffd84d; box-shadow: inset 0 -3px 6px rgba(0,0,0,.45), 0 0 10px 2px rgba(255,200,40,.85); }
 .theme-roulette .gc-body p, .theme-roulette .gc-feats { color: #e6f7ea; }
 .theme-roulette .gc-feats b { color: #ffe08a; }
 .theme-roulette .gc-play {
@@ -1387,6 +1388,15 @@ body.is-fullscreen .px-machine { width: auto; }
 .rt-amt.is-loss { color: #ff9aa5; }
 .rt-ball { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 4px; border-radius: 999px; font: 700 .82rem var(--sign); color: #fff; border: 2px solid rgba(255,255,255,.6); }
 .rt-ball.rt-red { background: #c0182c; } .rt-ball.rt-black { background: #151515; } .rt-ball.rt-green { background: #0c8a3e; }
+/* The golden ball (D45): a small gold ball beside a golden round's number, the note and the ×10 on its wins */
+.rt-gball { display: inline-block; width: 14px; height: 14px; margin-left: 6px; vertical-align: middle; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fffbe0, #ffd84d 35%, #d99a0b 80%, #8a5a00); box-shadow: 0 0 8px rgba(255,200,40,.8); flex: none; }
+.rt-golden-rule { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,216,77,.55); background: rgba(255,200,40,.08); }
+.rt-golden-rule .rt-gball { width: 22px; height: 22px; margin: 0; }
+.rt-golden-note { margin: 0 0 8px; color: #ffd84d; font-weight: 700; font-size: .86rem; }
+.rt-golden-note .rt-gball { margin: 0 4px 0 0; }
+.rt-x10 { margin-left: auto; padding: 1px 7px; border-radius: 999px; font: 800 .72rem var(--body); color: #3b2a00; background: linear-gradient(180deg, #ffe58a, #e0a915); }
+.rt-x10 + .rt-amt { margin-left: 0; }
 .rt-detail td { white-space: normal; }
 .rt-detail .seed-list dd { overflow-wrap: anywhere; font-size: .78rem; }
 .rt-chips td { white-space: nowrap; }

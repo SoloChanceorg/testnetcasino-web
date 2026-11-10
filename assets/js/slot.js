@@ -87,14 +87,16 @@
           '<div><dt>RTP</dt><dd>' + RTP + (PARTS ? ' in all' : '') + '</dd></div>' +
           (PARTS ? '<div><dt>Reels, free spins, bonus</dt><dd>' + pct(PARTS.game) + '</dd></div>' +
             (COL ? '<div><dt>' + esc(COL.name) + '</dt><dd>' + pct(PARTS.collector) + '</dd></div>' : '') +
-            '<div><dt>Jackpots</dt><dd>' + pct(PARTS.jackpots) + '</dd></div>' : '') +
+            '<div><dt>Jackpots</dt><dd>' + pct(PARTS.jackpots) + '</dd></div>' +
+            (PARTS.headStarts != null ? '<div><dt>Jackpot head starts</dt><dd>' + pct(PARTS.headStarts) + '</dd></div>' : '') : '') +
           '<div><dt>Hit rate</dt><dd>' + Math.round(game.stats.hit * 100) + '%</dd></div>' +
           '<div><dt>Free spins</dt><dd>1 in ' + game.stats.featureEvery + '</dd></div>' +
           '<div><dt>Bonus</dt><dd>1 in ' + game.stats.bonusEvery + '</dd></div>' +
           '<div><dt>Volatility</dt><dd>' + esc(game.volatility) + '</dd></div>' +
         '</dl><p class="pt-note">This is a faucet, so the machine pays back more than it takes in: an RTP of ' + RTP +
           (PARTS ? ' with everything included: the reels, free spins and bonus ' + pct(PARTS.game) + (COL ? ', the ' + esc(COL.name) + "'s " + esc(COL.reward.name) + ' ' + pct(PARTS.collector) : '') +
-            ' and the jackpots ' + pct(PARTS.jackpots) + '. ' : '. ') +
+            (PARTS.headStarts != null ? ', the jackpots\' share of every bet ' + pct(PARTS.jackpots) + ' and the jackpot head starts ' + pct(PARTS.headStarts) + '. '
+              : ' and the jackpots ' + pct(PARTS.jackpots) + '. ') : '. ') +
           'Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the RTP holds at any bet. ' +
           'Rates were measured over ' + game.stats.spins + ' simulated spins. ' +
           'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
@@ -108,7 +110,8 @@
         '<li><b>' + JPC.emoji + ' ' + esc(JPC.name) + ':</b> ' + esc(JPC.text) + '</li>' +
         '<li>Every bet adds ' + pct(JPC.minor.contribution) + ' of itself to this machine\'s MINOR, ' + pct(JPC.major.contribution) +
           ' to its MAJOR and ' + pct(JPC.grand.contribution) + ' to the GRAND shared by all machines. A win takes everything the jackpot holds.</li>' +
-        '<li>After a win the next one starts with a head start from the faucet, so it never shows zero.</li>' +
+        '<li>After a win the next one starts with a head start from the faucet, so it never shows zero' +
+          (PARTS && PARTS.headStarts != null ? ' (the head starts are part of the ' + RTP + ' RTP too)' : '') + '.</li>' +
         '<li>Provably fair: whether a spin wins a jackpot comes from its seeds, like the rest of the spin. Each jackpot also publishes the SHA-256 hash of a secret seed that fixes its head start; anyone can check a win on the <a href="../jackpots.html">jackpots page</a>.</li>' +
         '</ul></div>';
       if (COL) out += '<div class="pt-section"><div class="pt-h">' + esc(COL.name) + '</div><ul class="rules">' +

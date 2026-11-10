@@ -20,6 +20,10 @@
  * wheel above a vertical felt). Chat, players, results, previous rounds and the rules are HTML; chat
  * text is only ever set as text, never as HTML.
  *
+ * Rules (D45, "rules" in the table message): a winning bet on n numbers returns stake × 36 / n; the golden ball
+ * (round.golden, sent with "spin" when betting closes, never before) makes every win of the round ×10. Rounds
+ * from before D45 are rules 1 (stake × 37 / n, no golden field) and are shown as they are.
+ *
  * Depends on: PixiJS 8, api.js, auth.js, units.js; fairness-engine.js (Verify); audio.js (optional).
  */
 (function () {
@@ -49,7 +53,13 @@
     dozen3: "3rd 12", column1: "Column 1", column2: "Column 2", column3: "Column 3" };
   function range(a, b) { var r = []; for (var i = a; i <= b; i++) r.push(i); return r; }
   function covers(chip) { return chip.numbers && chip.numbers.length ? chip.numbers : OUTSIDE[chip.type] || []; }
-  function payoutX(n) { var x = 37 / n; return x % 1 ? x.toFixed(2).replace(/0$/, "") : String(x); }
+  // The table's rules ("rules" in the table message, D45): a winning bet on n numbers returns stake × payoutPockets / n,
+  // and in about 1 round in goldenOneIn the golden ball makes every win goldenMultiplier times as much.
+  var RULES = { version: 2, payoutPockets: 36, goldenOneIn: 236, goldenMultiplier: 10, rtp: "1.01" };
+  function returnsX(n) { return RULES.payoutPockets / n; }                       // stake included
+  function returnOf(stake, n) { return Math.floor(stake * RULES.payoutPockets / n); }
+  function oddsText(n) { var x = RULES.payoutPockets / n - 1; return (x % 1 ? x.toFixed(2) : String(x)) + " to 1"; }
+  function rtpText() { return String(+(parseFloat(RULES.rtp) * 100).toFixed(2)) + "%"; }
 
   /* ═══════════════ Helpers ═══════════════ */
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -95,6 +105,8 @@
     connected: false, chipValue: 10
   };
   function now() { return Date.now() + S.offset; }
+  // A round is golden only once betting has closed and the server said so (rules 2); never guessed before.
+  function isGolden(r) { return !!(r && r.golden === true && r.status !== "betting"); }
   function at(iso) { return iso ? Date.parse(iso) : null; }
   function setServerTime(iso) { var t = at(iso); if (t) S.offset = t - Date.now(); }
   function signedIn() { return !!(Auth && Auth.user); }
@@ -128,22 +140,26 @@
         '<thead><tr><th scope="col">Round</th><th scope="col">Time</th><th scope="col">Number</th><th scope="col">Check</th></tr></thead><tbody id="rt-rounds"></tbody></table></div>' +
       '<p class="acct-empty" id="rt-rounds-empty" hidden>No rounds yet.</p>' +
       '<button type="button" class="btn-ghost acct-more" id="rt-more" hidden>Load more</button></section>' +
-    '<section class="panel" aria-labelledby="rt-rules-title"><h2 class="panel-label" id="rt-rules-title">📜 RULES &amp; PAYOUTS</h2>' + rulesHtml() + '</section>';
+    '<section class="panel" aria-labelledby="rt-rules-title"><h2 class="panel-label" id="rt-rules-title">📜 RULES &amp; PAYOUTS</h2><div id="rt-rules">' + rulesHtml() + '</div></section>';
 
   function rulesHtml() {
     var rows = [["Straight", "1 number", 1], ["Split", "2 numbers side by side", 2], ["Street", "a row of 3", 3], ["Trio", "0-1-2 or 0-2-3", 3],
       ["Corner", "4 numbers in a square", 4], ["First four", "0-1-2-3", 4], ["Line", "two rows, 6 numbers", 6],
       ["Dozen", "1st, 2nd or 3rd 12", 12], ["Column", "2:1, 12 numbers", 12], ["Red / Black, Odd / Even, 1-18 / 19-36", "18 numbers", 18]];
+    var G1 = RULES.goldenOneIn, GX = RULES.goldenMultiplier;
     return '<p>One table for everyone, a European wheel with a single zero. A round every minute while players are at the table: ' +
-      '20 seconds to place chips, then the wheel spins for about half a minute. <b>RTP 100%</b>: a bet on <i>n</i> numbers pays ' +
-      '37 / <i>n</i> times the stake (the usual payouts × 37/36), so every bet returns exactly its stake on average. Roulette has its own RTP; the slots stay at 110%.</p>' +
-      '<div class="tbl-wrap"><table class="acct-table rt-pay"><thead><tr><th scope="col">Bet</th><th scope="col">Covers</th><th scope="col" class="num">Pays (incl. stake)</th></tr></thead><tbody>' +
-      rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="num">' + payoutX(r[2]) + '×</td></tr>'; }).join("") +
+      '20 seconds to place chips, then the wheel spins for about half a minute. The usual payouts: a winning bet on <i>n</i> numbers returns ' +
+      RULES.payoutPockets + ' / <i>n</i> times the stake. <b>RTP ' + rtpText() + '</b> with the golden ball (36/37 × (1 + ' + (GX - 1) + '/' + G1 + ')). Roulette has its own RTP, apart from the slots.</p>' +
+      '<p class="rt-golden-rule"><span class="rt-gball" aria-hidden="true"></span><span><b>Golden ball:</b> in about 1 round in ' + G1 + ' the ball is golden and every win of the round pays ×' + GX +
+      '. It is drawn from the round\'s seed when betting closes.</span></p>' +
+      '<div class="tbl-wrap"><table class="acct-table rt-pay"><thead><tr><th scope="col">Bet</th><th scope="col">Covers</th><th scope="col" class="num">Pays</th>' +
+        '<th scope="col" class="num">Returns (incl. stake)</th><th scope="col" class="num">Golden ball</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="num">' + oddsText(r[2]) + '</td><td class="num">' + returnsX(r[2]) + '×</td><td class="num">' + returnsX(r[2]) * GX + '×</td></tr>'; }).join("") +
       '</tbody></table></div>' +
       '<ul class="rules"><li>Chips of 1 to 1,000 tSats, at most 10,000 tSats per player per round. The stake leaves your balance when the chip is placed; Clear gives it back while betting is open.</li>' +
-      '<li>Wins are whole tSats: a fraction is paid as one more tSat with exactly that probability (provably fair).</li>' +
+      '<li>Wins are whole tSats. Example: 10 tSats on one number returns ' + fmt(returnOf(10, 1)) + ' tSats, or ' + fmt(returnOf(10, 1) * GX) + ' with the golden ball.</li>' +
       '<li>Red numbers: ' + RED.join(", ") + '.</li>' +
-      '<li>Provably fair: each round publishes the SHA-256 hash of its secret seed when betting opens; the seed fixes the number, the spin and the rounding, and is revealed at the result. Check any round below or on the <a href="../fairness.html#roulette">fairness page</a>.</li></ul>';
+      '<li>Provably fair: each round publishes the SHA-256 hash of its secret seed when betting opens; the seed fixes the number, the spin and the golden ball, and is revealed at the result. Check any round below or on the <a href="../fairness.html#roulette">fairness page</a>. Rounds played before the golden ball (rules 1) paid 37 / <i>n</i> times the stake.</li></ul>';
   }
 
   var stageEl = $("rt-stage"), hostEl = $("rt-canvas"), lockEl = $("rt-lock"), liveEl = $("rt-live");
@@ -263,7 +279,7 @@
   function spotKey(type, numbers) { return type + (numbers && numbers.length ? ":" + numbers.slice().sort(function (p, q) { return p - q; }).join("-") : ""); }
 
   var wheelSpin, wheelGlow, ball, ballShadow, statusMain, statusSub, statusBar, statusLeft, statusRight, chipLayer, hiLayer, rackLayer,
-      bannerC, bannerTitle, bannerAmt, historyLayer, hoverG, particles = [], partLayer, coinTex;
+      bannerC, bannerTitle, bannerAmt, historyLayer, hoverG, hoverTip, hoverTipBg, particles = [], partLayer, coinTex, ballGold, ballGlow;
   var wheelAngle = 0, lastTickPocket = -1;
 
   function initPixi() {
@@ -380,16 +396,34 @@
       rg.addColorStop(0, "#ffffff"); rg.addColorStop(0.6, "#e8e8e8"); rg.addColorStop(1, "#9a9a9a");
       g.beginPath(); g.arc(c, c, c - 1, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
     });
-    ball.anchor.set(0.5); wc.addChild(ballShadow, ball);
-    ball.visible = ballShadow.visible = false;
+    ball.anchor.set(0.5);
+    // The golden ball: the same ball in gold, with a soft glow under it
+    ballGold = paint(R * 0.1, R * 0.1, function (g, w) {
+      var c = w / 2, rg = g.createRadialGradient(c * 0.7, c * 0.65, 1, c, c, c);
+      rg.addColorStop(0, "#fffbe0"); rg.addColorStop(0.35, "#ffd84d"); rg.addColorStop(0.8, "#d99a0b"); rg.addColorStop(1, "#8a5a00");
+      g.beginPath(); g.arc(c, c, c - 1, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
+    }).texture;
+    ball._white = ball.texture;
+    ballGlow = paint(R * 0.36, R * 0.36, function (g, w) {
+      var c = w / 2, rg = g.createRadialGradient(c, c, 1, c, c, c);
+      rg.addColorStop(0, "rgba(255,216,77,.85)"); rg.addColorStop(0.35, "rgba(255,190,40,.35)"); rg.addColorStop(1, "rgba(255,170,0,0)");
+      g.fillStyle = rg; g.fillRect(0, 0, w, w);
+    });
+    ballGlow.anchor.set(0.5); ballGlow.blendMode = "add";
+    wc.addChild(ballShadow, ballGlow, ball);
+    ball.visible = ballShadow.visible = ballGlow.visible = false;
     G.wc = wc;
   }
   // The angle (in the wheel's frame) of a number's pocket.
   function pocketAngle(n) { return -Math.PI / 2 + WHEEL.indexOf(n) * G.R.seg; }
   function placeBall(theta, r) {
+    var gold = !!(S.spin && S.spin.golden);
     ball.visible = ballShadow.visible = true;
+    ball.texture = gold ? ballGold : ball._white;
     ball.position.set(Math.cos(theta) * r, Math.sin(theta) * r);
     ballShadow.position.set(ball.x + 3, ball.y + 4);
+    ballGlow.visible = gold;
+    if (gold) { ballGlow.position.copyFrom(ball.position); ballGlow.scale.set(0.9 + 0.15 * Math.sin(performance.now() / 180)); }
   }
 
   // The felt: numbers, zero, columns, dozens and even-money bets, with white lines.
@@ -438,13 +472,15 @@
     var hit = new PIXI.Graphics().rect(box.x - 6, box.y - 6, box.w + 12, box.h + 12).fill({ color: 0, alpha: 0.001 });
     hit.eventMode = "static"; hit.cursor = "pointer"; L.felt.addChild(hit);
     hoverG = new PIXI.Graphics(); L.hover.addChild(hoverG);
+    hoverTipBg = new PIXI.Graphics(); hoverTip = txt("", { fontFamily: MONO, fontWeight: "700", fontSize: G.name === "wide" ? 13 : 20, fill: "#f6dd9b", align: "center" });
+    hoverTipBg.visible = hoverTip.visible = false; L.hover.addChild(hoverTipBg, hoverTip);
     hit.on("pointermove", function (e) { var p = e.getLocalPosition(app.stage); hover(spotAt(toLA(p.x, p.y).L, toLA(p.x, p.y).a)); });
     hit.on("pointerleave", function () { hover(null); });
     hit.on("pointertap", function (e) { var p = e.getLocalPosition(app.stage), la = toLA(p.x, p.y), s = spotAt(la.L, la.a); if (s) placeChip(s); });
   }
   // Light up the numbers a spot covers while the pointer is over it.
   function hover(s) {
-    hoverG.clear();
+    hoverG.clear(); if (hoverTip) { hoverTip.visible = false; hoverTipBg.visible = false; }
     if (!s || phase() !== "betting") return;
     covers(s).forEach(function (n) {
       var r = n === 0 ? LArect(-1, 0, 0, 3) : (function () { var c = cellOf(n); return LArect(c.L, c.L + 1, c.a, c.a + 1); }());
@@ -452,6 +488,15 @@
     });
     var an = anchorOf(s.type, s.numbers), p = LA(an.L, an.a);
     hoverG.circle(p.x, p.y, 8).fill({ color: 0xffd166, alpha: 0.9 });
+    // What the chip in hand would return if this bet wins (from the table's rules; never a hint of the golden ball)
+    var n = covers(s).length, wide = G.name === "wide";
+    hoverTip.text = (TYPE_NAMES[s.type] || s.type) + " · " + oddsText(n) + "\n" + fmt(S.chipValue) + " wins " + fmt(returnOf(S.chipValue, n));
+    hoverTip.visible = true;
+    var tx = Math.max(hoverTip.width / 2 + 8, Math.min(G.W - hoverTip.width / 2 - 8, p.x)), ty = p.y - (wide ? 34 : 50);
+    hoverTip.position.set(tx, ty);
+    hoverTipBg.clear().roundRect(tx - hoverTip.width / 2 - 8, ty - hoverTip.height / 2 - 4, hoverTip.width + 16, hoverTip.height + 8, 8)
+      .fill({ color: 0x04180e, alpha: 0.92 }).stroke({ width: 1.5, color: 0xc99a3e });
+    hoverTipBg.visible = true;
   }
 
   // The status bar: round, phase and countdown, your bets and balance
@@ -485,11 +530,11 @@
       sub = S.canBet ? "Chips 1 to 1,000 · up to 10,000 a round" : signedIn() ? "You can bet from the next round · " + clock(at(S.nextRoundAt || r.nextRoundAt) - t) : "Sign in to play";
       bar = Math.max(0, Math.min(1, left / 20000));
     } else if (ph === "spinning") {
-      main = "NO MORE BETS"; sub = "The wheel is spinning…";
+      main = isGolden(r) ? "GOLDEN BALL · WINS ×" + RULES.goldenMultiplier : "NO MORE BETS"; sub = "The wheel is spinning…";
       if (!S.canBet && signedIn()) sub = "You can bet from the next round · " + clock(at(r.nextRoundAt || S.nextRoundAt) - t);
     } else {
       var n = r.number != null ? r.number : S.spin && S.spin.number;
-      main = n != null ? n + " " + colorOf(n).toUpperCase() : "RESULT";
+      main = n != null ? n + " " + colorOf(n).toUpperCase() + (isGolden(r) ? " · GOLDEN ×" + RULES.goldenMultiplier : "") : "RESULT";
       var nxt = at(r.nextRoundAt || S.nextRoundAt);
       sub = nxt ? "Next round in " + clock(nxt - t) : "";
     }
@@ -566,11 +611,16 @@
     historyLayer.removeChildren();
     var H0 = G.history, size = G.name === "wide" ? 30 : 44, gap = 8, max = Math.floor((H0.w + gap) / (size + gap));
     var label = txt("LAST NUMBERS", { fontSize: G.name === "wide" ? 12 : 18, fill: "#bfe9cf", letterSpacing: 2 }); label.anchor.set(0, 0.5); label.position.set(H0.x, H0.y - 14); historyLayer.addChild(label);
-    recentNumbers.slice(0, max).forEach(function (n, i) {
+    recentNumbers.slice(0, max).forEach(function (h, i) {
+      var n = h.n;
       var c = new PIXI.Graphics().circle(0, 0, size / 2).fill(n === 0 ? 0x0c8a3e : RED.indexOf(n) !== -1 ? 0xc0182c : 0x151515).stroke({ width: 2, color: i === 0 ? 0xffd166 : 0xffffff, alpha: i === 0 ? 1 : 0.6 });
       c.position.set(H0.x + size / 2 + i * (size + gap), H0.y + size / 2);
       var t = txt(String(n), { fontSize: size * 0.42, fill: "#fff" }); t.position.copyFrom(c.position);
       historyLayer.addChild(c, t);
+      if (h.golden) {   // a small gold ball on the rim
+        var gb = new PIXI.Graphics().circle(0, 0, size * 0.17).fill(0xffc928).stroke({ width: 1.5, color: 0x7a4d00 });
+        gb.position.set(c.x + size * 0.36, c.y - size * 0.36); historyLayer.addChild(gb);
+      }
     });
   }
 
@@ -638,14 +688,14 @@
     bannerAmt = txt("", { fontFamily: MONO, fontWeight: "800", fontSize: 30, fill: "#ffffff" }); bannerAmt.y = 34;
     bannerC.addChild(back, bannerTitle, bannerAmt);
   }
-  function showBanner(title, amount, color) {
+  function showBanner(title, amount, color, ms) {
     if (!bannerC) return;
     bannerTitle.text = title; bannerAmt.text = amount || ""; bannerTitle.style.fill = color || "#ffe79a";
     bannerTitle.scale.set(1); if (bannerTitle.width > 420) bannerTitle.scale.set(420 / bannerTitle.width);
     bannerC.visible = true; bannerC.alpha = 1; bannerC.scale.set(0.3);
     animate(450, function (p) { bannerC.scale.set(0.3 + 0.7 * p); }, ease.back);
     clearTimeout(showBanner.t);
-    showBanner.t = setTimeout(function () { animate(300, function (p) { bannerC.alpha = 1 - p; }).then(function () { bannerC.visible = false; }); }, 3800);
+    showBanner.t = setTimeout(function () { animate(300, function (p) { bannerC.alpha = 1 - p; }).then(function () { bannerC.visible = false; }); }, ms || 3800);
   }
   function emit(n, x, y) {
     if (reduce) n = Math.min(n, 10);
@@ -686,7 +736,7 @@
     if (sp && t < sp.resultAt) { var p0 = Math.max(0, (t - sp.startAt) / (sp.resultAt - sp.startAt)); speed = 0.35 + 1.1 * (1 - p0) * (1 - p0); }
     wheelAngle += speed * dt / 1000;
     wheelSpin.rotation = wheelAngle;
-    if (!sp) { ball.visible = ballShadow.visible = false; return; }
+    if (!sp) { ball.visible = ballShadow.visible = ballGlow.visible = false; return; }
     var D = sp.resultAt - sp.startAt, p = Math.max(0, Math.min(1, (t - sp.startAt) / D)), R = G.R, target = pocketAngle(sp.number);
     var rel = -2 * Math.PI * REVS * Math.pow(1 - p, 3), r, jitter = 0;
     if (p < 0.6) r = R.rim;
@@ -724,10 +774,13 @@
     if (r.number == null || !r.resultAt) return;
     if (S.spin && S.spin.roundId === r.id) return;
     var resultAt = at(r.resultAt), startAt = at(r.bettingEndsAt) || resultAt - (r.spinSeconds || 30) * 1000;
-    S.spin = { roundId: r.id, number: r.number, startAt: startAt, resultAt: resultAt };
+    S.spin = { roundId: r.id, number: r.number, startAt: startAt, resultAt: resultAt, golden: r.golden === true };
     lastTickPocket = -1;
     if (now() >= resultAt) { S.revealed = true; afterReveal(); }
-    else { announce("No more bets. The wheel is spinning."); sfx.press(); }
+    else if (S.spin.golden) {
+      announce("No more bets. The golden ball! Every win of this round pays ×" + RULES.goldenMultiplier + ".");
+      showBanner("GOLDEN BALL!", "All wins ×" + RULES.goldenMultiplier, "#ffd84d", 3000); sfx.bigWin();
+    } else { announce("No more bets. The wheel is spinning."); sfx.press(); }
   }
   // At resultAt: the number appears in text for the first time.
   function reveal() {
@@ -741,7 +794,7 @@
     var n = r.number != null ? r.number : S.spin && S.spin.number;
     if (n == null) return;
     r.number = n;
-    if (recentNumbers[0] !== n || recentNumbers._round !== r.id) { recentNumbers.unshift(n); recentNumbers._round = r.id; drawHistory(); }
+    if (recentNumbers._round !== r.id) { recentNumbers.unshift({ n: n, golden: isGolden(r) }); recentNumbers._round = r.id; drawHistory(); }
     announce("The ball lands on " + n + " " + colorOf(n) + ".");
     renderChips(); renderHighlights(); renderStatus(true); renderResults();
     if (S.settled) celebrateMine();
@@ -751,7 +804,8 @@
     var st = S.settled; if (!st || !S.revealed || st._shown) return;
     st._shown = true;
     if (st.win > 0) {
-      showBanner(st.win >= st.bet * 10 ? "BIG WIN!" : "YOU WIN!", "+" + sats(st.win));
+      var gold = isGolden(S.round);
+      showBanner(gold ? "GOLDEN WIN ×" + RULES.goldenMultiplier + "!" : st.win >= st.bet * 10 ? "BIG WIN!" : "YOU WIN!", "+" + sats(st.win), gold ? "#ffd84d" : null);
       (st.win >= st.bet * 10 ? sfx.bigWin : sfx.win).call(sfx);
       var p = S.round && S.round.number != null ? (function () { var a = anchorOf("straight", [S.round.number]); return LA(a.L, a.a); }()) : { x: G.W / 2, y: G.H / 2 };
       emit(Math.min(60, 12 + Math.round(st.win / Math.max(1, st.bet)) * 4), p.x, p.y);
@@ -763,6 +817,7 @@
     switch (m.type) {
       case "table":
         S.you = m.you || S.you; S.canBet = !!m.canBet; S.nextRoundAt = m.nextRoundAt || null;
+        if (m.rules && m.rules.payoutPockets) { RULES = Object.assign({}, RULES, m.rules); $("rt-rules").innerHTML = rulesHtml(); }
         S.players = (m.players || []).slice();
         S.chips = {}; (m.bets || []).forEach(function (c) { S.chips[c.id] = c; });
         S.myTotal = mineTotal();
@@ -951,6 +1006,10 @@
     if (!r) { resultsEl.appendChild(el("p", "acct-empty", "Waiting for the next round.")); return; }
     var head = el("p", "rt-round-head", "Round " + r.id + (S.revealed && r.number != null ? ": " + r.number + " " + colorOf(r.number) : ""));
     resultsEl.appendChild(head);
+    if (isGolden(r)) {
+      var gl = el("p", "rt-golden-note"); gl.appendChild(el("span", "rt-gball")); gl.appendChild(document.createTextNode(" Golden ball: every win of this round pays ×" + RULES.goldenMultiplier + "."));
+      resultsEl.appendChild(gl);
+    }
     if (S.revealed && S.results) {
       if (!S.results.length) { resultsEl.appendChild(el("p", "acct-empty", "No bets this round.")); return; }
       var ul = el("ul", "rt-res");
@@ -958,6 +1017,7 @@
         var net = x.win - x.bet, li = el("li", x.player === S.you ? "is-me" : "");
         var dot = el("span", "rt-dot"); dot.style.background = hashColor(x.player); li.appendChild(dot);
         li.appendChild(el("span", "rt-name", x.player === S.you ? "You" : x.player));
+        if (x.win > 0 && isGolden(r)) li.appendChild(el("span", "rt-x10", "×" + RULES.goldenMultiplier));
         li.appendChild(el("span", "rt-amt " + (net > 0 ? "is-win" : net < 0 ? "is-loss" : ""), (net > 0 ? "+" : net < 0 ? "−" : "±") + sats(Math.abs(net))));
         li.title = "Bet " + sats(x.bet) + ", won " + sats(x.win);
         ul.appendChild(li);
@@ -994,7 +1054,12 @@
       if (fresh) body.textContent = "";
       var items = (r.data.items || []).filter(function (x) { return x.number != null && x.status === "settled"; });
       items.forEach(function (x) { body.appendChild(roundRow(x)); });
-      if (fresh) { recentNumbers = items.map(function (x) { return x.number; }); if (S.round && S.revealed && S.round.number != null && items[0] && items[0].id !== S.round.id) recentNumbers.unshift(S.round.number); drawHistory(); }
+      if (fresh) {
+        recentNumbers = items.map(function (x) { return { n: x.number, golden: x.golden === true }; });
+        if (S.round && S.revealed && S.round.number != null && items[0] && items[0].id !== S.round.id) recentNumbers.unshift({ n: S.round.number, golden: isGolden(S.round) });
+        recentNumbers._round = S.round && S.revealed ? S.round.id : null;
+        drawHistory();
+      }
       roundsCursor = r.data.nextCursor || null;
       $("rt-more").hidden = !roundsCursor;
       $("rt-rounds-empty").hidden = body.children.length > 0;
@@ -1006,7 +1071,9 @@
     tr.appendChild(el("td", "", "#" + x.id));
     var d = new Date(x.startsAt);
     tr.appendChild(el("td", "", isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })));
-    var td = el("td"); td.appendChild(ballHtml(x.number)); tr.appendChild(td);
+    var td = el("td"); td.appendChild(ballHtml(x.number));
+    if (x.golden === true) { var gb = el("span", "rt-gball"); gb.title = "Golden ball: every win ×" + RULES.goldenMultiplier; gb.setAttribute("role", "img"); gb.setAttribute("aria-label", "golden ball"); td.appendChild(gb); }
+    tr.appendChild(td);
     var ck = el("td"), b = el("button", "btn-ghost rt-verify", "Details");
     b.type = "button"; b.setAttribute("aria-expanded", "false");
     b.addEventListener("click", function () { toggleDetail(tr, b, x.id); });
@@ -1023,7 +1090,9 @@
       var rd = r.data.round, bets = r.data.bets || [];
       cell.textContent = "";
       var dl = el("dl", "seed-list");
-      [["Number", rd.number + " " + colorOf(rd.number)], ["Spin", (rd.spinSeconds || "?") + " s"], ["Seed hash (published when betting opened)", rd.seedHash], ["Seed (revealed)", rd.seed || "not yet"]].forEach(function (p) {
+      var rules = Number(rd.rules || 1);
+      [["Number", rd.number + " " + colorOf(rd.number)], ["Spin", (rd.spinSeconds || "?") + " s"]].concat(rules === 2 ? [["Golden ball", rd.golden ? "yes: every win ×" + RULES.goldenMultiplier : "no"]] : [])
+        .concat([["Rules", rules === 2 ? "2: stake × 36 / n, golden ball" : "1: stake × 37 / n (before the golden ball)"], ["Seed hash (published when betting opened)", rd.seedHash], ["Seed (revealed)", rd.seed || "not yet"]]).forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       cell.appendChild(dl);
@@ -1043,11 +1112,12 @@
       } else cell.appendChild(el("p", "acct-empty", "No bets this round."));
       if (rd.seed && Fair && Fair.roulette) {
         var out = el("div", "rt-check", "Checking…"); cell.appendChild(out);
-        Fair.roulette(rd.seed, rd.id, bets.map(function (c) { return { amount: c.amount, numbers: covers(c) }; })).then(function (v) {
+        Fair.roulette(rd.seed, rd.id, bets.map(function (c) { return { amount: c.amount, numbers: covers(c) }; }), rules).then(function (v) {
           var checks = [[v.seedHash === String(rd.seedHash).toLowerCase(), "SHA-256 of the seed equals the seed hash published when betting opened"],
             [v.number === rd.number, "The seed gives number " + v.number + " (the round says " + rd.number + ")"],
-            [rd.spinSeconds == null || v.spinSeconds === rd.spinSeconds, "The seed gives a " + v.spinSeconds + " s spin"],
-            [bets.every(function (c, i) { return c.payout == null || c.payout === v.payouts[i]; }), "Every payout matches (" + bets.length + " chip" + (bets.length === 1 ? "" : "s") + ")"]];
+            [rd.spinSeconds == null || v.spinSeconds === rd.spinSeconds, "The seed gives a " + v.spinSeconds + " s spin"]].concat(rules === 2 ? [
+            [v.golden === !!rd.golden, v.golden ? "The seed gives a golden ball (every win ×" + RULES.goldenMultiplier + "), as played" : "The seed gives no golden ball, as played"]] : []).concat([
+            [bets.every(function (c, i) { return c.payout == null || c.payout === v.payouts[i]; }), "Every payout matches (" + bets.length + " chip" + (bets.length === 1 ? "" : "s") + ")"]]);
           var ok = checks.every(function (c) { return c[0]; });
           out.textContent = "";
           out.appendChild(el("p", "jpw-verdict " + (ok ? "is-ok" : "is-bad"), ok ? "✓ This round is fair: every check passed." : "✗ This round does NOT check out."));
@@ -1083,7 +1153,8 @@
         return { phase: phase(), round: S.round && { id: S.round.id, status: S.round.status, number: S.revealed ? S.round.number : undefined }, canBet: S.canBet, you: S.you,
           connected: S.connected, chips: Object.keys(S.chips).length, pending: S.pending.length, myTotal: S.myTotal, revealed: S.revealed,
           status: statusMain && statusMain.text, sub: statusSub && statusSub.text, banner: bannerC && bannerC.visible ? bannerTitle.text + " | " + bannerAmt.text : "",
-          layout: G && G.name, recent: recentNumbers.slice(0, 5),
+          layout: G && G.name, recent: recentNumbers.slice(0, 5).map(function (h) { return h.n; }), recentGolden: recentNumbers.slice(0, 5).map(function (h) { return !!h.golden; }),
+          golden: !!(S.spin && S.spin.golden), rules: RULES, hoverTip: hoverTip && hoverTip.visible ? hoverTip.text : "",
           spotPoint: function (type, numbers) { var a = anchorOf(type, numbers), p = LA(a.L, a.a), k = app.screen.width / G.W; return { x: p.x * k, y: p.y * k }; } };
       };
     });

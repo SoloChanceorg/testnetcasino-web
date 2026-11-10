@@ -13,8 +13,9 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 
 - Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
   **1,000 sat** daily bonus (resets at 00:00 UTC).
-- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **110%** with everything included (it is a faucet, so it pays
-  back more than it takes): the reels, free spins and bonus games 96%, the collector's reward 4%, the jackpots 10%.
+- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **101%** with everything included (it is a faucet, so it pays
+  back more than it takes; backend decision D45): the reels, free spins and bonus games 80.74%, the collector's reward
+  3.36%, the jackpots' share of every bet 8.4% and the jackpot head starts 8.5%.
 - Jackpots: a Minor and a Major per game and a shared Grand, won inside the game (backend decision D43).
 - Collectors: a shared fill meter per game; the spin that fills it plays a reward.
 - Withdrawals go to any Testnet4 address the player enters.
@@ -39,14 +40,16 @@ Every machine has:
 | World | Sunlit orchard, leaves and butterflies | Ocean depths, light shafts, bubbles, fish | Starfield, nebulae, shooting stars |
 | Jackpots (Minor / Major / Grand) | 🍎 **Golden Apples**: 3 / 4 / 5 on the reels | 🦪 **Magic Oyster**: open clams until 3 match | 🌠 3 shooting stars spin the **Star Map Wheel** |
 | Collector · reward | 🍃 **Apple Tree** (186) · **Harvest Festival**: 10 sticky-wild free spins, wins ×2 | 🪙 **Treasure Chest** (109) · **Treasure Hold & Win**: 6 pearls, respins reset on every new pearl | ⛽ **Fuel Tank** (940) · **Hyperdrive**: 7 free spins, a wild locked in the middle, ×1 rising to ×10 |
-| RTP · hit rate | 110% in all · 34% | 110% in all · 32% | 110% in all · 25% |
-| Free spins · bonus | 1 in 75 · 1 in 202 | 1 in 66 · 1 in 431 | 1 in 130 · 1 in 783 |
+| RTP · hit rate | 101% in all · 34% | 101% in all · 32% | 101% in all · 25% |
+| Free spins · bonus | 1 in 75 · 1 in 202 | 1 in 66 · 1 in 431 | 1 in 130 · 1 in 784 |
 | Volatility | Low | Medium | High |
 
 Every spin is played on the server (testnetcasino-service), which is the source of truth for the game math: `GET /games/{id}/config`
 returns the symbols, paytables, features and stats, and the algorithm is described in its `docs/FAIRNESS.md` (provably fair:
-HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every game's RTP is 110% with everything included
-(`rtp` and `rtpParts` in the config; game config version 4).
+HMAC-SHA256 of a committed server seed, your client seed and a nonce). Every game's RTP is 101% with everything included
+(`rtp` and `rtpParts` in the config: `game`, `collector`, `jackpots`, `headStarts`; game config version 5). The site never
+hard-codes these: the paytable reads them from the config, and running text marks them (`data-rtp`, `data-rtp-part`,
+`data-jp-share`) so `units.js` fills them in from `GET /games/fruit-orchard/config`.
 
 ## Look & feel
 
@@ -152,8 +155,9 @@ Signed-out visitors see the machine with SIGN IN on its spin key. Errors show th
 
 ## Jackpots
 
-The jackpots (backend decision D43, game config version 4) are part of every game's 110% RTP: every bet adds 4% of itself
-to its game's **Minor**, 3% to its **Major** and 3% to the **Grand** shared by all three. They are won **inside the game**:
+The jackpots (backend decision D43, game config version 4+) are part of every game's 101% RTP: every bet adds 3.36% of
+itself to its game's **Minor**, 2.52% to its **Major** and 2.52% to the **Grand** shared by all three (version 5; the head
+starts are inside the RTP too). They are won **inside the game**:
 after the free spins, a paid spin with bet `b` draws Grand, Major and Minor (each a hit with chance `b / oneInSats`, from the
 spin's own stream) and wins the highest tier hit, everything its meter holds. After a win the next cycle starts with a head
 start from the house (25% to 75% of a hidden target), so a jackpot never shows 0. Names, emojis and texts come from the
@@ -222,8 +226,17 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
 ## Roulette
 
 `games/roulette.html` (`assets/js/roulette.js`, backend decision D44): **one live table for everyone**, a European single-zero
-wheel at **RTP 100%** (its own RTP; the slots stay at 110%). A round every real minute while someone is at the table:
-`:00` to `:20` betting, then a 28 to 32 s spin, then the result until the next `:00`.
+wheel at **RTP 101%** with the **golden ball** (backend decision D45; its own RTP, apart from the slots). A round every
+real minute while someone is at the table: `:00` to `:20` betting, then a 28 to 32 s spin, then the result until the next
+`:00`.
+
+- **Payouts and the golden ball** (rules version 2, `rules` in the `table` message): a winning bet on `n` numbers returns
+  `stake × 36 / n` (straight 35 to 1, red 1 to 1, ...). In about 1 round in 236 the ball is golden and every win of the
+  round pays ×10. It is drawn when betting closes and arrives with the `spin` message (`round.golden`), so the page never
+  hints at it during betting. A golden spin has a gold ball with a glow from the start and a "GOLDEN BALL! All wins ×10"
+  banner; the result shows ×10 on the wins (`win` and `payout` already include it). Golden rounds have a small gold ball
+  in the history, the previous rounds and on the lobby card. Hovering a bet shows its odds and what the chip in hand would
+  return. Rounds from before D45 are rules 1 (`stake × 37 / n`, no golden field) and are shown as they were.
 
 - **Live over a WebSocket** (`wss://api.testnetcasino.com/roulette/ws`, the session cookie is sent by the browser; `api.js`
   `rouletteSocketUrl()`): the first message is `table`, then `round`, `bets`, `cleared`, `spin`, `result`, `settled` (to the
@@ -251,9 +264,10 @@ wheel at **RTP 100%** (its own RTP; the slots stay at 110%). A round every real 
 - **HTML around the canvas:** the players and the chat (text only, never HTML; 200 characters, one message every 2 s, the
   server's `chat_too_fast` / `invalid_chat` shown under it; chat is not kept, it starts when you join), this round's chips
   and results per player, **previous rounds** (`GET /roulette/rounds`) with **Details** (`GET /roulette/rounds/{id}`): every
-  chip with its payout and an in-browser check of the round (seed hash, number, spin length, every payout), and the rules
-  with the payouts (37 / n: straight 37×, red 2.06×, ...).
-- **Fairness:** `TNC_Fair.roulette(seed, roundId, bets)` (FAIRNESS.md section 9; checked against the backend's roulette
+  chip with its payout and an in-browser check of the round (seed hash, number, spin length, golden ball, every payout),
+  and the rules with the payouts (36 / n: straight 36×, red 2×, ×10 with the golden ball).
+- **Fairness:** `TNC_Fair.roulette(seed, roundId, bets, rules)` (FAIRNESS.md section 9; rules 2 draws the golden ball
+  after the spin length, checked against the backend's roulette
   vectors by `tools/verify-vectors.mjs`), and a 🎡 Roulette section on the fairness page: load a round by number (or
   enter a seed, round id and chips) to recompute everything. `fairness.html#roulette-<id>` loads a round directly.
 - The ledger shows `roulette_bet`, `roulette_refund` and `roulette_win` on the account page.
@@ -403,7 +417,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110h`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110i`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
