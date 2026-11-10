@@ -2,19 +2,24 @@
  * TestnetCasino.com: amount formatting. All amounts from the API are integer
  * sats (1 tBCH = 100,000,000 sats).
  *
- * Everywhere on the site amounts are shown in tBCH:
- *   format(sats)  "0.00012340 tBCH"   balances, tables, totals
- *   short(sats)   "0.0001 tBCH"       running text and buttons (no trailing zeros)
- *   round2(sats)  "101.00 tBCH"       rounded to 2 decimals (faucet totals)
- *   round4(sats)  "1.0201 tBCH"       rounded to 4 decimals
- *   parse(text)   "0.0015" → 150000   (tBCH input to sats, exact; null if invalid)
+ * Amounts are shown in sats, written "tBCH sats" (brand kit). Only the faucet bar at the top
+ * shows whole coins.
+ *   format(sats)  "12,340 tBCH sats"   balances, bonuses, bets, wins, jackpots, withdrawals
+ *   short(sats)   the same (kept for the callers that used the short tBCH form)
+ *   int(sats)     "12,340"             table cells (the column header names the unit)
+ *   coins(sats)   "0.00012340 tBCH"    whole coins, all 8 decimals (faucet bar)
+ *   bch(sats)     "0.00012340"         the same without the ticker
+ *   round2(sats)  "101.00 tBCH"        rounded to 2 decimals (faucet totals)
+ *   round4(sats)  "1.0201 tBCH"        rounded to 4 decimals
+ *   parse(text)   "12,340" → 12340     (sats input, whole numbers; null if invalid)
+ *   UNIT          "tBCH sats"
  *
- * Inside a game machine the credit can be shown in tSats (default) or tBCH,
+ * Inside a game machine the credit can be shown in tBCH sats (default) or tBCH,
  * with a switch on the machine:
  *   game.get() / set(u) / toggle() / onChange(fn)    u = "sat" | "bch"
- *   game.format(sats)  "1,234 tSats" or "0.00001234 tBCH"
+ *   game.format(sats)  "1,234 tBCH sats" or "0.00001234 tBCH"
  *   game.value(sats)   "1,234" or "0.00001234"  (meters, unit shown apart)
- *   game.unit()        "tSats" or "tBCH"
+ *   game.unit()        "tBCH sats" or "tBCH"
  * The preference is a display setting only (localStorage "tnc.gameUnit").
  *
  * RTP in running text: pages write the current numbers and mark them, and they are replaced from a game
@@ -40,10 +45,6 @@
     while (s.length < 9) s = "0" + s;
     return (neg ? "-" : "") + int(s.slice(0, -8)) + "." + s.slice(-8);
   }
-  function trimmed(sats) {
-    var s = bch(sats).replace(/0+$/, "");
-    return s.replace(/\.$/, "");
-  }
 
   function pct(x) { return String(+(x * 100).toFixed(2)) + "%"; }
   function fillRtp() {
@@ -63,10 +64,15 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fillRtp); else fillRtp();
 
+  var UNIT = "tBCH sats";
+  function sats(n) { return ok(n) ? int(Math.round(n)) + " " + UNIT : "n/a"; }
   window.TNC_Units = {
+    UNIT: UNIT,
     bch: function (sats) { return ok(sats) ? bch(sats) : "n/a"; },
-    format: function (sats) { return ok(sats) ? bch(sats) + " tBCH" : "n/a"; },
-    short: function (sats) { return ok(sats) ? trimmed(sats) + " tBCH" : "n/a"; },
+    coins: function (sats) { return ok(sats) ? bch(sats) + " tBCH" : "n/a"; },
+    int: function (n) { return ok(n) ? int(Math.round(n)) : "n/a"; },
+    format: sats,
+    short: sats,
     round4: function (sats) {
       if (!ok(sats)) return "n/a";
       var u = Math.round(sats / 10000), neg = u < 0, s = String(Math.abs(u));   // 1 unit = 0.0001 tBCH
@@ -80,13 +86,10 @@
       return (neg ? "-" : "") + int(s.slice(0, -2)) + "." + s.slice(-2) + " tBCH";
     },
     parse: function (text) {
-      var m = /^\s*(\d*)(?:\.(\d{0,8}))?\s*$/.exec(String(text).replace(/,/g, ""));
-      if (!m || (m[1] === "" && !m[2])) return null;
-      var frac = (m[2] || "");
-      while (frac.length < 8) frac += "0";
-      var whole = m[1] ? parseInt(m[1], 10) : 0;
-      if (whole > 20000000) return null;
-      return whole * 100000000 + parseInt(frac, 10);
+      var m = /^\s*(\d{1,16})\s*$/.exec(String(text).replace(/[,\s_]/g, ""));
+      if (!m) return null;
+      var n = parseInt(m[1], 10);
+      return n > 2100000000000000 ? null : n;
     },
     game: {
       get: function () { return gameUnit; },
@@ -97,7 +100,7 @@
       },
       toggle: function () { this.set(gameUnit === "bch" ? "sat" : "bch"); },
       onChange: function (fn) { listeners.push(fn); },
-      unit: function () { return gameUnit === "bch" ? "tBCH" : "tSats"; },
+      unit: function () { return gameUnit === "bch" ? "tBCH" : UNIT; },
       value: function (sats) { return !ok(sats) ? "n/a" : gameUnit === "bch" ? bch(sats) : int(sats); },
       format: function (sats) { return this.value(sats) + " " + this.unit(); }
     }

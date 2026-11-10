@@ -249,7 +249,7 @@
     knobArt.anchor.set(0.5); knob.addChild(knobArt);
     var capGlass = k.recess(62, 62, 31); capGlass.anchor.set(0.5); dial.addChild(capGlass);   // the glass cap with the value
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "800", fontSize: 18, fill: "#e8fbff", dropShadow: { color: "#2ec5ff", blur: 8, distance: 0, alpha: 0.9 } }); betVal.y = -4;
-    var betUnit = txt("tSATS", { fontSize: 9, fill: "#8fb8c8" }); betUnit.y = 14;
+    var betUnit = txt("tBCH sats", { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 10, fill: "#8fb8c8" }); betUnit.y = 14;
     dial.addChild(betVal, betUnit);
     var labels = LADDER.map(function (v, i) {
       var a = ang(i), x = Math.sin(a) * LR, y = -Math.cos(a) * LR;
@@ -447,7 +447,7 @@
     var ui = k.openStage("🪙 " + Rw.name.toUpperCase(), "The pearls lock in place. New pearls reset the respins to " + Rw.respins + ".");
     var stage = ui.root, left = Rw.respins, sum = 0;
     var info1 = k.txt("RESPINS " + left, { fontSize: 22, fill: "#ffe79a" }); info1.position.set(W / 2 - 150, 330);
-    var info2 = k.txt("BET " + k.fmt(b) + " tSats", { fontSize: 18, fill: "#9ff0ff" }); info2.position.set(W / 2 + 150, 330);
+    var info2 = k.txt("BET " + k.fmt(b) + " tBCH sats", { fontSize: 18, fill: "#9ff0ff" }); info2.position.set(W / 2 + 150, 330);
     stage.addChild(info1, info2);
     var CWB = 112, CHB = 96, GB = 8, x0 = W / 2 - (REELS * CWB + (REELS - 1) * GB) / 2 + CWB / 2, y0 = 430;
     var cellTex = k.texOf(CWB, CHB, function (g, w, h) { k.rr(g, 2, 2, w - 4, h - 4, 12); g.fillStyle = "rgba(2,18,32,.85)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.55)"; g.stroke(); });

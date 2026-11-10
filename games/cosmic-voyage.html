@@ -5,12 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cosmic Voyage · TestnetCasino.com</title>
   <meta name="description" content="Cosmic Voyage: Rare hits, astronomical jackpots. Slot on TestnetCasino.com, a Bitcoin Cash Testnet4 faucet. Not a real casino, no real money.">
+  <!-- site:head -->
   <meta name="theme-color" content="#052a19">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+  <link rel="icon" href="../favicon.ico" sizes="48x48">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta property="og:site_name" content="TestnetCasino.com">
+  <meta property="og:image" content="https://testnetcasino.com/assets/img/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css?v=20261110j">
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+  <!-- /site:head -->
+  <link rel="stylesheet" href="../assets/css/style.css?v=20261110k">
 </head>
 <body class="theme-cosmic" data-game="cosmic-voyage" data-ambient="cosmic">
   <a class="skip-link" href="#app">Skip to the game</a>
@@ -19,7 +29,8 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span aria-hidden="true">⚠️</span> Bitcoin Cash Testnet4 only. Not a real casino: no real money, no mainnet crypto, no deposits. <a href="../#notice">House notice</a>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <a href="../#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
 
@@ -27,39 +38,39 @@
   <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>
   <!-- /site:faucet -->
 
-  <div class="page">
-    <!-- site:header -->
-    <header class="logo-area">
-      <a class="marquee small" id="marquee" href="../" aria-label="TestnetCasino.com lobby">
-        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>
-        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>
-      </a>
-    </header>
-    <!-- /site:header -->
+  <!-- site:nav -->
+  <header class="site-head">
+    <div class="sh-inner">
+      <a class="sh-logo" href="../"><img src="../assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div class="sh-drawer" id="site-nav">
+        <nav class="nav-bar" aria-label="Site">
+          <a class="nav-link" href="../">Lobby</a>
+          <a class="nav-link" href="fruit-orchard.html">Fruit Orchard</a>
+          <a class="nav-link" href="deep-sea.html">Deep Sea</a>
+          <a class="nav-link" href="cosmic-voyage.html" aria-current="page">Cosmic Voyage</a>
+          <a class="nav-link" href="roulette.html">Roulette</a>
+          <a class="nav-link" href="../fairness.html">Fairness</a>
+          <a class="nav-link" href="../leaderboards.html">Leaderboards</a>
+          <a class="nav-link" href="../jackpots.html">Jackpots</a>
+          <a class="nav-link" href="../withdrawals.html">Withdrawals</a>
+        </nav>
+        <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="../login.html">Sign in</a></span>
+      </div>
+    </div>
+  </header>
+  <!-- /site:nav -->
 
-    <!-- site:nav -->
-    <nav class="nav-bar" aria-label="Site">
-      <a class="chip-link" href="../"><span class="chip-emoji" aria-hidden="true">🎰</span> Lobby</a>
-      <a class="chip-link" href="fruit-orchard.html"><span class="chip-emoji" aria-hidden="true">🍒</span> Fruit Orchard</a>
-      <a class="chip-link" href="deep-sea.html"><span class="chip-emoji" aria-hidden="true">🐚</span> Deep Sea</a>
-      <a class="chip-link" href="cosmic-voyage.html" aria-current="page"><span class="chip-emoji" aria-hidden="true">🚀</span> Cosmic Voyage</a>
-      <a class="chip-link" href="roulette.html"><span class="chip-emoji" aria-hidden="true">🎡</span> Roulette</a>
-      <a class="chip-link" href="../fairness.html"><span class="chip-emoji" aria-hidden="true">⚖️</span> Fairness</a>
-      <a class="chip-link" href="../leaderboards.html"><span class="chip-emoji" aria-hidden="true">🏆</span> Leaderboards</a>
-      <a class="chip-link" href="../jackpots.html"><span class="chip-emoji" aria-hidden="true">💰</span> Jackpots</a>
-      <a class="chip-link" href="../withdrawals.html"><span class="chip-emoji" aria-hidden="true">📤</span> Withdrawals</a>
-      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="../login.html"><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>
-    </nav>
-    <!-- /site:nav -->
+  <div class="page">
 
     <main id="app" tabindex="-1">
       <noscript><p class="panel">This game needs JavaScript to spin the reels.</p></noscript>
     </main>
 
     <section class="panel house-return" id="return" aria-labelledby="return-title">
-      <h2 class="panel-label" id="return-title">♣ RETURN TO THE HOUSE ♣</h2>
+      <h2 class="panel-label" id="return-title">RETURN TO THE HOUSE</h2>
       <div class="hr-body">
-        <img class="hr-coin" src="../assets/img/bch-testnet4.svg" alt="" width="44" height="44">
+        <img class="hr-coin" src="../assets/img/tbch.svg" alt="" width="44" height="44">
         <div class="hr-text">
           <p>Done playing? Please send your tBCH back so others can continue to play:</p>
           <div class="copy-field">
@@ -74,14 +85,14 @@
     <!-- site:footer -->
     <footer class="casino-footer">
       <div class="cf-links">
-        <a href="../fairness.html"><span aria-hidden="true">⚖️</span> Provably fair</a>
-        <a href="../leaderboards.html"><span aria-hidden="true">🏆</span> Leaderboards</a>
-        <a href="../jackpots.html"><span aria-hidden="true">💰</span> Jackpots</a>
-        <a href="../withdrawals.html"><span aria-hidden="true">📤</span> Withdrawals</a>
-        <a href="../account.html"><span aria-hidden="true">👤</span> Your account</a>
-        <a href="../index.html#notice"><span aria-hidden="true">⚠️</span> House notice</a>
-        <a href="../legal/terms-of-service.pdf" type="application/pdf"><span aria-hidden="true">📄</span> Terms<span class="sr-only"> of Service (PDF)</span></a>
-        <a href="../legal/privacy-policy.pdf" type="application/pdf"><span aria-hidden="true">🔒</span> Privacy<span class="sr-only"> Policy (PDF)</span></a>
+        <a href="../fairness.html">Provably fair</a>
+        <a href="../leaderboards.html">Leaderboards</a>
+        <a href="../jackpots.html">Jackpots</a>
+        <a href="../withdrawals.html">Withdrawals</a>
+        <a href="../account.html">Your account</a>
+        <a href="../index.html#notice">House notice</a>
+        <a href="../legal/terms-of-service.pdf" type="application/pdf">Terms<span class="sr-only"> of Service (PDF)</span></a>
+        <a href="../legal/privacy-policy.pdf" type="application/pdf">Privacy<span class="sr-only"> Policy (PDF)</span></a>
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
@@ -90,22 +101,22 @@
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span aria-hidden="true">♠</span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money. <span aria-hidden="true">♦</span></div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="../assets/js/config.js?v=20261110j"></script>
-  <script src="../assets/js/api.js?v=20261110j"></script>
-  <script src="../assets/js/units.js?v=20261110j"></script>
-  <script src="../assets/js/jackpots.js?v=20261110j"></script>
-  <script src="../assets/js/faucet.js?v=20261110j"></script>
-  <script src="../assets/js/auth.js?v=20261110j"></script>
-  <script src="../assets/js/copy.js?v=20261110j"></script>
-  <script src="../assets/js/fx.js?v=20261110j"></script>
-  <script src="../assets/js/audio.js?v=20261110j"></script>
-  <script src="../assets/js/slot.js?v=20261110j"></script>
-  <script src="../assets/js/music.js?v=20261110j"></script>
+  <script src="../assets/js/config.js?v=20261110k"></script>
+  <script src="../assets/js/api.js?v=20261110k"></script>
+  <script src="../assets/js/units.js?v=20261110k"></script>
+  <script src="../assets/js/jackpots.js?v=20261110k"></script>
+  <script src="../assets/js/faucet.js?v=20261110k"></script>
+  <script src="../assets/js/auth.js?v=20261110k"></script>
+  <script src="../assets/js/copy.js?v=20261110k"></script>
+  <script src="../assets/js/fx.js?v=20261110k"></script>
+  <script src="../assets/js/audio.js?v=20261110k"></script>
+  <script src="../assets/js/slot.js?v=20261110k"></script>
+  <script src="../assets/js/music.js?v=20261110k"></script>
 </body>
 </html>

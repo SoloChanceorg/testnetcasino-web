@@ -1,12 +1,11 @@
 /*
  * TestnetCasino.com: page effects:
- *   - light bulbs around the marquee sign (#marquee)
  *   - animated background world on #casino-bg, chosen by <body data-ambient>:
  *       casino   drifting card suits and coins (lobby)
  *       orchard  falling leaves and petals, passing butterflies
  *       deepsea  rising bubbles, swimming fish
  *       cosmic   twinkling starfield with parallax and shooting stars
- *   Every world also carries drifting tBCH coins (assets/img/bch-testnet4.svg).
+ *   Every world also carries drifting tBCH diamonds (assets/img/tbch.svg, the network badge).
  *   - coin shower (spinning tBCH coins) + themed confetti on #coin-shower:
  *       TNC_fx.coinShower(n), TNC_fx.burst(["🍒","🍋"], n)
  */
@@ -21,7 +20,7 @@
   var SCRIPT_SRC = (document.currentScript && document.currentScript.src) || location.href;
   var TBCH = new Image();
   TBCH.decoding = "async";
-  TBCH.src = new URL("../img/bch-testnet4.svg", SCRIPT_SRC).href;
+  TBCH.src = new URL("../img/tbch.svg", SCRIPT_SRC).href;
   function tbchReady() { return TBCH.complete && TBCH.naturalWidth > 0; }
   // A coin of radius r; `flip` (cos of the spin angle) squashes it for a 3D spin.
   function tcoin(ctx, r, flip) {
@@ -34,29 +33,6 @@
   function coinItem(x, y, s, o) { return { tc: true, x: x, y: y, s: s, o: o, sp: R(0, 6.28), vsp: R(0.01, 0.03), ph: R(0, 6.28) }; }
   function drawCoinItem(ctx, it) { ctx.globalAlpha = it.o; ctx.translate(it.x, it.y); tcoin(ctx, it.s / 2, Math.cos(it.sp)); }
   function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
-
-  /* ---------- Marquee bulbs ---------- */
-  function placeBulbs() {
-    var marquee = document.getElementById("marquee");
-    if (!marquee) return;
-    marquee.querySelectorAll(".bulb").forEach(function (b) { b.remove(); });
-    var w = marquee.offsetWidth, h = marquee.offsetHeight, inset = 10, gap = 22;
-    var iw = w - inset * 2, ih = h - inset * 2;
-    var nx = Math.max(2, Math.round(iw / gap)), ny = Math.max(2, Math.round(ih / gap));
-    var pts = [], i;
-    for (i = 0; i < nx; i++) pts.push([inset + iw * i / nx, inset]);
-    for (i = 0; i < ny; i++) pts.push([w - inset, inset + ih * i / ny]);
-    for (i = 0; i < nx; i++) pts.push([w - inset - iw * i / nx, h - inset]);
-    for (i = 0; i < ny; i++) pts.push([inset, h - inset - ih * i / ny]);
-    pts.forEach(function (p, idx) {
-      var b = document.createElement("span");
-      b.className = "bulb" + (idx % 2 ? " odd" : "");
-      b.setAttribute("aria-hidden", "true");
-      b.style.left = p[0] + "px";
-      b.style.top = p[1] + "px";
-      marquee.appendChild(b);
-    });
-  }
 
   /* ---------- Background worlds ---------- */
   var worlds = {
@@ -243,14 +219,10 @@
 
   window.TNC_fx = {
     coinShower: function (n) { shower(n); },
-    burst: function (glyphs, n) { shower(n, glyphs); },
-    placeBulbs: placeBulbs
+    burst: function (glyphs, n) { shower(n, glyphs); }
   };
 
   function start() {
-    placeBulbs();
-    window.addEventListener("resize", placeBulbs);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeBulbs);
     background();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

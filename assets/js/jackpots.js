@@ -16,7 +16,7 @@
  *   - GRAND, MAJOR and MINOR are prize amounts, like real progressive displays: every
  *     [data-jackpot="grand" | "major:<gameId>" | "minor:<gameId>"] shows `amount`, counting up
  *     smoothly to each new reading. Units: data-jackpot-units="bch8" is tBCH with 8 decimals (lobby,
- *     jackpots page); "game" follows the machine's tSats / tBCH switch.
+ *     jackpots page); "game" follows the machine's tBCH sats / tBCH switch.
  *   - The COLLECTOR is every game's shared fill meter (`filled` of `size` collect symbols):
  *     [data-collector="<gameId>"], a small bar with "filled / size" (lobby, jackpots page). The
  *     machines draw their own (the Apple Tree, the Treasure Chest, the Fuel Tank) from onRender.
@@ -64,7 +64,7 @@
 
   /* ═══════════════ GRAND, MAJOR and MINOR: amounts ═══════════════ */
   function gameUnits(node) { return !!G && node.getAttribute("data-jackpot-units") === "game"; }
-  function money(node, sats) { return gameUnits(node) ? { num: G.value(sats), unit: G.unit() } : { num: U.bch(sats), unit: "tBCH" }; }
+  function money(node, sats) { return gameUnits(node) ? { num: G.value(sats), unit: G.unit() } : { num: U.int(sats), unit: U.UNIT }; }
   // Number and unit in separate spans, so themes can style the number on its own.
   function paintAmount(node, sats) {
     var num = node.querySelector(".jp-num"), unit = node.querySelector(".jp-unit");
@@ -78,7 +78,7 @@
     unit.textContent = " " + m.unit;
   }
   function describe(node, key, sats) {
-    var exact = Number(sats).toLocaleString("en-US") + " tSats";
+    var exact = Number(sats).toLocaleString("en-US") + " tBCH sats";
     node.title = label(key) + ": " + U.format(sats) + " (" + exact + ")";
     node.setAttribute("aria-label", label(key) + " " + (gameUnits(node) ? G.format(sats) : U.format(sats)));
   }
@@ -218,7 +218,7 @@
     tr.appendChild(el("td", "jpw-player", String(w.player || "")));
     var amt = el("td", "num jpw-amount");
     amt.appendChild(el("span", "jpw-bch", U.format(w.amount)));
-    amt.appendChild(el("span", "jpw-sats", Number(w.amount).toLocaleString("en-US") + " tSats"));
+    amt.appendChild(el("span", "jpw-sats", Number(w.amount).toLocaleString("en-US") + " tBCH sats"));
     tr.appendChild(amt);
     var check = el("td", "jpw-check");
     if (w.seed && window.TNC_Fair) {
@@ -255,7 +255,7 @@
       cell.appendChild(ul);
       var dl = el("dl", "seed-list");
       [["Seed (revealed by the win)", w.seed], ["Seed hash (public while the jackpot was running)", w.seedHash],
-       ["Range of the target", Number(w.minSats).toLocaleString("en-US") + " to " + Number(w.maxSats).toLocaleString("en-US") + " tSats"]].forEach(function (p) {
+       ["Range of the target", Number(w.minSats).toLocaleString("en-US") + " to " + Number(w.maxSats).toLocaleString("en-US") + " tBCH sats"]].forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       cell.appendChild(dl);
@@ -317,7 +317,7 @@
     return held ? Promise.resolve(data) : refresh();
   }
 
-  // The machine's tSats / tBCH switch: the game displays follow it at once.
+  // The machine's tBCH sats / tBCH switch: the game displays follow it at once.
   if (G) G.onChange(function () {
     document.querySelectorAll("[data-jackpot]").forEach(function (node) {
       if (!gameUnits(node) || node._jpSats == null || node.classList.contains("jp-won")) return;

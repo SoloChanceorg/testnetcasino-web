@@ -1,0 +1,14 @@
+{
+  "name": "TestnetCasino.com",
+  "short_name": "TestnetCasino",
+  "description": "A Bitcoin Cash Testnet4 faucet with slot machines and roulette. Not a real casino: no real money, no deposits.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#052A19",
+  "theme_color": "#052A19",
+  "icons": [
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

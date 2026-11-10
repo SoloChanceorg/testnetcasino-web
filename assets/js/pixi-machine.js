@@ -121,9 +121,9 @@
     var R = function (ms) { return reduce ? Math.min(ms, Math.max(60, ms * 0.25)) : ms; };
     sfx.setTheme(game.theme);
 
-    function amt(n) { return GU ? GU.format(n) : fmt(n) + " tSats"; }
+    function amt(n) { return GU ? GU.format(n) : fmt(n) + " tBCH sats"; }
     function num(n) { return GU ? GU.value(n) : fmt(n); }
-    function unit() { return GU ? GU.unit() : "tSats"; }
+    function unit() { return GU ? GU.unit() : "tBCH sats"; }
     function fmtMult(m) { return m % 1 ? m.toFixed(1).replace(/\.0$/, "") : String(m); }
     function signedIn() { return !!(Auth && Auth.user); }
     function currentBalance() { return signedIn() && typeof Auth.balance === "number" ? Auth.balance : 0; }
@@ -135,7 +135,7 @@
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       '<section class="panel m-extras" aria-label="Credit unit and account"><div class="m-util">' +
         '<button type="button" class="unit-switch" id="unit-switch" role="switch" aria-label="Show credit in tBCH">' +
-          '<span class="us-opt" data-u="sat">tSats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
+          '<span class="us-opt" data-u="sat">tBCH sats</span><span class="us-opt" data-u="bch">tBCH</span></button>' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
         '</section>' +
@@ -277,16 +277,22 @@
       val.anchor.set(1, 0.5); val.position.set(w - 22, h / 2);
       c.addChild(name, val);
       L.jackpots.addChild(c);
-      JR[key] = { c: c, val: val, sats: null, cycle: null, shown: null, won: false };
+      JR[key] = { c: c, val: val, sats: null, cycle: null, shown: null, won: false, maxW: w - 60 - name.width };
     }
     // The GRAND looks the same on every machine (it is shared); MAJOR and MINOR take the game's colours.
     jpRow("grand", 20, 8, 720, 64, "GRAND", ["#3a0a12", "#14040a", "#ff4d5e", "#ffb3bb", "#fff1d0"], true);
     jpRow("major", 20, 80, 356, 50, "MAJOR", T.jp.major);
     jpRow("minor", 384, 80, 356, 50, "MINOR", T.jp.minor);
-    function paintJp(r) { if (r.shown != null && !r.won) r.val.text = num(Math.round(r.shown)) + " " + unit(); }
+    // The amount shrinks to fit beside the name ("tBCH sats" is longer than a ticker).
+    function paintJp(r) {
+      if (r.shown == null || r.won) return;
+      r.val.text = num(Math.round(r.shown)) + " " + unit();
+      r.val.scale.set(1);
+      if (r.val.width > r.maxW) r.val.scale.set(r.maxW / r.val.width);
+    }
     function jpTo(r, sats, cycle) {
       if (r.cycle != null && cycle > r.cycle) {   // won (by someone, or our own spin): WON!, then the new amount
-        r.won = true; r.val.text = "WON!";
+        r.won = true; r.val.scale.set(1); r.val.text = "WON!";
         animate(R(2200), function (p) { r.val.alpha = Math.floor(p * 12) % 2 ? 0.35 : 1; }, ease.lin).then(function () {
           r.won = false; r.val.alpha = 1; r.shown = sats; paintJp(r);
         });
@@ -539,7 +545,8 @@
       var sc = kit.recess(w, h, o.r || 12); sc.position.set(-4, -4); c.addChild(sc);
       var l = txt(label, { fontSize: 14, fill: T.readout.label, letterSpacing: 3 }); l.position.set(w / 2, 20);
       var v = txt("0", { fontFamily: o.font || MONO, fontWeight: "700", fontSize: o.size || 36, fill: T.readout.value, dropShadow: { color: T.readout.glow, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(w / 2, h * 0.535);
-      var u = txt(unit(), { fontSize: 12, fill: T.readout.unit }); u.position.set(w / 2, h - 18);
+      // The unit in Poppins: the sign font has capitals only, and the ticker keeps its lowercase t.
+      var u = txt(unit(), { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 13, fill: T.readout.unit }); u.position.set(w / 2, h - 18);
       c.addChild(l, v, u); deck.addChild(c);
       return { v: v, u: u, c: c };
     };
@@ -622,7 +629,7 @@
       var next = bet, i;
       if (dir > 0) { for (i = 0; i < LADDER.length; i++) if (LADDER[i] > bet) { next = LADDER[i]; break; } }
       else { for (i = LADDER.length - 1; i >= 0; i--) if (LADDER[i] < bet) { next = LADDER[i]; break; } }
-      if (next !== bet) { sfx.chip(); setBet(next); setLcd("Bet " + fmt(bet) + " tSats. Press " + T.spin + "!"); }
+      if (next !== bet) { sfx.chip(); setBet(next); setLcd("Bet " + fmt(bet) + " tBCH sats. Press " + T.spin + "!"); }
     }
     function cantAfford() { return signedIn() && currentBalance() < bet; }
     var authKnown = !Auth, keySub = "";
@@ -635,8 +642,8 @@
     function renderLcdSub() {
       lcdSub.text = feature
         ? (feature.reward ? feature.name + " " : "Free spin ") + feature.played + " / " + (feature.played + feature.left) +
-          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + (feature.reward ? " · bet " + fmt(playBet) + " tSats" : "") + " · won " + amt(feature.total)
-        : "Bet " + fmt(bet) + " tSats · 10 lines";
+          (feature.mult > 1 ? " · wins ×" + feature.mult : "") + (feature.reward ? " · bet " + fmt(playBet) + " tBCH sats" : "") + " · won " + amt(feature.total)
+        : "Bet " + fmt(bet) + " tBCH sats · 10 lines";
     }
     function showReady() {
       if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get " + amt(10000) + "."); return; }
@@ -1089,7 +1096,7 @@
       }
       if (free) { feature.total += roundTotal; renderFeature(); renderLcdSub(); }
       else firstGrid = phases.length ? phases[0].grid : grid;
-      addHistory(free ? "free spin" : "bet " + fmt(bet) + " tSats", free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
+      addHistory(free ? "free spin" : "bet " + fmt(bet) + " tBCH sats", free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
       return WAIT[lastTier];
     }
 
@@ -1143,7 +1150,7 @@
       updateControls(); renderFeature();
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner(Rw.name.toUpperCase() + "!", st.spins + " SPINS" + (Rw.multiplier > 1 ? " · WINS ×" + Rw.multiplier : Rw.rise ? " · RISING ×" : ""));
-      setLcd(Rw.name + ": " + st.spins + " free spins at " + fmt(playBet) + " tSats!", true); sfx.freeSpins();
+      setLcd(Rw.name + ": " + st.spins + " free spins at " + fmt(playBet) + " tBCH sats!", true); sfx.freeSpins();
       var tp = col.target(); emit(50, tp.x, tp.y, { emoji: true });
       await sleep(R(2400)); if (token === presentToken) hideBanner();
     }
@@ -1193,7 +1200,7 @@
     }
     async function celebrateJackpot(st, token) {
       var tier = st.tier || st.pool, c = JP[tier] || JP.major, win = st.win || 0;
-      var bchs = window.TNC_Units ? TNC_Units.format(win) : fmt(win) + " tSats";
+      var bchs = window.TNC_Units ? TNC_Units.format(win) : fmt(win) + " tBCH sats";
       token = ++presentToken;
       clearWins();
       winShown = win; countUp(winRO.v, 0, win, R(2400), token, true); credit(win, token, R(2400));
@@ -1236,7 +1243,7 @@
       tankFlash(true);
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner(COL.name.toUpperCase() + " FULL!", COL.reward.name.toUpperCase());
-      setLcd(COL.emoji + " You filled the " + COL.name + "! " + COL.reward.name + " at " + fmt(st.bet || bet) + " tSats a spin.", true);
+      setLcd(COL.emoji + " You filled the " + COL.name + "! " + COL.reward.name + " at " + fmt(st.bet || bet) + " tBCH sats a spin.", true);
       sfx.freeSpins(); tilt("minor");
       emit(50, tx, ty, { emoji: true, power: 16 });
       await sleep(R(2600)); if (token === presentToken) hideBanner();
@@ -1279,7 +1286,7 @@
     }
     async function spin() {
       if (busy) return;
-      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " tSats is more than your " + amt(b) + ".", true); sfx.tilt(); shake(R(400), 8); return; }
+      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " tBCH sats is more than your " + amt(b) + ".", true); sfx.tilt(); shake(R(400), 8); return; }
       sfx.press();
       pressKey();
       busy = true; playBet = bet; updateControls();

@@ -66,7 +66,7 @@
   var sfx = window.TNC_sfx || {};
   ["press", "chip", "reelStop", "wheelTick", "wheelStop", "win", "bigWin", "noWin", "tilt", "setTheme"].forEach(function (k) { if (!sfx[k]) sfx[k] = function () {}; });
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
-  function sats(n) { return fmt(n) + " tSats"; }
+  function sats(n) { return fmt(n) + " tBCH sats"; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function $(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -123,24 +123,24 @@
     '<h1 class="sr-only">Roulette</h1>' +
     '<div class="rt-stage" id="rt-stage"><div class="rt-canvas" id="rt-canvas"></div>' +
       '<div class="rt-lock" id="rt-lock" hidden><a class="btn-red" id="rt-login" href="../login.html">🔑 Sign in to play</a>' +
-        '<p>Sign in to join the table. New accounts get 10,000 free tSats.</p></div></div>' +
+        '<p>Sign in to join the table. New accounts get 10,000 free tBCH sats.</p></div></div>' +
     '<p class="sr-only" id="rt-live" role="status" aria-live="polite"></p>' +
     '<div class="rt-panels">' +
-      '<section class="panel rt-lobby" aria-labelledby="rt-chat-title"><h2 class="panel-label" id="rt-chat-title">💬 TABLE CHAT</h2>' +
+      '<section class="panel rt-lobby" aria-labelledby="rt-chat-title"><h2 class="panel-label" id="rt-chat-title">TABLE CHAT</h2>' +
         '<ul class="rt-players" id="rt-players" aria-label="Players at the table"></ul>' +
         '<ol class="rt-chat" id="rt-chat" aria-live="polite" aria-label="Chat"><li class="rt-sys">Chat starts when you join: nothing is kept.</li></ol>' +
         '<form class="rt-say" id="rt-say" autocomplete="off"><input class="auth-input" id="rt-text" maxlength="200" placeholder="Say something to the table…" aria-label="Chat message">' +
           '<button type="submit" class="btn-gold" id="rt-send">Send</button></form>' +
         '<p class="auth-error" id="rt-chat-error" hidden></p></section>' +
-      '<section class="panel rt-results-panel" aria-labelledby="rt-res-title"><h2 class="panel-label" id="rt-res-title">🎯 THIS ROUND</h2>' +
+      '<section class="panel rt-results-panel" aria-labelledby="rt-res-title"><h2 class="panel-label" id="rt-res-title">THIS ROUND</h2>' +
         '<div id="rt-results"><p class="acct-empty">Bets and results of the current round appear here.</p></div></section>' +
     '</div>' +
-    '<section class="panel" aria-labelledby="rt-prev-title"><h2 class="panel-label" id="rt-prev-title">🕘 PREVIOUS ROUNDS</h2>' +
+    '<section class="panel" aria-labelledby="rt-prev-title"><h2 class="panel-label" id="rt-prev-title">PREVIOUS ROUNDS</h2>' +
       '<div class="tbl-wrap"><table class="acct-table rt-rounds"><caption class="sr-only">Previous rounds, newest first</caption>' +
         '<thead><tr><th scope="col">Round</th><th scope="col">Time</th><th scope="col">Number</th><th scope="col">Check</th></tr></thead><tbody id="rt-rounds"></tbody></table></div>' +
       '<p class="acct-empty" id="rt-rounds-empty" hidden>No rounds yet.</p>' +
       '<button type="button" class="btn-ghost acct-more" id="rt-more" hidden>Load more</button></section>' +
-    '<section class="panel" aria-labelledby="rt-rules-title"><h2 class="panel-label" id="rt-rules-title">📜 RULES &amp; PAYOUTS</h2><div id="rt-rules">' + rulesHtml() + '</div></section>';
+    '<section class="panel" aria-labelledby="rt-rules-title"><h2 class="panel-label" id="rt-rules-title">RULES &amp; PAYOUTS</h2><div id="rt-rules">' + rulesHtml() + '</div></section>';
 
   function rulesHtml() {
     var rows = [["Straight", "1 number", 1], ["Split", "2 numbers side by side", 2], ["Street", "a row of 3", 3], ["Trio", "0-1-2 or 0-2-3", 3],
@@ -156,8 +156,8 @@
         '<th scope="col" class="num">Returns (incl. stake)</th><th scope="col" class="num">Golden ball</th></tr></thead><tbody>' +
       rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="num">' + oddsText(r[2]) + '</td><td class="num">' + returnsX(r[2]) + '×</td><td class="num">' + returnsX(r[2]) * GX + '×</td></tr>'; }).join("") +
       '</tbody></table></div>' +
-      '<ul class="rules"><li>Chips of 1 to 1,000 tSats, at most 10,000 tSats per player per round. The stake leaves your balance when the chip is placed; Clear gives it back while betting is open.</li>' +
-      '<li>Wins are whole tSats. Example: 10 tSats on one number returns ' + fmt(returnOf(10, 1)) + ' tSats, or ' + fmt(returnOf(10, 1) * GX) + ' with the golden ball.</li>' +
+      '<ul class="rules"><li>Chips of 1 to 1,000 tBCH sats, at most 10,000 tBCH sats per player per round. The stake leaves your balance when the chip is placed; Clear gives it back while betting is open.</li>' +
+      '<li>Wins are whole tBCH sats. Example: 10 tBCH sats on one number returns ' + fmt(returnOf(10, 1)) + ' tBCH sats, or ' + fmt(returnOf(10, 1) * GX) + ' with the golden ball.</li>' +
       '<li>Red numbers: ' + RED.join(", ") + '.</li>' +
       '<li>Provably fair: each round publishes the SHA-256 hash of its secret seed when betting opens; the seed fixes the number, the spin and the golden ball, and is revealed at the result. Check any round below or on the <a href="../fairness.html#roulette">fairness page</a>. Rounds played before the golden ball (rules 1) paid 37 / <i>n</i> times the stake.</li></ul>';
   }
@@ -881,7 +881,7 @@
     if (!S.canBet) { toast("You joined mid-round: you can bet from the next round."); return; }
     if (phase() !== "betting") { toast("No more bets."); sfx.tilt(); return; }
     var pendingSum = S.pending.reduce(function (a, c) { return a + c.amount; }, 0);
-    if (S.myTotal + pendingSum + S.chipValue > ROUND_LIMIT) { toast("At most " + fmt(ROUND_LIMIT) + " tSats a round."); sfx.tilt(); return; }
+    if (S.myTotal + pendingSum + S.chipValue > ROUND_LIMIT) { toast("At most " + fmt(ROUND_LIMIT) + " tBCH sats a round."); sfx.tilt(); return; }
     if (S.balance != null && S.chipValue > S.balance - pendingSum) { toast("Not enough credit for that chip."); sfx.tilt(); return; }
     var chip = { type: spot.type, numbers: spot.numbers, amount: S.chipValue };
     S.pending.push(chip); queue.push(chip);
@@ -925,7 +925,7 @@
   function repeatBets() {
     if (!canPlace() || !S.lastMine.length) return;
     var sum = S.lastMine.reduce(function (a, c) { return a + c.amount; }, 0);
-    if (S.myTotal + sum > ROUND_LIMIT) { toast("Repeating would pass " + fmt(ROUND_LIMIT) + " tSats this round."); return; }
+    if (S.myTotal + sum > ROUND_LIMIT) { toast("Repeating would pass " + fmt(ROUND_LIMIT) + " tBCH sats this round."); return; }
     S.lastMine.forEach(function (c) { var x = { type: c.type, numbers: c.numbers, amount: c.amount }; S.pending.push(x); queue.push(x); });
     sfx.chip(); renderChips(); renderRack(); flush();
   }

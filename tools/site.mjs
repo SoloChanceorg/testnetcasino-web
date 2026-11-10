@@ -3,8 +3,8 @@
  * TestnetCasino.com site tool (Node 18+, no dependencies). The site itself has no
  * build step: this only rewrites the shared parts of the static HTML pages.
  *
- *   node tools/site.mjs build      write the shared blocks (warning strip, faucet bar,
- *                                  small header, nav, footer) into every page from the
+ *   node tools/site.mjs build      write the shared blocks (head, warning strip, faucet bar,
+ *                                  site header with the nav, footer) into every page from the
  *                                  templates below, and give every local script and
  *                                  stylesheet link the same ?v= version tag
  *   node tools/site.mjs check      exit 1 if any page is out of date (nothing is written)
@@ -22,32 +22,32 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// id: used for aria-current; warning: which warning strip the page shows (null = none).
+// id: used for aria-current; games: the page shows machines or cards drawn in the game sign font (Bungee).
 const PAGES = [
-  { file: "index.html", id: "lobby", warning: null, header: false },
-  { file: "login.html", id: "login", warning: "site", header: true },
-  { file: "account.html", id: "account", warning: "site", header: true },
-  { file: "fairness.html", id: "fairness", warning: "site", header: true },
-  { file: "leaderboards.html", id: "leaderboards", warning: "site", header: true },
-  { file: "jackpots.html", id: "jackpots", warning: "site", header: true },
-  { file: "withdrawals.html", id: "withdrawals", warning: "site", header: true },
-  { file: "games/fruit-orchard.html", id: "fruit-orchard", warning: "game", header: true },
-  { file: "games/deep-sea.html", id: "deep-sea", warning: "game", header: true },
-  { file: "games/cosmic-voyage.html", id: "cosmic-voyage", warning: "game", header: true },
-  { file: "games/roulette.html", id: "roulette", warning: "game", header: true }
+  { file: "index.html", id: "lobby", games: true },
+  { file: "login.html", id: "login" },
+  { file: "account.html", id: "account" },
+  { file: "fairness.html", id: "fairness" },
+  { file: "leaderboards.html", id: "leaderboards" },
+  { file: "jackpots.html", id: "jackpots" },
+  { file: "withdrawals.html", id: "withdrawals" },
+  { file: "games/fruit-orchard.html", id: "fruit-orchard", games: true },
+  { file: "games/deep-sea.html", id: "deep-sea", games: true },
+  { file: "games/cosmic-voyage.html", id: "cosmic-voyage", games: true },
+  { file: "games/roulette.html", id: "roulette", games: true }
 ];
 
 // Nav chips, in order. `to` is the target relative to the site root.
 const NAV = [
-  { id: "lobby", to: "./", emoji: "🎰", label: "Lobby" },
-  { id: "fruit-orchard", to: "games/fruit-orchard.html", emoji: "🍒", label: "Fruit Orchard" },
-  { id: "deep-sea", to: "games/deep-sea.html", emoji: "🐚", label: "Deep Sea" },
-  { id: "cosmic-voyage", to: "games/cosmic-voyage.html", emoji: "🚀", label: "Cosmic Voyage" },
-  { id: "roulette", to: "games/roulette.html", emoji: "🎡", label: "Roulette" },
-  { id: "fairness", to: "fairness.html", emoji: "⚖️", label: "Fairness" },
-  { id: "leaderboards", to: "leaderboards.html", emoji: "🏆", label: "Leaderboards" },
-  { id: "jackpots", to: "jackpots.html", emoji: "💰", label: "Jackpots" },
-  { id: "withdrawals", to: "withdrawals.html", emoji: "📤", label: "Withdrawals" }
+  { id: "lobby", to: "./", label: "Lobby" },
+  { id: "fruit-orchard", to: "games/fruit-orchard.html", label: "Fruit Orchard" },
+  { id: "deep-sea", to: "games/deep-sea.html", label: "Deep Sea" },
+  { id: "cosmic-voyage", to: "games/cosmic-voyage.html", label: "Cosmic Voyage" },
+  { id: "roulette", to: "games/roulette.html", label: "Roulette" },
+  { id: "fairness", to: "fairness.html", label: "Fairness" },
+  { id: "leaderboards", to: "leaderboards.html", label: "Leaderboards" },
+  { id: "jackpots", to: "jackpots.html", label: "Jackpots" },
+  { id: "withdrawals", to: "withdrawals.html", label: "Withdrawals" }
 ];
 
 // A root-relative target as seen from the page's folder.
@@ -59,40 +59,60 @@ function rel(page, to) {
   return "../" + to;
 }
 
+const FONTS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap";
+const FONTS_GAMES = FONTS.replace("family=Inter", "family=Bungee&family=Inter");
+
 const BLOCKS = {
+  // Icons, theme colour, share card and fonts (testnetcasino-brand). The game pages also load
+  // Bungee, the sign font the machines and the lobby cards are drawn in.
+  head(page) {
+    const r = (to) => rel(page, to);
+    return [
+      `  <meta name="theme-color" content="#052a19">`,
+      `  <link rel="icon" href="${r("favicon.ico")}" sizes="48x48">`,
+      `  <link rel="icon" href="${r("assets/img/favicon.svg")}" type="image/svg+xml">`,
+      `  <link rel="apple-touch-icon" href="${r("assets/img/apple-touch-icon.png")}">`,
+      `  <link rel="manifest" href="${r("site.webmanifest")}">`,
+      `  <meta property="og:site_name" content="TestnetCasino.com">`,
+      `  <meta property="og:image" content="https://testnetcasino.com/assets/img/og-image.png">`,
+      `  <meta property="og:image:width" content="1200">`,
+      `  <meta property="og:image:height" content="630">`,
+      `  <meta name="twitter:card" content="summary_large_image">`,
+      `  <link rel="preconnect" href="https://fonts.googleapis.com">`,
+      `  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
+      `  <link href="${page.games ? FONTS_GAMES : FONTS}" rel="stylesheet">`
+    ];
+  },
   warning(page) {
-    const text = page.warning === "game"
-      ? "Bitcoin Cash Testnet4 only. Not a real casino: no real money, no mainnet crypto, no deposits."
-      : "Not a real casino: no real money, no mainnet crypto, no deposits.";
     return [
       `  <div class="warning-strip" role="note">`,
-      `    <span aria-hidden="true">⚠️</span> ${text} <a href="${rel(page, "./")}#notice">House notice</a>`,
+      `    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>`,
+      `    <a href="${page.id === "lobby" ? "#notice" : rel(page, "./") + "#notice"}">HOUSE NOTICE</a>`,
       `  </div>`
     ];
   },
   faucet() {
     return [`  <section class="faucet-bar" id="faucet-bar" aria-label="Faucet status"></section>`];
   },
-  header(page) {
-    return [
-      `    <header class="logo-area">`,
-      `      <a class="marquee small" id="marquee" href="${rel(page, "./")}" aria-label="TestnetCasino.com lobby">`,
-      `        <span class="mq-title">TESTNETCASINO<span class="dot">.COM</span></span>`,
-      `        <span class="mq-sub"><span aria-hidden="true">♠ <span class="suit-red">♥</span></span> BCH TESTNET4 FAUCET <span aria-hidden="true">♣ <span class="suit-red">♦</span></span></span>`,
-      `      </a>`,
-      `    </header>`
-    ];
-  },
+  // The site header: the logo, then the links; on phones the links fold into a menu (auth.js).
   nav(page) {
-    const lines = [`    <nav class="nav-bar" aria-label="Site">`];
+    const lines = [
+      `  <header class="site-head">`,
+      `    <div class="sh-inner">`,
+      `      <a class="sh-logo" href="${rel(page, "./")}"${page.id === "lobby" ? ` aria-current="page"` : ""}><img src="${rel(page, "assets/img/logo-horizontal.svg")}" alt="TestnetCasino.com" width="230" height="28"></a>`,
+      `      <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>`,
+      `      <div class="sh-drawer" id="site-nav">`,
+      `        <nav class="nav-bar" aria-label="Site">`
+    ];
     for (const n of NAV) {
       const cur = n.id === page.id ? ` aria-current="page"` : "";
-      lines.push(`      <a class="chip-link" href="${rel(page, n.to)}"${cur}><span class="chip-emoji" aria-hidden="true">${n.emoji}</span> ${n.label}</a>`);
+      lines.push(`          <a class="nav-link" href="${rel(page, n.to)}"${cur}>${n.label}</a>`);
     }
+    lines.push(`        </nav>`);
     // auth.js replaces this with the account chips once it knows who is signed in.
     const signCur = page.id === "login" ? ` aria-current="page"` : "";
-    lines.push(`      <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="${rel(page, "login.html")}"${signCur}><span class="chip-emoji" aria-hidden="true">🔑</span> Sign in</a></span>`);
-    lines.push(`    </nav>`);
+    lines.push(`        <span class="auth-nav" id="auth-nav"><a class="chip-link auth-pill" href="${rel(page, "login.html")}"${signCur}>Sign in</a></span>`);
+    lines.push(`      </div>`, `    </div>`, `  </header>`);
     return lines;
   },
   footer(page) {
@@ -101,14 +121,14 @@ const BLOCKS = {
     return [
       `    <footer class="casino-footer">`,
       `      <div class="cf-links">`,
-      `        <a href="${r("fairness.html")}"><span aria-hidden="true">⚖️</span> Provably fair</a>`,
-      `        <a href="${r("leaderboards.html")}"><span aria-hidden="true">🏆</span> Leaderboards</a>`,
-      `        <a href="${r("jackpots.html")}"><span aria-hidden="true">💰</span> Jackpots</a>`,
-      `        <a href="${r("withdrawals.html")}"><span aria-hidden="true">📤</span> Withdrawals</a>`,
-      `        <a href="${r("account.html")}"><span aria-hidden="true">👤</span> Your account</a>`,
-      `        <a href="${notice}"><span aria-hidden="true">⚠️</span> House notice</a>`,
-      `        <a href="${r("legal/terms-of-service.pdf")}" type="application/pdf"><span aria-hidden="true">📄</span> Terms<span class="sr-only"> of Service (PDF)</span></a>`,
-      `        <a href="${r("legal/privacy-policy.pdf")}" type="application/pdf"><span aria-hidden="true">🔒</span> Privacy<span class="sr-only"> Policy (PDF)</span></a>`,
+      `        <a href="${r("fairness.html")}">Provably fair</a>`,
+      `        <a href="${r("leaderboards.html")}">Leaderboards</a>`,
+      `        <a href="${r("jackpots.html")}">Jackpots</a>`,
+      `        <a href="${r("withdrawals.html")}">Withdrawals</a>`,
+      `        <a href="${r("account.html")}">Your account</a>`,
+      `        <a href="${notice}">House notice</a>`,
+      `        <a href="${r("legal/terms-of-service.pdf")}" type="application/pdf">Terms<span class="sr-only"> of Service (PDF)</span></a>`,
+      `        <a href="${r("legal/privacy-policy.pdf")}" type="application/pdf">Privacy<span class="sr-only"> Policy (PDF)</span></a>`,
       `      </div>`,
       `      <div class="cf-networks">`,
       `        <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>`,
@@ -117,7 +137,7 @@ const BLOCKS = {
       `      <div class="cf-bottom">`,
       `        <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>`,
       `        <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>`,
-      `        <div class="cf-disclaimer"><span aria-hidden="true">♠</span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money. <span aria-hidden="true">♦</span></div>`,
+      `        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>`,
       `      </div>`,
       `    </footer>`
     ];
@@ -125,11 +145,8 @@ const BLOCKS = {
 };
 
 // Which blocks each page must have.
-function blocksFor(page) {
-  const list = ["faucet", "nav", "footer"];
-  if (page.warning) list.unshift("warning");
-  if (page.header) list.push("header");
-  return list;
+function blocksFor() {
+  return ["head", "warning", "faucet", "nav", "footer"];
 }
 
 const VERSION_RE = /((?:src|href)="(?:\.\.\/)?assets\/(?:js|css)\/[\w.-]+\.(?:js|css))\?v=(\w+)"/g;

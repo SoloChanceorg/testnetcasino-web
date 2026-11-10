@@ -9,7 +9,8 @@
  *   pendingWithdrawals  withdrawals requested but not yet sent (not shown)
  *   players             { allTime, withBalance, last24h, last30d } (counts)
  * The server recomputes them at most every 5 minutes; the bar re-reads them
- * every minute while the tab is visible. Amounts are shown in tBCH: the faucet
+ * every minute while the tab is visible. Amounts are shown in whole tBCH (the only place on the
+ * site that does; the tooltip gives the exact tBCH sats): the faucet
  * rounded to 2 decimals (exact value in the tooltip), player balances with all
  * 8 decimals.
  *
@@ -24,7 +25,7 @@
 
   var REFRESH_MS = 60000;
   var SITE = new URL("../", document.currentScript && document.currentScript.src || location.href).href;
-  var COIN = new URL("img/bch-testnet4.svg", SITE).href;
+  var COIN = new URL("img/tbch.svg", SITE).href;
 
   var data = null, failed = false, timer = null;
 
@@ -37,7 +38,7 @@
       '</dl>' +
       '<span class="fb-time" data-k="time"></span>' +
       '<dl class="fb-players" data-k="players" hidden>' +
-        '<dt><span aria-hidden="true">👥</span> Players</dt>' +
+        '<dt>Players</dt>' +
         player("allTime", "all time") + player("last30d", "in 30 days") + player("last24h", "in 24 h") + player("withBalance", "with a balance") +
       '</dl>' +
     '</div>';
@@ -68,7 +69,7 @@
     // Faucet totals are rounded to 2 decimals; player balances are small, so they show all 8.
     [["house", data.house, true], ["users", data.users, false]].forEach(function (p) {
       var e = q(p[0]);
-      e.textContent = p[2] ? U.round2(p[1]) : U.format(p[1]);
+      e.textContent = p[2] ? U.round2(p[1]) : U.coins(p[1]);
       e.parentNode.title = U.format(p[1]);
     });
     var pl = data.players, plEl = q("players");

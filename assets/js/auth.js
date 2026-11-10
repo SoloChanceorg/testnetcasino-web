@@ -23,7 +23,7 @@
   var script = document.currentScript;
   var SITE = new URL("../../", script ? script.src : location.href);   // site root (works under a sub-path too)
   var LOGIN = new URL("login.html", SITE);
-  var TBCH_ICON = '<img class="tbch" src="' + new URL("assets/img/bch-testnet4.svg", SITE).href + '" alt="">';
+  var TBCH_ICON = '<img class="tbch" src="' + new URL("assets/img/tbch.svg", SITE).href + '" alt="">';
 
   function $(id) { return document.getElementById(id); }
   function short(addr) {
@@ -190,7 +190,7 @@
       a.className = "chip-link auth-pill";
       a.href = onLogin ? LOGIN.pathname + location.search : Auth.loginHref();
       if (onLogin) a.setAttribute("aria-current", "page");
-      a.innerHTML = '<span class="chip-emoji" aria-hidden="true">🔑</span> Sign in';
+      a.textContent = "Sign in";
       nav.appendChild(a);
     } else {
       if (Auth.balance !== null) {
@@ -230,7 +230,20 @@
   }
 
   window.TNC_Auth = Auth;
+  // The site header's menu button (phones): opens and closes the links.
+  function menu() {
+    document.documentElement.classList.add("js");
+    var btn = $("sh-menu"), head = btn && btn.closest(".site-head");
+    if (!btn || !head) return;
+    function set(open) { head.classList.toggle("is-open", open); btn.setAttribute("aria-expanded", open ? "true" : "false"); }
+    btn.addEventListener("click", function () { set(!head.classList.contains("is-open")); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && head.classList.contains("is-open")) { set(false); btn.focus(); } });
+    document.addEventListener("click", function (e) { if (!head.contains(e.target)) set(false); });
+    head.querySelectorAll(".nav-link").forEach(function (a) { a.addEventListener("click", function () { set(false); }); });
+  }
+
   function start() {
+    menu();
     renderNav();
     renderBonusCard();
     Auth.ready = Auth.refresh();

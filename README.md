@@ -53,7 +53,24 @@ hard-codes these: the paytable reads them from the config, and running text mark
 
 ## Look & feel
 
-"Vegas Casino" site chrome shared with the SoloChance.org casino edition: green felt, Bungee and Poppins (Google Fonts), gold and red, a marquee sign with chasing bulbs.
+The site follows the brand kit ("Bracket Diamond": the mark is two code brackets around a diamond pip, `<♦>`). The kit itself
+is kept outside the repo; the files the site uses are copied in:
+
+- **Colours** (CSS variables `--tc-*` at the top of `style.css`, from the kit's `tokens.css`): Felt 900 `#052A19` page,
+  Felt 800 cards, Felt 700 borders, Ivory `#F4EEDD` text and primary buttons, Gold `#E9B949` only for the house ("casino",
+  jackpots, headline accents; never a button), Diamond red `#E5484D` for the pip and notices, Mint `#3DD9A4` for links,
+  success and **tBCH** (its network colour; tBTC will be Orange `#FF8A1F`).
+- **Fonts** (Google Fonts): Poppins 500/700 for headings, buttons and the nav; Inter for text; JetBrains Mono for amounts,
+  addresses and hashes. The machines and the lobby's game cards keep their own skins and the Bungee sign font, which only the
+  lobby and the game pages load.
+- **Top of every page** (`tools/site.mjs`): the red warning strip ("NOT A REAL CASINO ♦ …"), the faucet bar on Felt 950, then
+  the site header: the horizontal logo (`assets/img/logo-horizontal.svg`), the links and the account chips. Below 760px the
+  links and chips fold into a menu button (`auth.js`; Esc or a click outside closes it).
+- **Panels** are Felt 800 cards with a small-capitals eyebrow after a red pip. Buttons: Ivory primary, outlined secondary.
+- **Icons**: `favicon.ico` (16 pixel-fitted, 32, 48), `assets/img/favicon.svg`, `apple-touch-icon.png`, the manifest icons
+  (`site.webmanifest`) and the share card `og-image.png` (1200 × 630), all in the shared head block.
+- **The tBCH badge** is a small mint diamond (`assets/img/tbch.svg`): no mainnet coin logos next to the mark.
+
 Each game page drops you into its own world and has **its own machine**, and its card in the lobby is a small version of it
 (Fruit Orchard: wooden crate, striped awning with string lights, tilted sign, price-tag Play; Deep Sea: riveted hull, brass
 nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, holographic title, neon Play):
@@ -71,8 +88,8 @@ waits for the win animations to finish, plus half a second, before the next spin
 Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
 Each machine has a full-screen button in its top-right corner: the site header, nav and paytable are hidden and the machine is sized
 to fit the screen, 10px from the edges (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
-The BCH Testnet4 coin (`assets/img/bch-testnet4.svg`) drifts through every venue's animated background, rains down in the win coin
-showers and marks tBCH in the UI (balance chip, wallet sign-in, Withdraw step, lobby and sign-in tab icon).
+The tBCH diamond (`assets/img/tbch.svg`) drifts through every venue's animated background, rains down in the win showers and
+marks tBCH in the UI (faucet bar, balance chip, wallet sign-in, Withdraw step, return to the house).
 Respects `prefers-reduced-motion` and works down to 360px wide.
 
 ## Live faucet stats
@@ -80,14 +97,17 @@ Respects `prefers-reduced-motion` and works down to 360px wide.
 Every page has a bar at the top with live totals from `GET /faucet` (public): what is left in the faucet (`house`) and
 the sum of player balances, plus player counts (all time, last 30 days, last 24 hours, with a
 balance). The server recomputes them at most every 5 minutes; the bar re-reads them every
-minute while the tab is visible and says so when the server marks them `stale`. The faucet is rounded to 2 decimals (hover for the exact value); player balances show all 8 decimals.
+minute while the tab is visible and says so when the server marks them `stale`. It is the only place that shows whole coins:
+the faucet rounded to 2 decimals (hover for the exact tBCH sats), player balances with all 8 decimals.
 
 ## Units
 
-The API works in sats (1 tBCH = 100,000,000 sats). The site shows every amount in **tBCH** (`assets/js/units.js`): the faucet
-bar, the nav balance, the daily bonus, the account page and the fairness page. Inside a game machine the credit (balance, wins,
-win breakdown, recent spins) is shown in **tSats** by default, with a tSats / tBCH switch under the machine; the choice is
-remembered in `localStorage` (display preference only). Bets are always whole tSats (1 to 1,000).
+The API works in sats (1 tBCH = 100,000,000 sats). Following the brand kit, every amount is shown in sats and written
+**tBCH sats** (`assets/js/units.js`): bonuses, bets, wins, balances, jackpots, each withdrawal, the tables (the column header
+names the unit). Only the faucet bar, and the withdrawals page's total, show whole tBCH. The withdraw form takes a whole number
+of tBCH sats. Inside a game machine the credit can also be switched to tBCH (the switch under the machine; remembered in
+`localStorage`, display only). Bets are always whole tBCH sats (1 to 1,000). On the machines the unit is set in Poppins, since
+the sign font has capitals only and the ticker keeps its lowercase t.
 
 ## Returning coins
 
@@ -168,7 +188,7 @@ ever shows what the server sent:
 
 - **GRAND, MAJOR and MINOR are prize amounts** (`amount`), like real progressive displays: every
   `[data-jackpot="grand" | "major:<id>" | "minor:<id>"]` counts up smoothly to each new reading. `data-jackpot-units="bch8"`
-  is tBCH with 8 decimals (lobby, jackpots page); `"game"` follows the machine's tSats / tBCH switch.
+  is tBCH sats (lobby, jackpots page); `"game"` follows the machine's tBCH sats / tBCH switch.
 - When a `cycle` goes up between two readings, someone won it: the amount flashes "WON!" and then shows the new, smaller one.
 - The target ranges are never shown (a surprise). Only a win's Verify details show its range, because the check needs it.
 - GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
@@ -197,9 +217,8 @@ Where they are:
 - **Lobby**: the Grand amount at the top of the casino floor (with a link to the jackpots page), and each machine's Major
   amount at the top of its card.
 - **Jackpots page** (`jackpots.html`): every jackpot and collector now, the rules in short, the seed hash of every running
-  jackpot ("Seed hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH and
-  tSats). Wins with a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must
-  give the same `target` and `startSats`, and the amount must be at least the head start. Older wins (D40, D41, with a
+  jackpot ("Seed hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH sats). Wins with a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must
+  give the same `target` and `startBCH sats`, and the amount must be at least the head start. Older wins (D40, D41, with a
   `displayScale`) are checked by their own rules (display scale, the old head start, amount at least the target). Wins from
   the first pools (no `seed`) show "Old jackpot" and no Verify. The API has no full history of jackpot wins.
 
@@ -248,7 +267,7 @@ real minute while someone is at the table: `:00` to `:20` betting, then a 28 to 
   visible. Without an answer it keeps its own text and sample numbers.
 - **Chips** go through `POST /roulette/bets` (taps close together in one request, up to 50 chips, each with its own
   `requestId`) and **Clear** through `POST /roulette/bets/clear`; **Repeat** places your chips of the last round again.
-  Chips of 1 to 1,000 tSats, at most 10,000 a round (checked before sending too). A player who joins during a round sees "You
+  Chips of 1 to 1,000 tBCH sats, at most 10,000 a round (checked before sending too). A player who joins during a round sees "You
   joined mid-round: you can bet from the next round" with a countdown.
 - **The wheel** turns all the time. When the `spin` arrives the number is known, but it is never shown as text before
   `resultAt`: the ball follows a closed-form path relative to the wheel (many turns against it, slowing, dropping from the
@@ -388,15 +407,16 @@ jackpots.html         The jackpots now, their seed hashes and the latest 20 wins
 withdrawals.html      Every withdrawal the faucet has sent, with the total (CSP-protected)
 legal/*.pdf           Terms of Service and Privacy Policy (built by tools/legal/build_legal.py)
 games/*.html          One page per game (body[data-game] selects the config)
-assets/css/style.css  "Vegas Casino" theme + per-game worlds and lobby cards (.theme-orchard / -deepsea / -cosmic)
+assets/css/style.css  Brand kit theme + per-game worlds and lobby cards (.theme-orchard / -deepsea / -cosmic)
 assets/js/slot.js     Game page: loads the game config, the paytable, then PixiJS and the machine
 assets/js/pixi-machine.js  The machine engine (PixiJS): reels, the spin's steps, stages, console in perspective
 assets/js/pixi-orchard.js, pixi-deepsea.js, pixi-cosmic.js  Each game's machine (skin)
 assets/js/audio.js    Synthesized sound packs per game (Web Audio API, no audio files), mute saved per browser
-assets/js/fx.js       Marquee bulbs, themed animated backgrounds per game, coin shower + themed confetti
-assets/img/bch-testnet4.svg  BCH Testnet4 coin icon
+assets/js/fx.js       Themed animated backgrounds per game, the win shower + themed confetti
+assets/img/           Logo, mark, favicons, app icons, share card (from the brand kit) and the tBCH diamond (tbch.svg)
+favicon.ico, site.webmanifest  Tab icon and web app manifest
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
-assets/js/units.js    Amount formatting: tBCH everywhere, tSats / tBCH switch inside the games
+assets/js/units.js    Amount formatting: tBCH sats everywhere, whole tBCH in the faucet bar, the switch inside the games
 assets/js/jackpots.js Jackpot amounts, Minor coin pots and the latest wins (GET /jackpots, lobby, games, jackpots page)
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
@@ -410,22 +430,22 @@ assets/js/leaderboards.js  Leaderboards page
 assets/js/withdrawals.js  Withdrawals page (every withdrawal the faucet has sent)
 assets/js/fairness-engine.js  Provably fair verifier (browser + Node, no DOM)
 tools/verify-vectors.mjs      Checks the verifier against the backend test vectors
-tools/site.mjs                Shared header, nav and footer for every page; ?v= version tag
+tools/site.mjs                Shared head, warning strip, faucet bar, header and footer for every page; ?v= version tag
 tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against a fake API
 .nojekyll             Serve files as-is on GitHub Pages
 ```
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110j`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110k`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
 
 Node 22+ only, no dependencies; the site itself still has no build step.
 
-- `node tools/site.mjs build` writes the shared blocks into every page from one template: the warning strip, the faucet bar,
-  the small header, the nav and the footer. In the pages they sit between markers such as `<!-- site:nav -->` and
+- `node tools/site.mjs build` writes the shared blocks into every page from one template: the head (icons, share
+  card, fonts), the warning strip, the faucet bar, the site header with the nav, and the footer. In the pages they sit between markers such as `<!-- site:nav -->` and
   `<!-- /site:nav -->`; edit the templates in `tools/site.mjs`, never the copies. `check` reports pages that are out of date.
 - `node tools/site.mjs version` bumps the `?v=` tag (date + letter, never backwards) in every page and this README.
 - `node tools/check/smoke.mjs` runs every page in headless Chrome against a fake API (fixtures in `tools/check/fixtures`:

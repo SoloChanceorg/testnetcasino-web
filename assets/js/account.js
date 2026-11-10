@@ -21,7 +21,7 @@
 
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
-  // Amounts are shown in tBCH (the API works in sats).
+  // Amounts are shown in tBCH sats, like the API.
   function sats(n) { return U.format(n); }
   function bchText(n) { return U.short(n); }
   function when(iso) {
@@ -115,7 +115,7 @@
 
   $("wd-max").addEventListener("click", function () {
     // The player's whole balance; the checks below explain any limit it is over.
-    amountEl.value = U.bch(Auth.balance || 0).replace(/,/g, "");
+    amountEl.value = String(Auth.balance || 0);
     fieldError(amountEl, wdErr, "");
     amountEl.focus();
   });
@@ -125,7 +125,7 @@
     e.preventDefault();
     setStatus(wdStatus, "");
     var amount = U.parse(amountEl.value);
-    if (amount === null) { fieldError(amountEl, wdErr, "Enter an amount in tBCH, for example 0.0001 (up to 8 decimals)."); amountEl.focus(); return; }
+    if (amount === null) { fieldError(amountEl, wdErr, "Enter a whole number of tBCH sats, for example 10,000."); amountEl.focus(); return; }
     if (amount < MIN_WD) { fieldError(amountEl, wdErr, "The minimum is " + bchText(MIN_WD) + "."); amountEl.focus(); return; }
     if (amount > MAX_WD) { fieldError(amountEl, wdErr, "The maximum is " + bchText(MAX_WD) + " per withdrawal."); amountEl.focus(); return; }
     if (amount > (Auth.balance || 0)) { fieldError(amountEl, wdErr, "That is more than your balance of " + sats(Auth.balance || 0) + "."); amountEl.focus(); return; }
@@ -214,8 +214,8 @@
         var what = td(KIND[it.kind] || it.kind);
         if (it.reference) what.title = "Reference " + it.reference;
         tr.appendChild(what);
-        tr.appendChild(td((it.amount > 0 ? "+" : it.amount < 0 ? "−" : "") + U.bch(Math.abs(it.amount)), "num " + (it.amount > 0 ? "is-plus" : it.amount < 0 ? "is-minus" : "")));
-        tr.appendChild(td(U.bch(it.balanceAfter), "num"));
+        tr.appendChild(td((it.amount > 0 ? "+" : it.amount < 0 ? "−" : "") + U.int(Math.abs(it.amount)), "num " + (it.amount > 0 ? "is-plus" : it.amount < 0 ? "is-minus" : "")));
+        tr.appendChild(td(U.int(it.balanceAfter), "num"));
         body.appendChild(tr);
       });
       ledgerCursor = r.data.nextCursor || null;

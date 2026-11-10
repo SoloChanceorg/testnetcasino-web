@@ -36,8 +36,8 @@
   var data = null, state = {}, active = null, loadedFor;   // loadedFor: user id the data was fetched for
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function fmtAmount(sats) { return U ? U.bch(sats) : String(sats); }
-  function fmtSats(sats) { return Number(sats).toLocaleString("en-US") + " sats"; }
+  function fmtAmount(sats) { return U ? U.int(sats) : String(sats); }
+  function fmtSats(sats) { return Number(sats).toLocaleString("en-US") + " tBCH sats"; }
 
   /* ═══════════════ Tabs (WAI-ARIA tabs pattern) ═══════════════ */
   var tabs = BOARDS.map(function (b, i) {
@@ -107,7 +107,7 @@
         table.appendChild(cap);
         var thead = el("thead");
         var hr = el("tr");
-        [["Rank", "lb-rank"], ["Player", "lb-player"], [b.what + " (tBCH)", "num lb-amount"]].forEach(function (c) {
+        [["Rank", "lb-rank"], ["Player", "lb-player"], [b.what + " (tBCH sats)", "num lb-amount"]].forEach(function (c) {
           var th = el("th", c[1], c[0]); th.scope = "col"; hr.appendChild(th);
         });
         thead.appendChild(hr);

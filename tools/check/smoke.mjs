@@ -248,7 +248,7 @@ try {
       resetApi(); if (signed) signIn();
       await open(p, width);
       const info = await ev(`({ sw: document.documentElement.scrollWidth, iw: innerWidth,
-        nav: document.querySelectorAll('.nav-bar [aria-current="page"]').length, footer: !!document.querySelector(".casino-footer .cf-links"),
+        nav: document.querySelectorAll('.site-head [aria-current="page"]').length, footer: !!document.querySelector(".casino-footer .cf-links"),
         faucet: (document.querySelector('#faucet-bar [data-k="house"]') || {}).textContent || "",
         signedIn: !!document.querySelector(".auth-user") })`);
       const problems = [];
@@ -265,7 +265,7 @@ try {
     }
   }
 
-  /* ═══ 4. The machines (PixiJS): jackpots and the collector, tSats / tBCH, a spin, full screen, phone ═══ */
+  /* ═══ 4. The machines (PixiJS): jackpots and the collector, tBCH sats / tBCH, a spin, full screen, phone ═══ */
   // The whole machine is a canvas; TNC_PixiState() reports what it shows, TNC_PixiBet() sets the bet,
   // Space spins (and stops), TNC_PixiGo() presses a stage's button (or Auto) like a player would.
   const THEME = { "fruit-orchard": "orchard", "deep-sea": "deepsea", "cosmic-voyage": "cosmic" };
@@ -280,15 +280,15 @@ try {
     const major = (45678 + i).toLocaleString("en-US"), minor = (2310 + i).toLocaleString("en-US");
     resetApi(); signIn();
     if (!(await openMachine(g))) { check(`${g} (PixiJS machine) builds`, false); continue; }
-    const idle = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tSats" && s.jackpots.major === "${major} tSats"
-      && s.jackpots.minor === "${minor} tSats" && s.tank.filled === ${c.filled} && s.tank.size === ${c.size}; })()
+    const idle = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "121,994 tBCH sats" && s.jackpots.major === "${major} tBCH sats"
+      && s.jackpots.minor === "${minor} tBCH sats" && s.tank.filled === ${c.filled} && s.tank.size === ${c.size}; })()
       && /RTP101% in all/.test(document.querySelector(".paytable .facts").textContent) && /Jackpot head starts8\\.5%/.test(document.querySelector(".paytable .facts").textContent) && !/Must hit|before it is full|reaches its limit|faucet boost|gift/i.test(document.querySelector(".paytable").textContent)
       && !document.querySelector("#slot-machine .reels-window")`, 8000);
     if (!idle) problems.push("idle: " + JSON.stringify(await ev(`TNC_PixiState()`)));
     await ev(`document.getElementById("unit-switch").click()`);
     const bch = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.grand === "0.00121994 tBCH" && s.jackpots.minor === "${(0.0000231 + i * 1e-8).toFixed(8)} tBCH"; })()`, 3000);
     if (!bch) problems.push("tBCH: " + JSON.stringify((await ev(`TNC_PixiState()`)).jackpots));
-    await ev(`document.getElementById("unit-switch").click()`);   // back to tSats
+    await ev(`document.getElementById("unit-switch").click()`);   // back to tBCH sats
     // Full screen: the canvas fills the screen with 10 px on the side that runs out first.
     await ev(`document.body.classList.add("is-fullscreen"); document.documentElement.classList.add("is-fullscreen"); scrollTo(0, 0); dispatchEvent(new Event("resize"))`);
     await sleep(400);
@@ -313,7 +313,7 @@ try {
     resetApi(); signIn();
     if (!(await openMachine(g, 375))) problems.push("phone: not built " + JSON.stringify(await ev(`({ text: document.getElementById("app").textContent.slice(0, 200) })`)) + pageErrors.slice(0, 2).join(" | "));
     else if (!(await until(`document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 8000))) problems.push("phone: sideways scroll");
-    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} (tSats / tBCH), RTP 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
+    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} (tBCH sats / tBCH), RTP 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
   }
 
   /* ═══ 4a. Reels stop one by one; STOP (Space) lands them early; a win holds the next spin ═══ */
@@ -354,19 +354,19 @@ try {
     // Someone else wins the Deep Sea Major and fills its Treasure Chest: the cycles go up between two readings.
     resetApi(); signIn();
     await openMachine("deep-sea");
-    await until(`TNC_PixiState().jackpots.major === "45,679 tSats"`);
+    await until(`TNC_PixiState().jackpots.major === "45,679 tBCH sats"`);
     api.jackpots.games["deep-sea"].major = { amount: 2410, cycle: 3, seedHash: "d".repeat(64) };
     api.jackpots.games["deep-sea"].collector = { filled: 2, size: 109, cycle: 10 };
     await ev(`TNC_Jackpots.refresh()`);
     const flash = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.major === "WON!" && s.tank.full && s.tank.filled === 109; })()`, 3000);
-    const after = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.major === "2,410 tSats" && !s.tank.full && s.tank.filled === 2 && s.tank.size === 109; })()`, 4000);
+    const after = await until(`(() => { const s = TNC_PixiState(); return s.jackpots.major === "2,410 tBCH sats" && !s.tank.full && s.tank.filled === 2 && s.tank.size === 109; })()`, 4000);
     check("jackpot won and collector filled by someone else: WON! then the new Major, FULL! then from empty", flash && after, `flash ${!!flash}, after ${!!after}`);
   }
 
   // Plays one queued spin on a machine and records what it showed on the way (the stages pressed through TNC_PixiGo).
   async function playQueued(g, v, opts = {}) {
     await openMachine(g);
-    await until(`TNC_PixiState().jackpots.major === "${(45678 + GAMES.indexOf(g)).toLocaleString("en-US")} tSats"`);
+    await until(`TNC_PixiState().jackpots.major === "${(45678 + GAMES.indexOf(g)).toLocaleString("en-US")} tBCH sats"`);
     const callsBefore = api.jackpotCalls;
     await ev(`(() => { const R = window.__rec = { jp: 0, col: 0, picks: 0, pearls: 0, wheel: null, stage: false, sign: [], lcd: [], banner: [], full: false, count: [] };
       setInterval(() => { const s = TNC_PixiState();
@@ -395,18 +395,18 @@ try {
   }
   for (const g of GAMES) {
     // A jackpot won in the game: its own show (golden apples, the oyster's clam pick, the Star Map Wheel),
-    // then the celebration in tBCH; nothing on the jackpots gives it away while the reels turn.
+    // then the celebration in tBCH sats; nothing on the jackpots gives it away while the reels turn.
     resetApi(); signIn(500000);
     const v = { ...SPINS["jackpot-" + g], jackpotWin: 3290 }, jst = v.steps.find((x) => x.type === "jackpot"), tier = jst.tier.toUpperCase();
     api.spinQueue.push(v);
     const r = await playQueued(g, v, { spoilerCheck: true });
     const problems = [];
     const i = GAMES.indexOf(g), type = CFG[g].jackpot.type;
-    if (r.spoiler !== `${(45678 + i).toLocaleString("en-US")} tSats / ${(2310 + i).toLocaleString("en-US")} tSats`) problems.push(`jackpots showed ${r.spoiler} while the reels turned`);
+    if (r.spoiler !== `${(45678 + i).toLocaleString("en-US")} tBCH sats / ${(2310 + i).toLocaleString("en-US")} tBCH sats`) problems.push(`jackpots showed ${r.spoiler} while the reels turned`);
     if (r.rec.jp !== jst.cells.length) problems.push(`${r.rec.jp} jackpot symbols drawn, expected ${jst.cells.length}`);
     if (type === "clams" && r.rec.picks !== (jst.picks || []).length) problems.push(`${r.rec.picks} clams opened, expected ${(jst.picks || []).length}`);
     if (type === "wheel" && r.rec.wheel !== jst.slice) problems.push(`wheel stopped on ${r.rec.wheel}, expected ${jst.slice}`);
-    if (!r.rec.banner.some((b) => b === `${tier} JACKPOT! | 0.00003290 tBCH`)) problems.push("banners: " + JSON.stringify(r.rec.banner));
+    if (!r.rec.banner.some((b) => b === `${tier} JACKPOT! | 3,290 tBCH sats`)) problems.push("banners: " + JSON.stringify(r.rec.banner));
     if (!r.done) problems.push("spin did not finish");
     if (r.header !== api.balance) problems.push(`balance ${r.header} != server ${api.balance}`);
     if (!r.history.some((h) => new RegExp(jst.tier + " jackpot", "i").test(h))) problems.push("history: " + JSON.stringify(r.history.slice(0, 3)));
@@ -414,7 +414,7 @@ try {
     const collect = v.steps.find((x) => x.type === "collect");
     if (collect && (r.rec.col !== collect.cells.length || !r.rec.count.includes(`${COLLECTOR[g].filled + collect.cells.length} / ${COLLECTOR[g].size}`))) problems.push(`collect: ${r.rec.col} symbols, counts ${JSON.stringify(r.rec.count)}`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: ${jst.tier} jackpot won in the game (${{ apples: "golden apples", clams: "clam pick", wheel: "Star Map Wheel" }[type]}), celebration in tBCH, no spoiler`, !problems.length, problems.join("; "));
+    check(`${g}: ${jst.tier} jackpot won in the game (${{ apples: "golden apples", clams: "clam pick", wheel: "Star Map Wheel" }[type]}), celebration in tBCH sats, no spoiler`, !problems.length, problems.join("; "));
   }
   for (const g of GAMES) {
     // The spin that fills the collector: the symbols fly in, FULL!, the reward at its own bet, then from empty.
@@ -436,7 +436,7 @@ try {
     }
     if (r.count !== `0 / ${COLLECTOR[g].size}`) problems.push(`collector shows ${r.count} after the reward`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tSats, then the collector starts again`, !problems.length, problems.join("; "));
+    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tBCH sats, then the collector starts again`, !problems.length, problems.join("; "));
   }
   {
     // The bonus games, from steps the fake server adds to a plain spin: Harvest Pick, Ship's Wheel, Warp Ladder.
@@ -466,10 +466,10 @@ try {
     resetApi();
     await open("index.html", 1280);
     const lobby = await until(`(() => { const hero = document.querySelector("#floor .jp-hero"), cards = [...document.querySelectorAll(".game-card")];
-      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "0.00121994 tBCH" && !/Must hit|before it is full|gift/.test(document.getElementById("floor").textContent)
+      return hero && hero.querySelector('[data-jackpot="grand"]').textContent === "121,994 tBCH sats" && !/Must hit|before it is full|gift/.test(document.getElementById("floor").textContent)
         && /RTP of 101%/.test(document.getElementById("floor").textContent) && !/110%/.test(document.body.textContent)
         && document.querySelector('[data-rtp-part="headStarts"]').textContent === "8.5%"
-        && cards.length === 4 && cards.slice(0, 3).every(c => /^0\\.000456(7[89]|80) tBCH$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
+        && cards.length === 4 && cards.slice(0, 3).every(c => /^45,6(7[89]|80) tBCH sats$/.test(c.querySelector('.gc-jp .jp-row-major [data-jackpot^="major:"]').textContent)
           && !c.querySelector('.jp-row-minor, [data-meter], [data-collector]'))
         && !!hero.querySelector('a[href="jackpots.html"]'); })()`);
     check("lobby: Grand amount, Major amount on every machine card, RTP 101% and its parts from the config", lobby);
@@ -492,9 +492,9 @@ try {
     await open("jackpots.html", 1280);
     const page = await until(`(() => { const amounts = document.querySelectorAll(".jpp-pools [data-jackpot]"), pools = document.querySelector(".jpp-pools"),
         cols = [...document.querySelectorAll(".jpp-pools [data-collector]")], rows = document.querySelectorAll("#jp-wins-body tr");
-      return amounts.length === 7 && [...amounts].every(a => /^0\\.\\d{8} tBCH$/.test(a.textContent)) && !/Must hit|before it is full|reaches its limit|10,000|50,000|2,500,000|gift/.test(pools.textContent + document.querySelector(".lb-lead").textContent)
+      return amounts.length === 7 && [...amounts].every(a => /^[\\d,]+ tBCH sats$/.test(a.textContent)) && !/Must hit|before it is full|reaches its limit|10,000|50,000|2,500,000|gift/.test(pools.textContent + document.querySelector(".lb-lead").textContent)
         && cols.length === 3 && cols.map(c => c.textContent).join(",") === "${COLLECTOR["fruit-orchard"].filled} / ${COLLECTOR["fruit-orchard"].size},${COLLECTOR["deep-sea"].filled} / ${COLLECTOR["deep-sea"].size},${COLLECTOR["cosmic-voyage"].filled} / ${COLLECTOR["cosmic-voyage"].size}"
-        && rows.length === 4 && document.querySelectorAll("#jp-hashes > div").length === 7 && /0\\.00003290 tBCH/.test(rows[0].textContent)
+        && rows.length === 4 && document.querySelectorAll("#jp-hashes > div").length === 7 && /3,290 tBCH sats/.test(rows[0].textContent)
         && rows[0].querySelector(".jpw-verify") && rows[1].querySelector(".jpw-verify") && rows[2].querySelector(".jpw-verify") && !rows[3].querySelector(".jpw-verify") && /Old jackpot/.test(rows[3].textContent); })()`);
     const verifyRow = async (k) => { await ev(`document.querySelectorAll("#jp-wins-body .jpw-verify")[${k}].click()`);
       return until(`(() => { const d = document.querySelectorAll("#jp-wins-body tr.jpw-detail")[${k}]; return d && !/Checking/.test(d.textContent) && d.textContent; })()`, 5000)
@@ -556,10 +556,10 @@ try {
     if (during.rev || /\b17 (BLACK|black)\b/.test(during.s + during.page)) problems.push("number shown during the spin: " + during.s);
     await ev(`__emit(${JSON.stringify({ type: "result", round: { ...spun, status: "settled", seed: "c".repeat(64) }, results: [{ player: "bchtest:qphp...hdxy", bet: 140, win: 370 }, { player: "Passkey 3f9a2c", bet: 100, win: 0 }] })});
       __emit({ type: "settled", roundId: 801, bet: 140, win: 370, balance: 50230 }); 0`);
-    const after = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "17 BLACK" && /YOU WIN! \| \+370 tSats/.test(s.banner) && s.recent[0] === 17; })()`, 6000);
+    const after = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "17 BLACK" && /YOU WIN! \| \+370 tBCH sats/.test(s.banner) && s.recent[0] === 17; })()`, 6000);
     if (!after) problems.push("result: " + JSON.stringify(await ev(`TNC_RouletteState()`)).slice(0, 200));
     const res = await ev(`document.getElementById("rt-results").textContent`);
-    if (!/\+230 tSats/.test(res) || !/−100 tSats/.test(res)) problems.push("results panel: " + res);
+    if (!/\+230 tBCH sats/.test(res) || !/−100 tBCH sats/.test(res)) problems.push("results panel: " + res);
     // The next round clears the felt; joined mid-round: no bets until the next one.
     await ev(`__emit(${JSON.stringify({ type: "round", round: { id: 802, startsAt: iso(0), bettingEndsAt: iso(20000), seedHash: "d".repeat(64), status: "betting", nextRoundAt: iso(60000) } })}); 0`);
     const next = await ev(`TNC_RouletteState()`);
@@ -578,9 +578,9 @@ try {
     if (!g1.golden || g1.status !== "GOLDEN BALL · WINS ×10" || g1.banner !== "GOLDEN BALL! | All wins ×10" || g1.revealed) problems.push("golden spin: " + JSON.stringify({ s: g1.status, b: g1.banner, g: g1.golden }));
     await ev(`__emit(${JSON.stringify({ type: "result", round: { ...gspin, status: "settled", seed: "a".repeat(64) }, results: [{ player: "bchtest:qphp...hdxy", bet: 10, win: 3600 }] })});
       __emit({ type: "settled", roundId: 804, bet: 10, win: 3600, balance: 53820 }); 0`);
-    const g2 = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "13 BLACK · GOLDEN ×10" && s.banner === "GOLDEN WIN ×10! | +3,600 tSats" && s.recent[0] === 13 && s.recentGolden[0] === true; })()`, 9000);
+    const g2 = await until(`(() => { const s = TNC_RouletteState(); return s.revealed && s.status === "13 BLACK · GOLDEN ×10" && s.banner === "GOLDEN WIN ×10! | +3,600 tBCH sats" && s.recent[0] === 13 && s.recentGolden[0] === true; })()`, 9000);
     const gres = await ev(`document.getElementById("rt-results").textContent`);
-    if (!g2 || !/Golden ball: every win of this round pays ×10/.test(gres) || !/×10\+3,590 tSats/.test(gres)) problems.push("golden result: " + JSON.stringify(await ev(`(() => { const s = TNC_RouletteState(); return { status: s.status, banner: s.banner, recent: s.recent, recentGolden: s.recentGolden, revealed: s.revealed }; })()`)) + " | " + gres);
+    if (!g2 || !/Golden ball: every win of this round pays ×10/.test(gres) || !/×10\+3,590 tBCH sats/.test(gres)) problems.push("golden result: " + JSON.stringify(await ev(`(() => { const s = TNC_RouletteState(); return { status: s.status, banner: s.banner, recent: s.recent, recentGolden: s.recentGolden, revealed: s.revealed }; })()`)) + " | " + gres);
     // Previous rounds: Details checks a real round (backend vector) in the browser.
     if (width === 1280) {
       await until(`document.querySelectorAll("#rt-rounds tr").length === 5`, 4000);
@@ -599,7 +599,7 @@ try {
   api.payouts = [1000, 2500, 107, 99999].map((a, i) => ({ sentAt: new Date(Date.now() - i * 3600e3).toISOString(), address: ADDR, amount: a, txid: String(i).repeat(64) }));
   await open("withdrawals.html", 1280);
   const total = await ev(`({ rows: document.querySelectorAll("#pay-body tr").length, title: document.getElementById("pay-total").title })`);
-  check("withdrawals page lists every withdrawal and the right total", total.rows === 4 && total.title === "103,606 sats", `${total.rows} rows, ${total.title}`);
+  check("withdrawals page lists every withdrawal and the right total", total.rows === 4 && total.title === "103,606 tBCH sats", `${total.rows} rows, ${total.title}`);
 
   /* ═══ 6. Leaderboards: jump to my position ═══ */
   resetApi(); signIn();
@@ -619,7 +619,7 @@ try {
   resetApi(); signIn(50000);
   await open("account.html", 1280);
   const unlocked = await ev(`!document.getElementById("wd-fields").disabled && document.getElementById("wd-locked").hidden`);
-  check("account: withdraw form locked below 0.00001 tBCH, open above", locked && unlocked);
+  check("account: withdraw form locked below 1,000 tBCH sats, open above", locked && unlocked);
 
   /* ═══ 8. Fairness verifier ═══ */
   resetApi();
@@ -639,15 +639,15 @@ try {
   const j4ok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Major jackpot won \\(Magic Oyster\\)/.test(t) && /clams Major, Major, Major/.test(t); })()`, 10000);
   const rv = SPINS["reward-deep-sea"];
   await fill({ ...base(rv), "vf-expect": rv.totalWin + rv.reward.win, "vf-reward": rv.rewardBet });
-  const rvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Treasure Hold & Win at 3 tSats/.test(t); })()`, 10000);
+  const rvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Treasure Hold & Win at 3 tBCH sats/.test(t); })()`, 10000);
   check("fairness: the verifier replays a version 4 jackpot (clam pick) and a collector reward at its bet", j4ok && rvok, `jackpot ${!!j4ok}, reward ${!!rvok}: ${(await result()).slice(0, 160)}`);
   const mv = METERS[2];
   await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("mt-tier", "grand"); f("mt-rules", "current"); f("mt-min", ${mv.minSats}); f("mt-max", ${mv.maxSats});
     f("mt-seed", "${mv.seed}"); f("mt-hash", "${mv.seedHash}"); f("mt-amount", ${mv.startSats + 1});
     document.getElementById("mt-submit").click(); })()`);
   const meterOk = await until(`(() => { const t = document.getElementById("mt-result").textContent;
-    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tSats") && !/Display scale/.test(t)
-      && t.includes("Head start${mv.startSats.toLocaleString("en-US")} tSats") && t.includes("${mv.seedHash}"); })()`, 5000);
+    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tBCH sats") && !/Display scale/.test(t)
+      && t.includes("Head start${mv.startSats.toLocaleString("en-US")} tBCH sats") && t.includes("${mv.seedHash}"); })()`, 5000);
   check("fairness: the jackpot checker derives seed hash, target and head start from a seed", meterOk);
   const rv0 = ROULETTE[0];
   await ev(`document.getElementById("rl-id").value = ${rv0.roundId}; document.getElementById("rl-load").click(); 0`);
@@ -675,7 +675,7 @@ try {
   const listOk = await until(`/1 of 8 spins did NOT match/.test(document.getElementById("sp-status").textContent)`, 30000);
   const notes = await ev(`[...document.querySelectorAll("#sp-body tr")].map(r => r.querySelector(".sp-check").textContent + " | " + ((r.querySelector(".sp-result") || {}).title || ""))`);
   check("fairness: Verify all finds each collector reward's bet and checks jackpots against jackpotWin",
-    listOk && notes.slice(0, 3).every((n) => /✓ Verified \| This spin filled the collector; its reward played at 3 tSats/.test(n))
+    listOk && notes.slice(0, 3).every((n) => /✓ Verified \| This spin filled the collector; its reward played at 3 tBCH sats/.test(n))
       && notes.slice(3, 6).every((n) => /^✓ Verified/.test(n)) && /^✓ Verified \| Jackpots were off for this spin/.test(notes[6]) && /^✗ Mismatch/.test(notes[7]),
     JSON.stringify(notes).slice(0, 400));
 

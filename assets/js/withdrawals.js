@@ -67,8 +67,8 @@
     to.appendChild(cb);
     tr.appendChild(to);
 
-    var amt = el("td", "num pay-amount", U ? U.bch(w.amount) : String(w.amount));
-    amt.title = Number(w.amount).toLocaleString("en-US") + " sats";
+    var amt = el("td", "num pay-amount", U ? U.int(w.amount) : String(w.amount));
+    amt.title = Number(w.amount).toLocaleString("en-US") + " tBCH sats";
     tr.appendChild(amt);
 
     var tx = el("td", "pay-tx");
@@ -116,10 +116,10 @@
     items.forEach(function (w) { frag.appendChild(row(w)); sum += Number(w.amount) || 0; });
     body.appendChild(frag);
     empty.hidden = items.length > 0;
-    // Number in the sign font, unit in the body font (the sign font only has capitals).
+    // The total in whole coins, like the faucet bar; each withdrawal in tBCH sats.
     totalEl.textContent = U ? U.bch(sum) : String(sum);
     totalEl.appendChild(el("span", "pay-total-unit", U ? " tBCH" : " sats"));
-    totalEl.title = sum.toLocaleString("en-US") + " sats";
+    totalEl.title = sum.toLocaleString("en-US") + " tBCH sats";
     totalSub.textContent = items.length
       ? "in " + items.length.toLocaleString("en-US") + " withdrawal" + (items.length === 1 ? "" : "s") + " sent to Bitcoin Cash Testnet4 wallets"
       : "No withdrawals yet.";
