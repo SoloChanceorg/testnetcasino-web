@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Account · TestnetCasino.com</title>
-  <meta name="description" content="Your TestnetCasino.com account: balance, withdrawals to your Bitcoin Cash Testnet4 address and balance history.">
+  <meta name="description" content="Your TestnetCasino.com account: balance, tBTC and tBCH balances, withdrawals to your Testnet4 addresses and balance history.">
   <!-- site:head -->
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="favicon.ico" sizes="48x48">
@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110n">
 </head>
 <body data-page="account">
   <a class="skip-link" href="#main">Skip to your account</a>
@@ -31,7 +31,7 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
     <a href="./#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
@@ -44,6 +44,7 @@
   <header class="site-head">
     <div class="sh-inner">
       <a class="sh-logo" href="./"><img src="assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <span class="sh-coin" id="sh-coin"></span>
       <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="sh-drawer" id="site-nav">
         <nav class="nav-bar" aria-label="Site">
@@ -70,7 +71,7 @@
 
       <section class="panel acct-out" id="acct-out" hidden aria-labelledby="out-title">
         <h2 class="panel-label" id="out-title">SIGN IN</h2>
-        <p>Sign in to see your balance, withdraw your tBCH and check your history.</p>
+        <p>Sign in to see your balances, withdraw your tBTC and tBCH and check your history.</p>
         <a class="btn-red" id="acct-login" href="login.html">🔑 Sign in</a>
       </section>
 
@@ -79,28 +80,57 @@
       <div id="acct" hidden>
         <section class="panel" id="withdraw" aria-labelledby="wd-title">
           <h2 class="panel-label" id="wd-title">WITHDRAW</h2>
-          <p class="acct-balance">Balance <strong id="acct-balance">0</strong></p>
+          <p class="acct-balance">Balance <strong id="acct-balance">0</strong> <span class="acct-balances" id="acct-balances"></span></p>
+          <p class="acct-coin-note">Withdrawing <span data-coin-name>tBTC</span>. Switch the coin at the top of the page to withdraw the other one.</p>
           <p class="wd-locked" id="wd-locked" role="status" hidden></p>
           <form id="wd-form" novalidate>
             <fieldset class="wd-fields" id="wd-fields">
-            <legend class="sr-only">Withdraw tBCH</legend>
-            <label class="auth-label" for="wd-amount">Amount in tBCH sats</label>
+            <legend class="sr-only">Withdraw</legend>
+            <label class="auth-label" for="wd-amount">Amount in <span data-coin-unit>tBCH sats</span></label>
             <div class="acct-amount">
               <input class="auth-input" id="wd-amount" type="text" inputmode="numeric" autocomplete="off"
                      placeholder="10,000" aria-describedby="wd-hint wd-error">
               <button type="button" class="btn-ghost" id="wd-max">Max</button>
             </div>
-            <p class="auth-hint" id="wd-hint">1,000 to 10,000,000 tBCH sats per withdrawal, up to 100,000,000 tBCH sats (1 tBCH) per player in 24 hours. The whole faucet pays out at most 10 tBCH a day. The network fee is paid by the faucet.</p>
+            <p class="auth-hint" id="wd-hint" data-coin-show="bch">1,000 to 10,000,000 tBCH sats per withdrawal, up to 100,000,000 tBCH sats (1 tBCH) per player in 24 hours. The whole faucet pays out at most 10 tBCH a day. The network fee is paid by the faucet.</p>
+            <p class="auth-hint" id="wd-hint-btc" data-coin-show="btc">1,000 to 100,000 tBTC sats per withdrawal, up to 100,000 tBTC sats per player in 24 hours. The whole faucet pays out at most 0.01 tBTC a day. The network fee is paid by the faucet.</p>
             <p class="auth-error" id="wd-error" hidden></p>
-            <label class="auth-label" for="wd-address">Send to (Bitcoin Cash Testnet4 address)</label>
+            <label class="auth-label" for="wd-address">Send to (<span data-coin-name-long>Bitcoin Cash Testnet4</span> address)</label>
             <input class="auth-input auth-mono" id="wd-address" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
                    placeholder="bchtest:q..." aria-describedby="wd-address-hint wd-address-error">
-            <p class="auth-hint" id="wd-address-hint">Any Bitcoin Cash Testnet4 address. The bchtest: prefix is optional.</p>
+            <p class="auth-hint" id="wd-address-hint">Any Testnet4 address of the coin.</p>
             <p class="auth-error" id="wd-address-error" hidden></p>
-            <button type="submit" class="btn-red auth-wide" id="wd-submit">📤 Withdraw</button>
+            <button type="submit" class="btn-red auth-wide" id="wd-submit">Withdraw</button>
             </fieldset>
             <p class="auth-status" id="wd-status" role="status" aria-live="polite"></p>
           </form>
+        </section>
+
+        <section class="panel" id="saved-addresses" aria-labelledby="sv-head">
+          <h2 class="panel-label" id="sv-head">DEFAULT WITHDRAWAL ADDRESSES</h2>
+          <p class="auth-hint">Optional. A withdrawal with no address goes to the default of its coin. To save one, prove you own it by signing a message.</p>
+          <ul class="sv-list" id="sv-list"></ul>
+          <p class="auth-status" id="sv-saved" role="status" aria-live="polite"></p>
+          <div class="sv-form" id="sv-form" hidden>
+            <h3 class="sv-title" id="sv-title">Save an address</h3>
+            <form id="sv-step1" novalidate>
+              <label class="auth-label" for="sv-address">Address</label>
+              <input class="auth-input auth-mono" id="sv-address" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="sv-address-error">
+              <p class="auth-error" id="sv-address-error" hidden></p>
+              <div class="auth-row"><button type="submit" class="btn-primary" id="sv-get">Get the message to sign</button>
+                <button type="button" class="btn-ghost" id="sv-cancel">Cancel</button></div>
+            </form>
+            <form id="sv-step2" novalidate hidden>
+              <label class="auth-label" for="sv-message">Sign this message</label>
+              <textarea class="auth-input auth-mono auth-message" id="sv-message" rows="4" readonly></textarea>
+              <p class="auth-howto" id="sv-howto"></p>
+              <label class="auth-label" for="sv-signature">Signature</label>
+              <textarea class="auth-input auth-mono" id="sv-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none" aria-describedby="sv-signature-error"></textarea>
+              <p class="auth-error" id="sv-signature-error" hidden></p>
+              <button type="submit" class="btn-primary" id="sv-submit">Save the address</button>
+            </form>
+            <p class="auth-status" id="sv-status" role="status" aria-live="polite"></p>
+          </div>
         </section>
 
         <section class="panel" id="withdrawals" aria-labelledby="wl-title">
@@ -114,10 +144,10 @@
         </section>
 
         <section class="panel" id="ledger" aria-labelledby="lg-title">
-          <h2 class="panel-label" id="lg-title">BALANCE HISTORY</h2>
+          <h2 class="panel-label" id="lg-title">BALANCE HISTORY · <span data-coin-name>tBTC</span></h2>
           <div class="tbl-wrap"><table class="acct-table">
             <caption class="sr-only">Every change to your balance, newest first</caption>
-            <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="num">Change (tBCH sats)</th><th scope="col" class="num">Balance (tBCH sats)</th></tr></thead>
+            <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="num">Change (<span data-coin-unit>tBCH sats</span>)</th><th scope="col" class="num">Balance (<span data-coin-unit>tBCH sats</span>)</th></tr></thead>
             <tbody id="lg-body"></tbody>
           </table></div>
           <p class="acct-empty" id="lg-empty" hidden>Nothing yet.</p>
@@ -143,25 +173,26 @@
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110k"></script>
-  <script src="assets/js/api.js?v=20261110k"></script>
-  <script src="assets/js/units.js?v=20261110k"></script>
-  <script src="assets/js/faucet.js?v=20261110k"></script>
-  <script src="assets/js/cashaddr.js?v=20261110k"></script>
-  <script src="assets/js/auth.js?v=20261110k"></script>
-  <script src="assets/js/account.js?v=20261110k"></script>
-  <script src="assets/js/fx.js?v=20261110k"></script>
-  <script src="assets/js/music.js?v=20261110k"></script>
+  <script src="assets/js/config.js?v=20261110n"></script>
+  <script src="assets/js/api.js?v=20261110n"></script>
+  <script src="assets/js/units.js?v=20261110n"></script>
+  <script src="assets/js/faucet.js?v=20261110n"></script>
+  <script src="assets/js/cashaddr.js?v=20261110n"></script>
+  <script src="assets/js/btcaddr.js?v=20261110n"></script>
+  <script src="assets/js/auth.js?v=20261110n"></script>
+  <script src="assets/js/account.js?v=20261110n"></script>
+  <script src="assets/js/fx.js?v=20261110n"></script>
+  <script src="assets/js/music.js?v=20261110n"></script>
 </body>
 </html>

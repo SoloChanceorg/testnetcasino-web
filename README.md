@@ -1,6 +1,6 @@
 # TestnetCasino.com
 
-A Bitcoin Cash **Testnet4** faucet as a set of slot machines. A project from [SoloChance.org](https://solochance.org).
+A **Testnet4** faucet for Bitcoin (tBTC) and Bitcoin Cash (tBCH) as a set of slot machines and a roulette table. A project from [SoloChance.org](https://solochance.org).
 
 > **Not a real casino.** No real money of any kind is involved. No Bitcoin, Bitcoin Cash or any other real
 > mainnet crypto is involved. There is no deposit process of any kind, not even for Testnet4 coins.
@@ -11,9 +11,11 @@ A Bitcoin Cash **Testnet4** faucet as a set of slot machines. A project from [So
 A static frontend (this repo, GitHub Pages) for the backend [testnetcasino-service](https://api.testnetcasino.com), which runs every
 game, balance and account. There is no demo or guest mode: playing requires signing in.
 
-- Balance: kept on the server per account and shared by all games. New accounts get a **10,000 sat** sign-up bonus, plus a
-  **1,000 sat** daily bonus (resets at 00:00 UTC).
-- Bets: **1 to 1,000 sats** per spin. Every game has an RTP of **101%** with everything included (it is a faucet, so it pays
+- Two coins (backend decision D46): **tBTC** (Bitcoin Testnet4) and **tBCH** (Bitcoin Cash Testnet4). They never mix: no exchange,
+  a balance, bonus, jackpots, leaderboards and withdrawals per coin. See **Coins** below.
+- Balance: kept on the server per account and coin, and shared by all games. New accounts get **1,000 tBTC sats** and
+  **10,000 tBCH sats**, plus a daily bonus of **100 tBTC sats** and **1,000 tBCH sats** (each claimed on its own; resets at 00:00 UTC).
+- Bets: **1 to 100 tBTC sats** or **1 to 1,000 tBCH sats** per spin. Every game has an RTP of **101%** with everything included (it is a faucet, so it pays
   back more than it takes; backend decision D45): the reels, free spins and bonus games 80.74%, the collector's reward
   3.36%, the jackpots' share of every bet 8.4% and the jackpot head starts 8.5%.
 - Jackpots: a Minor and a Major per game and a shared Grand, won inside the game (backend decision D43).
@@ -100,20 +102,54 @@ balance). The server recomputes them at most every 5 minutes; the bar re-reads t
 minute while the tab is visible and says so when the server marks them `stale`. It is the only place that shows whole coins:
 the faucet rounded to 2 decimals (hover for the exact tBCH sats), player balances with all 8 decimals.
 
+## Coins
+
+Every account plays both coins (D46; `docs/API.md` "Coins" in the backend), whatever it signed in with (a tBTC wallet, a tBCH
+wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in both.
+
+- **The coin switch** (`TNC_Coin` in `units.js`, rendered by `auth.js`): tBTC / tBCH in the header beside the balance (on phones beside
+  the menu button), remembered in `localStorage` (`tnc.coin`). tBTC is the default and comes first wherever both are listed
+  (brand kit). Choosing a coin reloads the page; every page reads it once. `<html data-coin>` and any element's `data-coin`
+  set `--tc-net`: tBTC orange, tBCH mint. If the server has a coin off (`GET /me` has no balance in it), the page shows the other.
+- **Every call that moves money takes the coin** (`api.js`; the server treats a missing coin as tBCH): `POST /spins`,
+  `POST /bonus/daily?coin=`, `GET /ledger?coin=`, `GET /jackpots?coin=`, `GET /leaderboards?coin=`, `POST /roulette/bets`
+  and `/clear`, `POST /withdrawals`.
+- **Header**: the selected coin's balance and daily bonus pill; the other coin's balance small in the account chip (and both in
+  the tooltip). The lobby's daily bonus card has a line and a Claim button per coin.
+- **Faucet bar**: both faucets and both player totals side by side (`coins` in `GET /faucet`).
+- **Slots**: the bet ladder follows the coin (tBTC 1, 2, 3, 5, 10, 15, 20, 30, 50, 100; tBCH 1 ... 1,000; every skin draws ten
+  stops), and the machine shows the coin's jackpots and collectors.
+- **Roulette**: one table for both coins. Your chips are in the selected coin, with its chip values (tBTC 1 to 100, tBCH 1 to
+  1,000) and limits (`limits` in the `table` message). Every chip carries a small diamond in its coin's colour; the players
+  list, the round and the results show each player's amounts per coin; `settled` updates the balance of its coin.
+- **Leaderboards**: a tBTC / tBCH toggle on the page (default: the selected coin).
+- **Withdrawals page**: every coin, a tBTC txid linked to `https://mempool.space/testnet4/tx/<txid>`, a tBCH txid to
+  `https://bchexplorer.cash/testnet4/tx/<txid>`, the total per coin.
+- **Account**: both balances; withdraw, history and the address check in the selected coin; "Default withdrawal addresses" with
+  a saved address per coin (a signed message, like sign-in: passkey accounts in both coins, wallet accounts in the other coin).
+- **Sign-in**: a tBTC address (`tb1q...`, `tb1p...`, `m...`, `n...`) or a tBCH one (`bchtest:q...`); the address decides the coin.
+  `assets/js/btcaddr.js` checks bech32 / bech32m and base58check (with its own SHA-256) and refuses mainnet, script addresses
+  (`2...`, P2WSH) and typos before asking the server; the server's message is shown for `invalid_address`. The signature is
+  pasted as the wallet gives it (BIP-322, with or without `smp`, or the 65-byte compact one), only trimmed.
+- **Fairness**: a tBTC spin's jackpot draws use bet × 10 (FAIRNESS.md section 3, `opts.coin` in `fairness-engine.js`); the
+  verifier has a coin field and the spin list shows each spin's coin.
+
 ## Units
 
-The API works in sats (1 tBCH = 100,000,000 sats). Following the brand kit, every amount is shown in sats and written
-**tBCH sats** (`assets/js/units.js`): bonuses, bets, wins, balances, jackpots, each withdrawal, the tables (the column header
-names the unit). Only the faucet bar, and the withdrawals page's total, show whole tBCH. The withdraw form takes a whole number
-of tBCH sats. Inside a game machine the credit can also be switched to tBCH (the switch under the machine; remembered in
-`localStorage`, display only). Bets are always whole tBCH sats (1 to 1,000). On the machines the unit is set in Poppins, since
+The API works in sats of a coin (1 coin = 100,000,000 sats). Following the brand kit, every amount is shown in sats and written
+**tBTC sats** or **tBCH sats** (`assets/js/units.js`; `coin` defaults to the selected one): bonuses, bets, wins, balances,
+jackpots, each withdrawal, the tables (the column header names the unit). Only the faucet bar, and the withdrawals page's
+totals, show whole coins. The withdraw form takes a whole number of sats. Inside a game machine the credit can also be switched
+to whole coins (the switch under the machine; remembered in `localStorage`, display only). Bets are always whole sats. On the machines the unit is set in Poppins, since
 the sign font has capitals only and the ticker keeps its lowercase t.
 
 ## Returning coins
 
 The lobby and every game page end with a "Return to the house" panel asking players to send their Testnet4 coins back once they have
-had enough fun, so the faucet keeps running. The house address is shown as code with a Copy button:
-`bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy`
+had enough fun, so the faucet keeps running. One house address per coin (tBTC first), each shown as code with a Copy button:
+
+- tBTC: `tb1qm2xvvwdv4xtxcagg2xtfy45kj58506sy8fyx2c`
+- tBCH: `bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy`
 
 ## Jukebox
 
@@ -188,7 +224,7 @@ ever shows what the server sent:
 
 - **GRAND, MAJOR and MINOR are prize amounts** (`amount`), like real progressive displays: every
   `[data-jackpot="grand" | "major:<id>" | "minor:<id>"]` counts up smoothly to each new reading. `data-jackpot-units="bch8"`
-  is tBCH sats (lobby, jackpots page); `"game"` follows the machine's tBCH sats / tBCH switch.
+  is sats of the selected coin (lobby, jackpots page); `"game"` follows the machine's sats / whole-coin switch.
 - When a `cycle` goes up between two readings, someone won it: the amount flashes "WON!" and then shows the new, smaller one.
 - The target ranges are never shown (a surprise). Only a win's Verify details show its range, because the check needs it.
 - GRAND has one global red-neon style; MAJOR and MINOR wear each machine's theme (styles keyed on `.theme-*`, which sits on
@@ -218,7 +254,7 @@ Where they are:
   amount at the top of its card.
 - **Jackpots page** (`jackpots.html`): every jackpot and collector now, the rules in short, the seed hash of every running
   jackpot ("Seed hashes now"), and the latest 20 wins from `recentWins` (time, tier and game, player, amount in tBCH sats). Wins with a `seed` have a **Verify** button: in the browser, SHA-256(seed) must equal `seedHash`, the seed must
-  give the same `target` and `startBCH sats`, and the amount must be at least the head start. Older wins (D40, D41, with a
+  give the same `target` and `startSats`, and the amount must be at least the head start. Older wins (D40, D41, with a
   `displayScale`) are checked by their own rules (display scale, the old head start, amount at least the target). Wins from
   the first pools (no `seed`) show "Old jackpot" and no Verify. The API has no full history of jackpot wins.
 
@@ -267,7 +303,8 @@ real minute while someone is at the table: `:00` to `:20` betting, then a 28 to 
   visible. Without an answer it keeps its own text and sample numbers.
 - **Chips** go through `POST /roulette/bets` (taps close together in one request, up to 50 chips, each with its own
   `requestId`) and **Clear** through `POST /roulette/bets/clear`; **Repeat** places your chips of the last round again.
-  Chips of 1 to 1,000 tBCH sats, at most 10,000 a round (checked before sending too). A player who joins during a round sees "You
+  Chips of 1 to 100 tBTC sats (at most 1,000 a round) or 1 to 1,000 tBCH sats (at most 10,000 a round), in the coin selected
+  in the header (checked before sending too). A player who joins during a round sees "You
   joined mid-round: you can bet from the next round" with a countdown.
 - **The wheel** turns all the time. When the `spin` arrives the number is known, but it is never shown as text before
   `resultAt`: the ball follows a closed-form path relative to the wheel (many turns against it, slowing, dropping from the
@@ -321,32 +358,36 @@ start (no WebGL), the page says so with a "Try again" button.
 
 `account.html` (`assets/js/account.js`), reached from the account pill in the nav:
 
-- **Withdraw**: `POST /withdrawals { amount, address }`, 1,000 to 10,000,000 sats per withdrawal, at most 100,000,000 sats (1 tBCH) per
-  player in 24 hours and 10 tBCH a day for the whole faucet. `address` is any Testnet4 address the player types or pastes
-  (no signature, no waiting period). Wallet accounts get their sign-in address prefilled and may leave it empty; passkey
-  accounts must enter one (prefilled with a saved default if `GET /me` has `user.withdrawalAddress`). `cashaddr.js` rejects
-  obvious non-Testnet4 input early, but the server's answer counts: `invalid_address`, `address_required`, the amount and
+- **Withdraw** (in the selected coin): `POST /withdrawals { coin, amount, address }`. tBCH: 1,000 to 10,000,000 sats per withdrawal,
+  at most 100,000,000 sats (1 tBCH) per player in 24 hours and 10 tBCH a day for the whole faucet. tBTC: 1,000 to 100,000 sats, at
+  most 100,000 sats per player in 24 hours and 0.01 tBTC a day for the whole faucet. `address` is any Testnet4 address the player types or pastes
+  (no signature, no waiting period). In its sign-in coin a wallet account gets its sign-in address prefilled and may leave it
+  empty; otherwise the field is prefilled with the saved default of the coin (`user.withdrawalAddresses`), and without one an
+  address is required. `btcaddr.js` / `cashaddr.js` reject input of the wrong coin and obvious typos early, but the server's answer counts: `invalid_address`, `address_required`, the amount and
   daily-limit errors and `withdrawals_paused` show the server's message.
-- **Withdrawals**: `GET /withdrawals`, with each txid linked to the Testnet4 explorer `https://bchexplorer.cash/testnet4/tx/<txid>`. The list
-  re-reads itself every 15 s while a withdrawal is pending.
-- **Balance history**: `GET /ledger?cursor=`, 50 per page with "Load more".
+- **Default withdrawal addresses**: one per coin, saved with a signed message (`POST /account/withdrawal-address/challenge`,
+  then `/account/withdrawal-address`). Wallet accounts only in the coin they do not sign in with.
+- **Withdrawals**: `GET /withdrawals` (every coin), each txid linked to its coin's explorer (mempool.space for tBTC,
+  bchexplorer.cash for tBCH). The list re-reads itself every 15 s while a withdrawal is pending.
+- **Balance history**: `GET /ledger?coin=&cursor=`, 50 per page with "Load more".
 
 ## Withdrawals page
 
-`withdrawals.html` (`assets/js/withdrawals.js`) lists every withdrawal the faucet has sent (`GET /faucet/withdrawals?cursor=`, public).
-When the page opens it follows every page (`nextCursor`) and then shows the whole list at once, with the total withdrawn (tBCH,
-sats on hover) and the number of withdrawals on top. Each row: time in the visitor's time zone, the full address (shortened on
-narrow screens, with the full one in the tooltip and a copy button), the amount in tBCH (sats on hover) and the txid linked to
-the explorer in a new tab. No polling. The explorer URL is `TNC_CONFIG.explorerTx` in `assets/js/config.js`.
+`withdrawals.html` (`assets/js/withdrawals.js`) lists every withdrawal the faucet has sent in both coins (`GET /faucet/withdrawals?cursor=`,
+public, no coin). When the page opens it follows every page (`nextCursor`) and then shows the whole list at once, with the total
+withdrawn per coin (whole coins, sats on hover) and the number of withdrawals on top. Each row: time in the visitor's time zone, the full address (shortened on
+narrow screens, with the full one in the tooltip and a copy button), the amount in sats with its ticker and the txid linked to
+its coin's explorer in a new tab (`TNC_Coin.info(coin).explorerTx`). No polling.
 
 ## Leaderboards
 
-`leaderboards.html` (`assets/js/leaderboards.js`): seven boards from `GET /leaderboards` (top balances, biggest winners over 24
+`leaderboards.html` (`assets/js/leaderboards.js`): seven boards of one coin from `GET /leaderboards?coin=` (a tBTC / tBCH toggle above
+the tabs, default the selected coin; top balances, biggest winners over 24
 hours, 30 days and all time, top withdrawals over 24 hours, 30 days and all time), up to 1,000 players each. The response (up to ~500 KB)
 is fetched once per page view, with the session cookie, and again only when the player signs in or out; the server refreshes it
 every 5 minutes. Rows render 50 at a time (more on scroll or "Show more"). The signed-in player's row is found only by
 `me: true` (labels can collide), highlighted with a "You" badge and `aria-current`, and a "Jump to my position (#n)" button
-shows while that row is out of view (IntersectionObserver). Amounts are tBCH, with the sats in the tooltip.
+shows while that row is out of view (IntersectionObserver). Amounts are sats of the board's coin.
 
 ## Provably fair
 
@@ -373,7 +414,7 @@ checks that a jackpot was paid exactly when the replay hits one. From version 3 
 It must reproduce every backend test vector:
 
 ```sh
-node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-test-vectors.json; prints 79/79 (streams, version 2 and 3 spins, meters)
+node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-test-vectors.json; prints 228/228 (streams, every game version, tBTC spins, rewards, meters, roulette)
 ```
 
 ## Sign-in, account and daily bonus
@@ -381,12 +422,17 @@ node tools/verify-vectors.mjs   # reads ../testnetcasino-service/docs/fairness-t
 Sign-in lives on `login.html`: a **Testnet4 wallet** (address plus a signed message) or a **passkey** (WebAuthn). There are no
 passwords, no email and no social logins.
 
-- `assets/js/cashaddr.js` validates addresses (CashAddr checksum) before calling the server. Only `bchtest:q...` (P2PKH) can sign in.
-  Mainnet, script (`p`), token-aware (`z`) and legacy addresses get a specific message.
-- `assets/js/auth.js` reads `GET /me` (`{ user, balance, dailyBonus }`, 401 = signed out) on every page and renders the nav: the
-  balance, the daily bonus pill, the account and "Sign out". It refreshes when the tab becomes visible again.
-- Daily bonus: "Claim 1,000 sats" (`POST /bonus/daily`) when available, otherwise a countdown to `nextClaimAt`. It is in the nav on
-  every page and in a card on the lobby. `409 daily_bonus_claimed` just switches to the countdown.
+- `assets/js/btcaddr.js` (tBTC: bech32, bech32m, base58check) and `assets/js/cashaddr.js` (tBCH: CashAddr checksum) validate
+  addresses before calling the server; `TNC_Address.check()` picks the coin from the format. Only addresses that can sign get
+  in: `tb1q...` (P2WPKH), `tb1p...`, `m...`, `n...`, `bchtest:q...`. Mainnet, script, token-aware and legacy CashAddr addresses
+  get a specific message. The wallet how-to follows the coin (Electron Cash for tBCH; Sparrow, Electrum, Bitcoin Core, Unisat,
+  Xverse, Leather for tBTC).
+- `assets/js/auth.js` reads `GET /me` (`{ user, balances, dailyBonuses, ... }`, 401 = signed out) on every page and renders the nav:
+  the coin switch, the balance, the daily bonus pill, the account (with the coin badge of `user.addressCoin`) and "Sign out". It
+  refreshes when the tab becomes visible again.
+- Daily bonus, per coin: "Claim 100 tBTC sats" (`POST /bonus/daily?coin=btc`) when available, otherwise a countdown to
+  `nextClaimAt`. The selected coin's is in the nav on every page; the lobby card has both. `409 daily_bonus_claimed` just
+  switches to the countdown.
 - `?next=` sends you back after sign-in (same-origin paths only).
 
 ## Terms and Privacy
@@ -416,7 +462,8 @@ assets/js/fx.js       Themed animated backgrounds per game, the win shower + the
 assets/img/           Logo, mark, favicons, app icons, share card (from the brand kit) and the tBCH diamond (tbch.svg)
 favicon.ico, site.webmanifest  Tab icon and web app manifest
 assets/js/faucet.js   Live faucet totals bar (GET /faucet)
-assets/js/units.js    Amount formatting: tBCH sats everywhere, whole tBCH in the faucet bar, the switch inside the games
+assets/js/units.js    The selected coin (TNC_Coin) and amount formatting: sats of a coin everywhere, whole coins in the faucet bar
+assets/js/btcaddr.js  Bitcoin Testnet4 address checks, and TNC_Address for both coins
 assets/js/jackpots.js Jackpot amounts, Minor coin pots and the latest wins (GET /jackpots, lobby, games, jackpots page)
 assets/js/copy.js     Copy buttons ([data-copy]); used for the house return address
 assets/js/music.js    Jukebox: procedural music engine, playlists per venue, player UI
@@ -437,7 +484,7 @@ tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261110k`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261110n`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

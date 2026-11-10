@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cosmic Voyage · TestnetCasino.com</title>
-  <meta name="description" content="Cosmic Voyage: Rare hits, astronomical jackpots. Slot on TestnetCasino.com, a Bitcoin Cash Testnet4 faucet. Not a real casino, no real money.">
+  <meta name="description" content="Cosmic Voyage: Rare hits, astronomical jackpots. Slot on TestnetCasino.com, a Bitcoin Testnet4 and Bitcoin Cash Testnet4 faucet. Not a real casino, no real money.">
   <!-- site:head -->
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="../favicon.ico" sizes="48x48">
@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="../assets/css/style.css?v=20261110k">
+  <link rel="stylesheet" href="../assets/css/style.css?v=20261110n">
 </head>
 <body class="theme-cosmic" data-game="cosmic-voyage" data-ambient="cosmic">
   <a class="skip-link" href="#app">Skip to the game</a>
@@ -29,7 +29,7 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
     <a href="../#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
@@ -42,6 +42,7 @@
   <header class="site-head">
     <div class="sh-inner">
       <a class="sh-logo" href="../"><img src="../assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <span class="sh-coin" id="sh-coin"></span>
       <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="sh-drawer" id="site-nav">
         <nav class="nav-bar" aria-label="Site">
@@ -70,14 +71,24 @@
     <section class="panel house-return" id="return" aria-labelledby="return-title">
       <h2 class="panel-label" id="return-title">RETURN TO THE HOUSE</h2>
       <div class="hr-body">
-        <img class="hr-coin" src="../assets/img/tbch.svg" alt="" width="44" height="44">
         <div class="hr-text">
-          <p>Done playing? Please send your tBCH back so others can continue to play:</p>
-          <div class="copy-field">
-            <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
-            <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the house address">📋 Copy</button>
+          <p>Done playing? Please send your coins back so others can continue to play. Each coin to its own address:</p>
+          <div class="hr-coin-row" data-coin="btc">
+            <h3 class="dn-label"><img class="tbch" src="../assets/img/tbtc.svg" alt=""> tBTC (Bitcoin Testnet4)</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="house-address-btc">tb1qm2xvvwdv4xtxcagg2xtfy45kj58506sy8fyx2c</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#house-address-btc" aria-label="Copy the tBTC house address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#house-address-btc" role="status" aria-live="polite"></span></p>
           </div>
-          <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+          <div class="hr-coin-row" data-coin="bch">
+            <h3 class="dn-label"><img class="tbch" src="../assets/img/tbch.svg" alt=""> tBCH (Bitcoin Cash Testnet4)</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the tBCH house address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+          </div>
         </div>
       </div>
     </section>
@@ -96,27 +107,27 @@
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="../assets/js/config.js?v=20261110k"></script>
-  <script src="../assets/js/api.js?v=20261110k"></script>
-  <script src="../assets/js/units.js?v=20261110k"></script>
-  <script src="../assets/js/jackpots.js?v=20261110k"></script>
-  <script src="../assets/js/faucet.js?v=20261110k"></script>
-  <script src="../assets/js/auth.js?v=20261110k"></script>
-  <script src="../assets/js/copy.js?v=20261110k"></script>
-  <script src="../assets/js/fx.js?v=20261110k"></script>
-  <script src="../assets/js/audio.js?v=20261110k"></script>
-  <script src="../assets/js/slot.js?v=20261110k"></script>
-  <script src="../assets/js/music.js?v=20261110k"></script>
+  <script src="../assets/js/config.js?v=20261110n"></script>
+  <script src="../assets/js/api.js?v=20261110n"></script>
+  <script src="../assets/js/units.js?v=20261110n"></script>
+  <script src="../assets/js/jackpots.js?v=20261110n"></script>
+  <script src="../assets/js/faucet.js?v=20261110n"></script>
+  <script src="../assets/js/auth.js?v=20261110n"></script>
+  <script src="../assets/js/copy.js?v=20261110n"></script>
+  <script src="../assets/js/fx.js?v=20261110n"></script>
+  <script src="../assets/js/audio.js?v=20261110n"></script>
+  <script src="../assets/js/slot.js?v=20261110n"></script>
+  <script src="../assets/js/music.js?v=20261110n"></script>
 </body>
 </html>

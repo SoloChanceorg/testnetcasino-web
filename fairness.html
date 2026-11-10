@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110n">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -31,7 +31,7 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
     <a href="./#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
@@ -44,6 +44,7 @@
   <header class="site-head">
     <div class="sh-inner">
       <a class="sh-logo" href="./"><img src="assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <span class="sh-coin" id="sh-coin"></span>
       <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="sh-drawer" id="site-nav">
         <nav class="nav-bar" aria-label="Site">
@@ -115,7 +116,7 @@
           <div class="auth-row"><button type="button" class="btn-gold" id="sp-verify-all" disabled>✔ Verify all revealed spins</button></div>
           <div class="tbl-wrap"><table class="acct-table">
             <caption class="sr-only">Your spins, newest first</caption>
-            <thead><tr><th scope="col">When</th><th scope="col">Game</th><th scope="col" class="num">Bet (tBCH sats)</th><th scope="col" class="num">Win (tBCH sats)</th><th scope="col" class="num">Nonce</th><th scope="col">Check</th></tr></thead>
+            <thead><tr><th scope="col">When</th><th scope="col">Game</th><th scope="col" class="num">Bet (sats)</th><th scope="col" class="num">Win (sats)</th><th scope="col" class="num">Nonce</th><th scope="col">Check</th></tr></thead>
             <tbody id="sp-body"></tbody>
           </table></div>
           <p class="acct-empty" id="sp-empty" hidden>No spins yet.</p>
@@ -133,7 +134,9 @@
             <select class="auth-input" id="vf-game"><option value="fruit-orchard">Fruit Orchard</option><option value="deep-sea">Deep Sea Treasure</option><option value="cosmic-voyage">Cosmic Voyage</option></select></div>
           <div><label class="auth-label" for="vf-version">Game version</label>
             <select class="auth-input" id="vf-version"><option value="4">4 (jackpots in the game, collectors)</option><option value="3">3 (Nov 9, 2026)</option><option value="2">2 (Nov 8 to 9, 2026, old jackpot draws)</option><option value="1">1 (before Nov 8, 2026)</option></select></div>
-          <div><label class="auth-label" for="vf-bet">Bet (tBCH sats, 1 to 1,000)</label>
+          <div><label class="auth-label" for="vf-coin">Coin</label>
+            <select class="auth-input" id="vf-coin"><option value="btc">tBTC (Bitcoin Testnet4)</option><option value="bch">tBCH (Bitcoin Cash Testnet4)</option></select></div>
+          <div><label class="auth-label" for="vf-bet">Bet in sats (tBTC 1 to 100, tBCH 1 to 1,000)</label>
             <input class="auth-input auth-mono" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="vf-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
@@ -141,9 +144,9 @@
             <input class="auth-input auth-mono" id="vf-client" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div><label class="auth-label" for="vf-nonce">Nonce</label>
             <input class="auth-input auth-mono" id="vf-nonce" type="number" inputmode="numeric" min="0" step="1" value="0"></div>
-          <div><label class="auth-label" for="vf-expect">Expected win in tBCH sats (optional)</label>
+          <div><label class="auth-label" for="vf-expect">Expected win in sats (optional)</label>
             <input class="auth-input auth-mono" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
-          <div><label class="auth-label" for="vf-reward">Reward bet in tBCH sats (version 4, only if the spin filled the collector)</label>
+          <div><label class="auth-label" for="vf-reward">Reward bet in sats (version 4, only if the spin filled the collector)</label>
             <input class="auth-input auth-mono" id="vf-reward" type="number" inputmode="numeric" min="1" max="1000" step="1" aria-describedby="vf-reward-hint">
             <p class="auth-hint" id="vf-reward-hint">The <code>bet</code> of the spin's <code>collect</code> step. Leave it empty if the spin did not fill it.</p></div>
           <div class="vf-check"><label><input type="checkbox" id="vf-nojp"> Jackpots were off for this spin (<code>"jackpots": false</code>)</label></div>
@@ -160,6 +163,7 @@
           <li>The head start comes only from that seed: HMAC-SHA256(seed, "tnc-jackpot-meter") gives two numbers. The first picks a hidden <b>target</b> between the tier's minimum and maximum (small targets more likely), the second the <b>head start</b>, 25% to 75% of the target.</li>
           <li>The win reveals the seed. Anyone can then check that it matches the hash published before the win, that it gives the same target and head start, and that the amount won is at least the head start. While the jackpot was running only the hash was public, so the head start was fixed when the cycle started and could not be changed afterwards.</li>
         </ol>
+        <p class="auth-hint">Every coin has its own jackpots and collectors. A <b>tBTC</b> spin's jackpot draws count its bet × 10 (tBTC amounts are a tenth of tBCH's, so the chance per spin at the same share of the maximum bet is the same); everything else is drawn exactly as for tBCH, and the RTP is <span data-rtp>101%</span> in both coins. tBTC jackpot targets are tBCH's divided by 10.</p>
         <p class="auth-hint">Older jackpot wins (from the meters that paid when they reached their target) also published a <b>display scale</b>; their Verify uses those rules.</p>
         <p class="auth-hint">Every recent win on the <a href="jackpots.html#jackpot-winners">jackpots page</a> has a Verify button. Or check a seed yourself, with the range shown in that win's Verify details:</p>
         <form id="mt-form" class="vf-grid" novalidate>
@@ -168,14 +172,14 @@
           <div><label class="auth-label" for="mt-rules">Rules</label>
             <select class="auth-input" id="mt-rules"><option value="current">Since Nov 9, 2026 (won in the game)</option><option value="old">Before (display scale)</option></select></div>
           <div class="mt-range">
-            <div><label class="auth-label" for="mt-min">Minimum (tBCH sats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1"></div>
-            <div><label class="auth-label" for="mt-max">Maximum (tBCH sats)</label><input class="auth-input auth-mono" id="mt-max" type="number" inputmode="numeric" min="0" step="1"></div>
+            <div><label class="auth-label" for="mt-min">Minimum (sats)</label><input class="auth-input auth-mono" id="mt-min" type="number" inputmode="numeric" min="0" step="1"></div>
+            <div><label class="auth-label" for="mt-max">Maximum (sats)</label><input class="auth-input auth-mono" id="mt-max" type="number" inputmode="numeric" min="0" step="1"></div>
           </div>
           <div class="vf-wide"><label class="auth-label" for="mt-seed">Seed (revealed by the win, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="mt-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div class="vf-wide"><label class="auth-label" for="mt-hash">Seed hash published before the win (optional)</label>
             <input class="auth-input auth-mono" id="mt-hash" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
-          <div><label class="auth-label" for="mt-amount">Amount won in tBCH sats (optional)</label>
+          <div><label class="auth-label" for="mt-amount">Amount won in sats (optional)</label>
             <input class="auth-input auth-mono" id="mt-amount" type="number" inputmode="numeric" min="0" step="1"></div>
           <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="mt-submit">🔍 Check the jackpot seed</button></div>
         </form>
@@ -219,25 +223,25 @@
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110k"></script>
-  <script src="assets/js/api.js?v=20261110k"></script>
-  <script src="assets/js/units.js?v=20261110k"></script>
-  <script src="assets/js/faucet.js?v=20261110k"></script>
-  <script src="assets/js/auth.js?v=20261110k"></script>
-  <script src="assets/js/fairness-engine.js?v=20261110k"></script>
-  <script src="assets/js/fairness.js?v=20261110k"></script>
-  <script src="assets/js/fx.js?v=20261110k"></script>
-  <script src="assets/js/music.js?v=20261110k"></script>
+  <script src="assets/js/config.js?v=20261110n"></script>
+  <script src="assets/js/api.js?v=20261110n"></script>
+  <script src="assets/js/units.js?v=20261110n"></script>
+  <script src="assets/js/faucet.js?v=20261110n"></script>
+  <script src="assets/js/auth.js?v=20261110n"></script>
+  <script src="assets/js/fairness-engine.js?v=20261110n"></script>
+  <script src="assets/js/fairness.js?v=20261110n"></script>
+  <script src="assets/js/fx.js?v=20261110n"></script>
+  <script src="assets/js/music.js?v=20261110n"></script>
 </body>
 </html>

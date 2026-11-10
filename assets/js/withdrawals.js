@@ -1,10 +1,11 @@
 /*
  * TestnetCasino.com: withdrawals page (withdrawals.html).
  *
- * GET /faucet/withdrawals?cursor= (public): every withdrawal the faucet has
- * sent, newest first, 50 per page: { items: [ { sentAt, address, amount, txid } ],
- * nextCursor }. When the page opens, all pages are fetched one after another,
- * then the whole list is shown at once with the total withdrawn on top. No polling.
+ * GET /faucet/withdrawals?cursor= (public, no coin = every coin, D46): every withdrawal the faucet
+ * has sent, newest first, 50 per page: { items: [ { coin, sentAt, address, amount, txid } ],
+ * nextCursor }. When the page opens, all pages are fetched one after another, then the whole list
+ * is shown at once with the total withdrawn per coin on top. A tBTC txid links to mempool.space
+ * (Bitcoin Testnet4), a tBCH txid to bchexplorer.cash. No polling.
  *
  * Depends on: config.js, api.js, units.js.
  */
@@ -15,7 +16,9 @@
   var body = document.getElementById("pay-body");
   if (!api || !body) return;
 
-  var EXPLORER_TX = (window.TNC_CONFIG && TNC_CONFIG.explorerTx) || "https://bchexplorer.cash/testnet4/tx/";
+  var Coin = window.TNC_Coin;
+  function coinOf(w) { return w.coin || "bch"; }   // before D46 every withdrawal was tBCH
+  function explorerTx(c, txid) { return Coin ? Coin.info(c).explorerTx(txid) : "https://bchexplorer.cash/testnet4/tx/" + encodeURIComponent(txid); }
   var statusEl = document.getElementById("pay-status"), empty = document.getElementById("pay-empty");
   var totalEl = document.getElementById("pay-total"), totalSub = document.getElementById("pay-total-sub");
   var MAX_PAGES = 2000;   // safety stop (100,000 withdrawals)
@@ -48,7 +51,8 @@
   }
 
   function row(w) {
-    var tr = el("tr");
+    var tr = el("tr"), c = coinOf(w);
+    tr.setAttribute("data-coin", c);
     tr.appendChild(el("td", "pay-when", when(w.sentAt)));
 
     // Full address on wide screens, shortened on narrow ones (CSS); full one in the title and copyable.
@@ -68,19 +72,20 @@
     tr.appendChild(to);
 
     var amt = el("td", "num pay-amount", U ? U.int(w.amount) : String(w.amount));
-    amt.title = Number(w.amount).toLocaleString("en-US") + " tBCH sats";
+    amt.appendChild(el("span", "pay-coin", " " + (Coin ? Coin.ticker(c) : "tBCH")));
+    amt.title = U ? U.format(w.amount, c) : String(w.amount);
     tr.appendChild(amt);
 
     var tx = el("td", "pay-tx");
     if (w.txid) {
       var a = el("a", "auth-mono");
-      a.href = EXPLORER_TX + encodeURIComponent(w.txid);
+      a.href = explorerTx(c, w.txid);
       a.target = "_blank"; a.rel = "noopener";
       a.title = w.txid;
       a.appendChild(el("span", "pay-txid", w.txid.slice(0, 6) + "..." + w.txid.slice(-6)));
       a.appendChild(el("span", "pay-view", "View"));
       a.appendChild(el("span", "", " ↗"));
-      a.setAttribute("aria-label", "Transaction " + w.txid + " on the Bitcoin Cash Testnet4 explorer (opens in a new tab)");
+      a.setAttribute("aria-label", "Transaction " + w.txid + " on the " + (Coin ? Coin.info(c).name : "Bitcoin Cash Testnet4") + " explorer (opens in a new tab)");
       tx.appendChild(a);
     }
     tr.appendChild(tx);
@@ -95,7 +100,7 @@
     totalEl.textContent = "…";
     totalSub.textContent = "Counting every withdrawal…";
     (function page(cursor) {
-      api.faucetWithdrawals(cursor).then(function (r) {
+      api.faucetWithdrawals(cursor, "all").then(function (r) {
         if (r.status !== 200 || !r.data) { fail(r); return; }
         all = all.concat(r.data.items || []);
         pages++;
@@ -112,16 +117,23 @@
   function show(items) {
     statusEl.textContent = "";
     body.textContent = "";
-    var frag = document.createDocumentFragment(), sum = 0;
-    items.forEach(function (w) { frag.appendChild(row(w)); sum += Number(w.amount) || 0; });
+    var frag = document.createDocumentFragment(), sum = {}, count = {};
+    items.forEach(function (w) { var c = coinOf(w); frag.appendChild(row(w)); sum[c] = (sum[c] || 0) + (Number(w.amount) || 0); count[c] = (count[c] || 0) + 1; });
     body.appendChild(frag);
     empty.hidden = items.length > 0;
-    // The total in whole coins, like the faucet bar; each withdrawal in tBCH sats.
-    totalEl.textContent = U ? U.bch(sum) : String(sum);
-    totalEl.appendChild(el("span", "pay-total-unit", U ? " tBCH" : " sats"));
-    totalEl.title = sum.toLocaleString("en-US") + " tBCH sats";
+    // The total per coin in whole coins, like the faucet bar (tBTC first); each withdrawal in sats.
+    var coins = (Coin ? Coin.list : ["bch"]).filter(function (c) { return sum[c] || !items.length; });
+    totalEl.textContent = "";
+    coins.forEach(function (c) {
+      var line = el("span", "pay-total-coin");
+      line.setAttribute("data-coin", c);
+      line.textContent = U ? U.bch(sum[c] || 0) : String(sum[c] || 0);
+      line.appendChild(el("span", "pay-total-unit", " " + (Coin ? Coin.ticker(c) : "tBCH")));
+      totalEl.appendChild(line);
+    });
+    totalEl.title = coins.map(function (c) { return U ? U.format(sum[c] || 0, c) : String(sum[c] || 0); }).join(", ");
     totalSub.textContent = items.length
-      ? "in " + items.length.toLocaleString("en-US") + " withdrawal" + (items.length === 1 ? "" : "s") + " sent to Bitcoin Cash Testnet4 wallets"
+      ? "in " + coins.map(function (c) { return count[c].toLocaleString("en-US") + " " + (Coin ? Coin.ticker(c) : "tBCH") + " withdrawal" + (count[c] === 1 ? "" : "s"); }).join(" and ") + " sent to Testnet4 wallets"
       : "No withdrawals yet.";
   }
 

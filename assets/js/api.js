@@ -11,6 +11,9 @@
  * Calls use credentials: "include" (the session is the HttpOnly cookie
  * __Host-session) and the header "X-Requested-With: tnc" (required on every
  * POST). No token or user data is ever stored by the frontend.
+ *
+ * Coins (D46): every call that moves or shows money takes `coin` ("btc" or "bch"); left out it is
+ * the coin selected in the header (TNC_Coin). The server treats a missing coin as tBCH.
  */
 (function () {
   "use strict";
@@ -44,8 +47,17 @@
     rouletteBets: "/roulette/bets",
     rouletteClear: "/roulette/bets/clear",
     rouletteRounds: "/roulette/rounds",   // + "/" + id for one round
-    rouletteSocket: "/roulette/ws"
+    rouletteSocket: "/roulette/ws",
+    withdrawalAddressChallenge: "/account/withdrawal-address/challenge",
+    withdrawalAddress: "/account/withdrawal-address"
   };
+
+  function coinOf(c) { return c || (window.TNC_Coin ? window.TNC_Coin.get() : "bch"); }
+  function q(path, params) {
+    var parts = [];
+    Object.keys(params).forEach(function (k) { if (params[k] != null && params[k] !== "") parts.push(k + "=" + encodeURIComponent(params[k])); });
+    return parts.length ? path + "?" + parts.join("&") : path;
+  }
 
   function request(method, path, body, opts) {
     opts = opts || {};
@@ -103,40 +115,47 @@
     passkeyRegisterVerify: function (credential) { return post(PATHS.passkeyRegisterVerify, { credential: credential }); },
     passkeyLoginOptions: function () { return post(PATHS.passkeyLoginOptions); },
     passkeyLoginVerify: function (credential) { return post(PATHS.passkeyLoginVerify, { credential: credential }); },
-    claimDailyBonus: function () { return post(PATHS.bonusDaily); },
+    claimDailyBonus: function (coin) { return post(q(PATHS.bonusDaily, { coin: coinOf(coin) })); },
+    // Save a default withdrawal address in a coin (the address decides the coin), with a signed message.
+    withdrawalAddressChallenge: function (address) { return post(PATHS.withdrawalAddressChallenge, { address: address }); },
+    saveWithdrawalAddress: function (address, nonce, signature) {
+      return post(PATHS.withdrawalAddress, { address: address, nonce: nonce, signature: signature });
+    },
 
     /* Public */
     faucet: function () { return get(PATHS.faucet, { public: true }); },
     // Public, but sent with the session cookie so the player's own rows come back with `me: true`.
-    leaderboards: function () { return get(PATHS.leaderboards); },
-    // Jackpot meters: { grand: { fill, cycle, seedHash }, games: { gameId: { minor, major } }, recentWins, updatedAt } (public).
-    jackpots: function () { return get(PATHS.jackpots, { public: true }); },
-    // Every withdrawal the faucet has sent (public, 50 per page, newest first).
-    faucetWithdrawals: function (cursor) { return get(withCursor(PATHS.faucetWithdrawals, cursor), { public: true }); },
+    leaderboards: function (coin) { return get(q(PATHS.leaderboards, { coin: coinOf(coin) })); },
+    // Jackpot meters of a coin: { coin, grand, games: { gameId: { minor, major, collector } }, recentWins, updatedAt } (public).
+    jackpots: function (coin) { return get(q(PATHS.jackpots, { coin: coinOf(coin) }), { public: true }); },
+    // Every withdrawal the faucet has sent in a coin (public, 50 per page, newest first; coin "all" = every coin).
+    faucetWithdrawals: function (cursor, coin) {
+      return get(q(PATHS.faucetWithdrawals, { coin: coin === "all" ? null : coinOf(coin), cursor: cursor }), { public: true });
+    },
     gameConfig: function (id) { return get(PATHS.gameConfig + encodeURIComponent(id) + "/config", { public: true }); },
 
     /* Games and fairness */
     fairnessSeed: function () { return get(PATHS.fairnessSeed); },
     setClientSeed: function (clientSeed) { return post(PATHS.fairnessClientSeed, { clientSeed: clientSeed }); },
     rotateSeed: function () { return post(PATHS.fairnessRotate); },
-    spin: function (gameId, bet, requestId) { return post(PATHS.spins, { gameId: gameId, bet: bet, requestId: requestId }); },
+    spin: function (gameId, bet, requestId, coin) { return post(PATHS.spins, { gameId: gameId, coin: coinOf(coin), bet: bet, requestId: requestId }); },
     spinHistory: function (cursor) { return get(withCursor(PATHS.spins, cursor)); },
-    ledger: function (cursor) { return get(withCursor(PATHS.ledger, cursor)); },
+    ledger: function (cursor, coin) { return get(q(PATHS.ledger, { coin: coinOf(coin), cursor: cursor })); },
 
     /* Roulette (D44): one global table; live updates over the WebSocket at rouletteSocketUrl() */
     // The table as the "table" message: with the session also canBet and you.
     rouletteState: function () { return get(PATHS.rouletteState); },
     // bets: [{ type, numbers?, amount }]; requestId: unique per placement (repeating it places nothing more).
-    rouletteBet: function (roundId, requestId, bets) { return post(PATHS.rouletteBets, { roundId: roundId, requestId: requestId, bets: bets }); },
-    rouletteClear: function (roundId) { return post(PATHS.rouletteClear, { roundId: roundId }); },
+    rouletteBet: function (roundId, requestId, bets, coin) { return post(PATHS.rouletteBets, { roundId: roundId, requestId: requestId, coin: coinOf(coin), bets: bets }); },
+    rouletteClear: function (roundId, coin) { return post(PATHS.rouletteClear, { roundId: roundId, coin: coinOf(coin) }); },
     rouletteRounds: function (cursor) { return get(withCursor(PATHS.rouletteRounds, cursor), { public: true }); },
     rouletteRound: function (id) { return get(PATHS.rouletteRounds + "/" + encodeURIComponent(id), { public: true }); },
     rouletteSocketUrl: function () { return BASE.replace(/^http/, "ws") + PATHS.rouletteSocket; },
 
     /* Withdrawals */
-    // address: any Bitcoin Cash Testnet4 address; omitted = the account's default (wallet: sign-in address).
-    withdraw: function (amount, address) {
-      var body = { amount: amount };
+    // address: any Testnet4 address of the coin; omitted = the account's default in that coin.
+    withdraw: function (amount, address, coin) {
+      var body = { coin: coinOf(coin), amount: amount };
       if (address) body.address = address;
       return post(PATHS.withdrawals, body);
     },

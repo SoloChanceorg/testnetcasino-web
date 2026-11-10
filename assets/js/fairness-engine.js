@@ -342,10 +342,13 @@
   }
 
   /* ═══════════════ One paid spin, in the documented draw order ═══════════════ */
+  // opts.coin: "btc" or "bch" (D46). The jackpot draws use bet × the coin's scale (tBCH 1, tBTC 10: tBTC
+  // amounts are a tenth of tBCH's), so the chance per spin at the same share of the max bet is the same.
   // opts.jackpots === false: the version 4 jackpot draws were skipped (the spin said "jackpots": false).
   // opts.rewardBet: the spin filled the collector (its collect step: full, bet); the reward is played at it.
   // Without rewardBet the result has `stream` and `reward(bet)` to play the reward afterwards, from the
   // stream's position after the collect symbols, as often as needed (the fairness page tries bets with it).
+  function COIN_SCALE(coin) { return coin === "btc" ? 10 : 1; }
   function play(game, bet, randInt, opts, stream) {
     opts = opts || {};
     var spinBet = bet;
@@ -404,7 +407,7 @@
     if (game.jackpot || game.collector) {
       var taken = {};
       if (game.jackpot && opts.jackpots !== false) {
-        jackpot = R.jackpotDraw(spinBet, randInt, taken);
+        jackpot = R.jackpotDraw(spinBet * COIN_SCALE(opts.coin), randInt, taken);
         if (jackpot) steps.push(jackpot);
       }
       if (game.collector) {
@@ -460,6 +463,7 @@
    */
   function replay(game, spin, opts) {
     var blocks = 32;
+    if (spin.coin && !(opts && opts.coin)) opts = Object.assign({}, opts || {}, { coin: spin.coin });
     function attempt() {
       return makeStream(spin.serverSeed, spin.clientSeed, spin.nonce, blocks).then(function (st) {
         try {

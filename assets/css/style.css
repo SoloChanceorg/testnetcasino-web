@@ -23,6 +23,8 @@
   --tc-mint: #3DD9A4;       /* links, success, the tBCH network colour */
   --tc-orange: #FF8A1F;     /* the tBTC network colour */
   --tc-net-tbch: var(--tc-mint);
+  --tc-net-tbtc: var(--tc-orange);
+  --tc-net: var(--tc-net-tbch);   /* the coin in play: set per element with data-coin */
   --tc-radius-sm: 8px;
   --tc-radius-md: 14px;
   --tc-radius-lg: 22px;
@@ -144,7 +146,7 @@ body[data-page="lobby"] #casino-bg { opacity: .35; }
 .chip-emoji { font-family: var(--emoji); }
 .chip-balance {
   display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 14px; border-radius: 999px; white-space: nowrap;
-  background: var(--tc-felt-800); border: 1px solid var(--tc-felt-700); color: var(--tc-net-tbch);
+  background: var(--tc-felt-800); border: 1px solid var(--tc-felt-700); color: var(--tc-net);
   font: 500 .86rem/1.2 var(--mono);
 }
 .chip-balance strong { font-weight: 500; }
@@ -856,7 +858,7 @@ body.is-fullscreen .house-return { display: none; }
 .fb-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; }
 .fb-stat { display: flex; align-items: center; gap: 8px; }
 .fb-stat dt { color: var(--tc-felt-300); font-weight: 400; }
-.fb-stat dd { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--tc-net-tbch); white-space: nowrap; }
+.fb-stat dd { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--tc-net); white-space: nowrap; }
 .fb-stat .tbch { width: 9px; height: 9px; }
 /* Amounts in a monospaced font, like the tables: every digit the same width. */
 .fb-stat dd span[data-k] { font: 500 .95em var(--mono); letter-spacing: 0; }
@@ -1110,7 +1112,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .pay-total-sub { margin: 0; color: var(--muted); }
 .pay-cta-row { margin: 0 0 22px; text-align: center; }
 .pay-cta { display: inline-flex; align-items: center; min-height: 48px; }
-.pay-total-unit { font: 700 .5em var(--body); letter-spacing: 0; color: var(--tc-net-tbch); text-shadow: none; }
+.pay-total-unit { font: 700 .5em var(--body); letter-spacing: 0; color: var(--tc-net); text-shadow: none; }
 .pay-main { max-width: none; }   /* the withdrawals table needs the full page width */
 
 /* Account: withdraw form locked below the minimum withdrawal */
@@ -1372,7 +1374,7 @@ body.is-fullscreen .px-machine { width: auto; }
 /* Lobby: daily bonus and the steps */
 .daily-bonus .db-title { margin: 0 0 6px; font: 500 .9rem/1.3 var(--body); color: var(--tc-felt-300); }
 .daily-bonus .db-text { margin: 0 0 12px; color: var(--tc-ivory-dim); }
-.daily-bonus .db-text strong, .db-amount { font: 500 1.05em var(--mono); color: var(--tc-net-tbch); }
+.daily-bonus .db-text strong, .db-amount { font: 500 1.05em var(--mono); color: var(--tc-net); }
 .db-left { font: 500 clamp(1.4rem, 4vw, 1.8rem)/1.2 var(--mono); letter-spacing: 0; color: var(--tc-ivory); text-shadow: none; }
 .db-note { color: var(--tc-felt-300); }
 .steps li { background: var(--tc-felt-900); border: 1px solid var(--tc-felt-700); border-radius: var(--tc-radius-md); padding: 20px; }
@@ -1448,7 +1450,7 @@ body.is-fullscreen .px-machine { width: auto; }
 
 /* Account */
 .acct-balance { color: var(--tc-felt-300); }
-.acct-balance strong { font: 500 clamp(1.4rem, 4.2vw, 1.9rem)/1.3 var(--mono); color: var(--tc-net-tbch); }
+.acct-balance strong { font: 500 clamp(1.4rem, 4.2vw, 1.9rem)/1.3 var(--mono); color: var(--tc-net); }
 
 /* Tables */
 .acct-table th { font: 600 .72rem var(--body); letter-spacing: .08em; color: var(--tc-felt-300); border-bottom: 1px solid var(--tc-felt-700); }
@@ -1463,10 +1465,91 @@ body.is-fullscreen .px-machine { width: auto; }
 .rv-title { color: var(--tc-ivory); }
 
 /* Withdrawals total */
-.pay-total-amount { font-family: var(--mono) !important; font-weight: 500 !important; letter-spacing: 0 !important; color: var(--tc-net-tbch) !important; text-shadow: none !important; }
+.pay-total-amount { font-family: var(--mono) !important; font-weight: 500 !important; letter-spacing: 0 !important; color: var(--tc-net) !important; text-shadow: none !important; }
 
 /* The machine's tBCH sats / tBCH switch */
 .unit-switch { border-color: var(--tc-felt-700); background: var(--tc-felt-950); font: 500 .8rem/1 var(--display); color: var(--tc-felt-300); }
 .unit-switch[aria-checked="false"] .us-opt[data-u="sat"],
 .unit-switch[aria-checked="true"] .us-opt[data-u="bch"] { background: var(--tc-ivory); color: var(--tc-felt-900); }
 .unit-switch:hover { border-color: var(--tc-felt-300); }
+
+/* ═══════════════════════ Two coins (D46): tBTC orange, tBCH mint ═══════════════════════
+   Any element with data-coin (and <html>, for the coin selected in the header) sets --tc-net. */
+[data-coin="btc"] { --tc-net: var(--tc-net-tbtc); }
+[data-coin="bch"] { --tc-net: var(--tc-net-tbch); }
+
+/* The coin switch in the header */
+.coin-switch { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--tc-felt-950); border: 1px solid var(--tc-felt-700); }
+.coin-opt {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 12px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 500 .86rem/1 var(--mono); color: var(--tc-felt-300); background: transparent;
+}
+.coin-opt .coin-badge { width: 9px; height: 9px; }
+.coin-opt:hover { color: var(--tc-ivory); }
+.coin-opt[aria-checked="true"] { color: var(--tc-felt-900); background: var(--tc-net); font-weight: 500; }
+.coin-opt[aria-checked="true"] .coin-badge { filter: brightness(0) saturate(100%); opacity: .55; }
+.coin-opt:focus-visible { outline: 3px solid var(--tc-ivory); outline-offset: 1px; }
+.auth-other { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--tc-felt-700); font: 400 .78rem var(--mono); color: var(--tc-net); }
+
+/* Faucet bar: one value per coin */
+.fb-stat dd + dd { padding-left: 10px; border-left: 1px solid var(--tc-felt-700); }
+.fb-stat dd[hidden] { display: none; }
+@media (max-width: 600px) { .fb-stat { flex-wrap: wrap; } .fb-stat dt { flex-basis: 100%; } .fb-stat dd + dd { padding-left: 0; border-left: 0; } .fb-stat { justify-content: flex-start; gap: 2px 14px; } }
+
+/* Lobby: the two coins, the daily bonus per coin */
+.hero-coins { margin: 14px 0 0; max-width: 560px; font-size: .95rem; color: var(--tc-ivory-dim); }
+.hero-coins b { font-weight: 600; color: var(--tc-net); }
+.db-coins { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.db-coin { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.db-coin .db-amount { font: 500 1.05rem var(--mono); color: var(--tc-net); }
+.db-claim { min-height: 38px; padding: 6px 18px; font-size: .88rem; }
+.db-done { font-size: .84rem; color: var(--tc-felt-300); }
+.step-coins { display: inline-flex; gap: 6px; }
+
+/* Leaderboards: the coin toggle */
+.lb-coin { display: flex; justify-content: center; gap: 6px; margin: 0 0 14px; }
+.lb-coin-opt { min-height: 38px; padding: 6px 18px; border-radius: 999px; cursor: pointer; font: 500 .9rem var(--mono); color: var(--tc-felt-300); background: transparent; border: 1px solid var(--tc-felt-700); }
+.lb-coin-opt[aria-pressed="true"] { color: var(--tc-felt-900); background: var(--tc-net); border-color: var(--tc-net); }
+
+/* Tickers beside amounts in tables with both coins */
+.pay-coin, .sp-coin { font-size: .78em; color: var(--tc-net); }
+.pay-total-coin { display: block; }
+.rt-bet[data-coin], .rt-res li[data-coin] .rt-amt, .rt-coin { color: var(--tc-net); }
+
+/* Account: both balances, saved addresses */
+.acct-balances { display: block; font: 400 .9rem var(--mono); color: var(--tc-felt-300); }
+.acct-coin-note { margin: 0 0 12px; font-size: .86rem; color: var(--tc-felt-300); }
+.sv-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 10px; }
+.sv-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 12px; border: 1px solid var(--tc-felt-700); border-radius: var(--tc-radius-sm); background: var(--tc-felt-900); }
+.sv-coin { display: inline-flex; align-items: center; gap: 6px; min-width: 64px; font: 500 .9rem var(--mono); color: var(--tc-net); }
+.sv-addr { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-size: .86rem; color: var(--tc-ivory-dim); }
+.sv-note { font-size: .82rem; color: var(--tc-felt-300); }
+.sv-form { margin-top: 12px; padding: 16px; border: 1px solid var(--tc-felt-700); border-radius: var(--tc-radius-md); }
+.sv-title { margin: 0 0 10px; font-size: 1.05rem; }
+
+/* Header: room for the coin switch and the account chips on one row */
+.auth-nav { gap: 6px !important; }
+.site-head .chip-link, .site-head .chip-balance { min-height: 36px; padding: 5px 12px; font-size: .82rem; }
+.site-head .auth-out { padding: 5px 10px; border-color: transparent; color: var(--tc-felt-300); }
+.site-head .auth-out:hover { color: var(--tc-ivory); background: transparent; }
+.site-head .coin-opt { min-height: 30px; padding: 4px 10px; font-size: .8rem; }
+.sh-coin { display: none; }
+@media (max-width: 760px) {
+  .sh-coin { display: inline-flex; margin-left: auto; }
+  .sh-drawer .coin-switch { display: none; }
+  .sh-inner { gap: 10px; }
+}
+@media (max-width: 380px) { .sh-logo img { width: 150px; } .site-head .coin-opt { padding: 4px 8px; } }
+@media (max-width: 760px) {
+  .sh-logo img { width: 150px; }
+  .sh-coin .coin-badge { display: none; }
+  .sh-coin .coin-opt { padding: 4px 9px; }
+  .sh-menu { flex: none; }
+}
+/* Tickers keep their lowercase t: labels and table headers are not set in capitals. */
+.auth-label, .acct-table th, .seed-list dt { text-transform: none; letter-spacing: .02em; }
+
+/* Return to the house: one address per coin (tBTC first) */
+.hr-coin-row + .hr-coin-row { margin-top: 14px; }
+.hr-coin-row .dn-label { display: flex; align-items: center; gap: 6px; color: var(--tc-net); }
+.hr-coin-row .copy-code { color: var(--tc-net); }

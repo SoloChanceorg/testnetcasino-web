@@ -86,7 +86,7 @@ const BLOCKS = {
   warning(page) {
     return [
       `  <div class="warning-strip" role="note">`,
-      `    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>`,
+      `    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>`,
       `    <a href="${page.id === "lobby" ? "#notice" : rel(page, "./") + "#notice"}">HOUSE NOTICE</a>`,
       `  </div>`
     ];
@@ -100,6 +100,8 @@ const BLOCKS = {
       `  <header class="site-head">`,
       `    <div class="sh-inner">`,
       `      <a class="sh-logo" href="${rel(page, "./")}"${page.id === "lobby" ? ` aria-current="page"` : ""}><img src="${rel(page, "assets/img/logo-horizontal.svg")}" alt="TestnetCasino.com" width="230" height="28"></a>`,
+      // Phones: the coin switch stays beside the menu button (auth.js fills it).
+      `      <span class="sh-coin" id="sh-coin"></span>`,
       `      <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>`,
       `      <div class="sh-drawer" id="site-nav">`,
       `        <nav class="nav-bar" aria-label="Site">`
@@ -132,12 +134,12 @@ const BLOCKS = {
       `      </div>`,
       `      <div class="cf-networks">`,
       `        <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>`,
-      `        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>`,
+      `        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>`,
       `      </div>`,
       `      <div class="cf-bottom">`,
       `        <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>`,
       `        <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>`,
-      `        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>`,
+      `        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>`,
       `      </div>`,
       `    </footer>`
     ];

@@ -68,7 +68,7 @@ for (const s of doc.streams) {
 for (const v of doc.spins.concat(doc.rewards || [])) {
   checked++;
   const game = await config(v.gameId, v.gameVersion);
-  const got = await Fair.replay(game, v, { jackpots: v.jackpots, rewardBet: v.rewardBet });
+  const got = await Fair.replay(game, v, { jackpots: v.jackpots, rewardBet: v.rewardBet, coin: v.coin });
   // Everything the verifier rebuilds: grids, wins, every bonus / feature step, jackpots, collect symbols.
   const want = v.steps.concat(v.reward ? v.reward.steps : []).map(view);
   const mine = got.steps.map(view);

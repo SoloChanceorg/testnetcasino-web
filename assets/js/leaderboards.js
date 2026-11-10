@@ -1,14 +1,15 @@
 /*
  * TestnetCasino.com: leaderboards page (leaderboards.html).
  *
- * GET /leaderboards (public, sent with the session cookie): seven boards of up
+ * GET /leaderboards?coin= (public, sent with the session cookie): one coin's seven boards (D46) of up
  * to 1,000 entries { rank, player, method, amount, me? }, already sorted,
  * refreshed server-side every 5 minutes. Fetched once when the page opens and
  * again only when the player signs in or out (the response is up to ~500 KB).
  *
  * Rows render 50 at a time (more on scroll or "Show more"). The signed-in
  * player's row is found ONLY by `me: true` (labels can collide). A "Jump to
- * my position" button shows while that row is not visible.
+ * my position" button shows while that row is not visible. A coin toggle above the tabs (tBTC /
+ * tBCH; default: the coin selected in the header) loads that coin's boards.
  *
  * Depends on: api.js, units.js, auth.js.
  */
@@ -33,11 +34,32 @@
 
   var tabsEl = document.getElementById("lb-tabs"), panelsEl = document.getElementById("lb-panels");
   var statusEl = document.getElementById("lb-status"), updatedEl = document.getElementById("lb-updated");
-  var data = null, state = {}, active = null, loadedFor;   // loadedFor: user id the data was fetched for
+  var data = null, state = {}, active = null, loadedFor;   // loadedFor: user id + coin the data was fetched for
+  var Coin = window.TNC_Coin, coin = Coin ? Coin.get() : "bch";
+  function unitName() { return U ? U.unit(coin) : "sats"; }
+
+  // The coin toggle (only for this page: it does not change the coin selected in the header).
+  var coinBar = document.getElementById("lb-coin");
+  if (coinBar && Coin) {
+    Coin.list.forEach(function (c) {
+      var b = el("button", "lb-coin-opt");
+      b.type = "button";
+      b.setAttribute("data-coin", c);
+      b.setAttribute("aria-pressed", c === coin ? "true" : "false");
+      b.textContent = Coin.ticker(c);
+      b.addEventListener("click", function () {
+        if (c === coin) return;
+        coin = c;
+        coinBar.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        load();
+      });
+      coinBar.appendChild(b);
+    });
+  }
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function fmtAmount(sats) { return U ? U.int(sats) : String(sats); }
-  function fmtSats(sats) { return Number(sats).toLocaleString("en-US") + " tBCH sats"; }
+  function fmtSats(sats) { return Number(sats).toLocaleString("en-US") + " " + unitName(); }
 
   /* ═══════════════ Tabs (WAI-ARIA tabs pattern) ═══════════════ */
   var tabs = BOARDS.map(function (b, i) {
@@ -107,7 +129,7 @@
         table.appendChild(cap);
         var thead = el("thead");
         var hr = el("tr");
-        [["Rank", "lb-rank"], ["Player", "lb-player"], [b.what + " (tBCH sats)", "num lb-amount"]].forEach(function (c) {
+        [["Rank", "lb-rank"], ["Player", "lb-player"], [b.what + " (" + unitName() + ")", "num lb-amount"]].forEach(function (c) {
           var th = el("th", c[1], c[0]); th.scope = "col"; hr.appendChild(th);
         });
         thead.appendChild(hr);
@@ -204,7 +226,7 @@
       var e = st.entries[st.meIndex];
       you.appendChild(document.createTextNode("Your position: "));
       you.appendChild(el("strong", "", "#" + Number(e.rank).toLocaleString("en-US")));
-      you.appendChild(document.createTextNode(" with " + U.format(e.amount) + "."));
+      you.appendChild(document.createTextNode(" with " + U.format(e.amount, coin) + "."));
     }
   }
 
@@ -259,12 +281,12 @@
   }
 
   function load() {
-    var uid = Auth && Auth.user ? Auth.user.id : null;
+    var uid = (Auth && Auth.user ? Auth.user.id : "") + "|" + coin;
     loadedFor = uid;
     statusEl.hidden = false;
     statusEl.className = "panel acct-loading";
     statusEl.textContent = "Loading the leaderboards…";
-    api.leaderboards().then(function (r) {
+    api.leaderboards(coin).then(function (r) {
       if (loadedFor !== uid) return;   // signed in or out meanwhile: a newer request is on its way
       if (r.status !== 200 || !r.data) {
         statusEl.textContent = api.errorText(r, "The leaderboards could not be loaded.") + " ";
@@ -289,7 +311,7 @@
     first.then(function () {
       load();
       if (Auth) Auth.onChange(function (u) {
-        var uid = u ? u.id : null;
+        var uid = (u ? u.id : "") + "|" + coin;
         if (uid !== loadedFor) load();
       });
     });

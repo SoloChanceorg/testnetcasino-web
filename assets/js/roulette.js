@@ -37,10 +37,17 @@
   var WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
   var RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
   function colorOf(n) { return n === 0 ? "green" : RED.indexOf(n) !== -1 ? "red" : "black"; }
-  var CHIPS = [1, 5, 10, 25, 100, 500, 1000];
-  var CHIP_ART = { 1: ["#f4f4f4", "#9aa0a6"], 5: ["#e5383b", "#7a0d17"], 10: ["#2f80ed", "#123b78"], 25: ["#27ae60", "#0f5130"],
-                   100: ["#222", "#000"], 500: ["#9b51e0", "#4a1d78"], 1000: ["#f2c94c", "#8a6508"] };
-  var MAX_CHIP = 1000, ROUND_LIMIT = 10000, MAX_PER_REQUEST = 50, PING_MS = 30000;
+  // The coin you play (D46): one table for both coins; your chips are in the coin selected in the header.
+  // Chips of the other coin carry their coin's badge (tBTC orange, tBCH mint) and its own amounts.
+  var Coin = window.TNC_Coin, COIN = Coin ? Coin.get() : "bch";
+  var CHIPS = COIN === "btc" ? [1, 2, 5, 10, 25, 50, 100] : [1, 5, 10, 25, 100, 500, 1000];
+  var CHIP_ART = { 1: ["#f4f4f4", "#9aa0a6"], 2: ["#f2994a", "#8a4b10"], 5: ["#e5383b", "#7a0d17"], 10: ["#2f80ed", "#123b78"], 25: ["#27ae60", "#0f5130"],
+                   50: ["#56ccf2", "#1d5f78"], 100: ["#222", "#000"], 500: ["#9b51e0", "#4a1d78"], 1000: ["#f2c94c", "#8a6508"] };
+  var COIN_HEX = { btc: 0xff8a1f, bch: 0x3dd9a4 };
+  var LIMITS = { btc: { maxChip: 100, maxPerRound: 1000 }, bch: { maxChip: 1000, maxPerRound: 10000 } };
+  var MAX_PER_REQUEST = 50, PING_MS = 30000;
+  function roundLimit() { return (LIMITS[COIN] || LIMITS.bch).maxPerRound; }
+  function chipCoin(c) { return c && c.coin || "bch"; }   // chips from before D46 have no coin: tBCH
   var OUTSIDE = {
     red: RED, black: range(1, 36).filter(function (n) { return RED.indexOf(n) === -1; }),
     odd: range(1, 36).filter(function (n) { return n % 2; }), even: range(1, 36).filter(function (n) { return !(n % 2); }),
@@ -66,7 +73,7 @@
   var sfx = window.TNC_sfx || {};
   ["press", "chip", "reelStop", "wheelTick", "wheelStop", "win", "bigWin", "noWin", "tilt", "setTheme"].forEach(function (k) { if (!sfx[k]) sfx[k] = function () {}; });
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
-  function sats(n) { return fmt(n) + " tBCH sats"; }
+  function sats(n, c) { return fmt(n) + " " + (Coin ? Coin.ticker(c || COIN) : "tBCH") + " sats"; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function $(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -123,7 +130,7 @@
     '<h1 class="sr-only">Roulette</h1>' +
     '<div class="rt-stage" id="rt-stage"><div class="rt-canvas" id="rt-canvas"></div>' +
       '<div class="rt-lock" id="rt-lock" hidden><a class="btn-red" id="rt-login" href="../login.html">🔑 Sign in to play</a>' +
-        '<p>Sign in to join the table. New accounts get 10,000 free tBCH sats.</p></div></div>' +
+        '<p>Sign in to join the table. New accounts get ' + sats(Coin ? Coin.info(COIN).signup : 10000) + ' to play with.</p></div></div>' +
     '<p class="sr-only" id="rt-live" role="status" aria-live="polite"></p>' +
     '<div class="rt-panels">' +
       '<section class="panel rt-lobby" aria-labelledby="rt-chat-title"><h2 class="panel-label" id="rt-chat-title">TABLE CHAT</h2>' +
@@ -156,8 +163,10 @@
         '<th scope="col" class="num">Returns (incl. stake)</th><th scope="col" class="num">Golden ball</th></tr></thead><tbody>' +
       rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="num">' + oddsText(r[2]) + '</td><td class="num">' + returnsX(r[2]) + '×</td><td class="num">' + returnsX(r[2]) * GX + '×</td></tr>'; }).join("") +
       '</tbody></table></div>' +
-      '<ul class="rules"><li>Chips of 1 to 1,000 tBCH sats, at most 10,000 tBCH sats per player per round. The stake leaves your balance when the chip is placed; Clear gives it back while betting is open.</li>' +
-      '<li>Wins are whole tBCH sats. Example: 10 tBCH sats on one number returns ' + fmt(returnOf(10, 1)) + ' tBCH sats, or ' + fmt(returnOf(10, 1) * GX) + ' with the golden ball.</li>' +
+      '<ul class="rules"><li>Play in tBTC or tBCH (the coin chosen at the top of the page). Chips of 1 to ' + fmt(LIMITS.btc.maxChip) + ' tBTC sats, at most ' + fmt(LIMITS.btc.maxPerRound) +
+        ' a round; or 1 to ' + fmt(LIMITS.bch.maxChip) + ' tBCH sats, at most ' + fmt(LIMITS.bch.maxPerRound) + ' a round. Both coins share the table, the number and the golden ball; each pays in its own coin. ' +
+        'The stake leaves your balance when the chip is placed; Clear gives it back while betting is open.</li>' +
+      '<li>Wins are whole sats. Example: 10 sats on one number returns ' + fmt(returnOf(10, 1)) + ' sats, or ' + fmt(returnOf(10, 1) * GX) + ' with the golden ball.</li>' +
       '<li>Red numbers: ' + RED.join(", ") + '.</li>' +
       '<li>Provably fair: each round publishes the SHA-256 hash of its secret seed when betting opens; the seed fixes the number, the spin and the golden ball, and is revealed at the result. Check any round below or on the <a href="../fairness.html#roulette">fairness page</a>. Rounds played before the golden ball (rules 1) paid 37 / <i>n</i> times the stake.</li></ul>';
   }
@@ -631,8 +640,8 @@
     var spots = {};
     function add(chip, pending) {
       var key = spotKey(chip.type, chip.numbers), s = spots[key] || (spots[key] = { type: chip.type, numbers: chip.numbers, by: {} });
-      var who = pending ? S.you || "you" : chip.player;
-      var b = s.by[who] || (s.by[who] = { amount: 0, pending: false, payout: 0, settled: false });
+      var who = (pending ? S.you || "you" : chip.player) + "|" + (pending ? COIN : chipCoin(chip));
+      var b = s.by[who] || (s.by[who] = { amount: 0, pending: false, payout: 0, settled: false, coin: pending ? COIN : chipCoin(chip) });
       b.amount += chip.amount; if (pending) b.pending = true;
       if (chip.payout != null) { b.settled = true; b.payout += chip.payout; }
     }
@@ -641,19 +650,24 @@
     var size = G.name === "wide" ? 30 : 40, revealedNumber = S.revealed && S.round ? S.round.number : null;
     Object.keys(spots).forEach(function (key) {
       var s = spots[key], an = anchorOf(s.type, s.numbers), p = LA(an.L, an.a);
-      var whos = Object.keys(s.by).sort(function (x, y) { return (x === S.you) - (y === S.you); });   // yours last (on top)
+      function isMe(k) { return k.split("|")[0] === S.you || k.split("|")[0] === "you"; }
+      var whos = Object.keys(s.by).sort(function (x, y) { return isMe(x) - isMe(y); });   // yours last (on top)
       var winning = revealedNumber != null && covers(s).indexOf(revealedNumber) !== -1;
       whos.forEach(function (who, i) {
-        var b = s.by[who], mine = who === S.you, off = (whos.length - 1 - i) * 5;
+        var b = s.by[who], mine = isMe(who), name = who.split("|")[0], off = (whos.length - 1 - i) * 5;
         var c = new PIXI.Container(); c.position.set(p.x - off, p.y - off);
         var v = CHIPS.slice().reverse().find(function (x) { return x <= b.amount; }) || 1;
         var sp = new PIXI.Sprite(CHIPTEX[v] || (CHIPTEX[v] = chipTex(v, 72))); sp.anchor.set(0.5); sp.width = sp.height = size; c.addChild(sp);
-        var ring = new PIXI.Graphics().circle(0, 0, size / 2 + 1).stroke({ width: mine ? 3 : 2.5, color: mine ? 0xffd166 : hslToHex(hashColor(who)) });
+        var ring = new PIXI.Graphics().circle(0, 0, size / 2 + 1).stroke({ width: mine ? 3 : 2.5, color: mine ? 0xffd166 : hslToHex(hashColor(name)) });
         c.addChild(ring);
+        // The coin: a small diamond in its colour on the chip's top right (tBTC orange, tBCH mint).
+        var badge = new PIXI.Graphics().poly([0, -size * 0.2, size * 0.17, 0, 0, size * 0.2, -size * 0.17, 0]).fill(COIN_HEX[b.coin] || 0xffffff).stroke({ width: 1.5, color: 0x041a0e });
+        badge.position.set(size * 0.38, -size * 0.38); c.addChild(badge);
+        c._coin = b.coin;
         var t = txt(compact(b.amount), { fontSize: size * 0.3, fill: v === 1 || v === 1000 ? "#222" : "#fff" }); c.addChild(t);
         if (!mine && whos.length < 4) {   // a small label with the player
-          var tag = txt(shortLabel(who), { fontFamily: MONO, fontWeight: "700", fontSize: 9, fill: "#000" });
-          var tg = new PIXI.Graphics().roundRect(-tag.width / 2 - 3, -6, tag.width + 6, 12, 4).fill(hslToHex(hashColor(who)));
+          var tag = txt(shortLabel(name), { fontFamily: MONO, fontWeight: "700", fontSize: 9, fill: "#000" });
+          var tg = new PIXI.Graphics().roundRect(-tag.width / 2 - 3, -6, tag.width + 6, 12, 4).fill(hslToHex(hashColor(name)));
           var tc = new PIXI.Container(); tc.addChild(tg, tag); tc.position.set(0, size / 2 + 6); c.addChild(tc);
         }
         if (b.pending) c.alpha = 0.6;
@@ -761,7 +775,7 @@
     var newRound = !S.round || r.id !== S.round.id;
     if (newRound) {
       if (S.round && S.round.number != null && recentNumbers[0] !== S.round.number && S.revealed) { /* already added at reveal */ }
-      var mine = Object.keys(S.chips).map(function (id) { return S.chips[id]; }).filter(function (c) { return c.player === S.you; });
+      var mine = Object.keys(S.chips).map(function (id) { return S.chips[id]; }).filter(function (c) { return c.player === S.you && chipCoin(c) === COIN; });
       if (mine.length) S.lastMine = mine.map(function (c) { return { type: c.type, numbers: c.numbers, amount: c.amount }; });
       S.chips = {}; S.pending = []; S.myTotal = 0; S.spin = null; S.revealed = false; S.results = null; S.settled = null;
       if (bannerC) bannerC.visible = false;
@@ -821,7 +835,8 @@
     switch (m.type) {
       case "table":
         S.you = m.you || S.you; S.canBet = !!m.canBet; S.nextRoundAt = m.nextRoundAt || null;
-        if (m.rules && m.rules.payoutPockets) { RULES = Object.assign({}, RULES, m.rules); $("rt-rules").innerHTML = rulesHtml(); }
+        if (m.limits) Object.keys(m.limits).forEach(function (c) { if (LIMITS[c] && m.limits[c]) LIMITS[c] = Object.assign({}, LIMITS[c], m.limits[c]); });
+        if ((m.rules && m.rules.payoutPockets) || m.limits) { if (m.rules && m.rules.payoutPockets) RULES = Object.assign({}, RULES, m.rules); $("rt-rules").innerHTML = rulesHtml(); }
         S.players = (m.players || []).slice();
         S.chips = {}; (m.bets || []).forEach(function (c) { S.chips[c.id] = c; });
         S.myTotal = mineTotal();
@@ -834,15 +849,15 @@
       case "round": roundChanged(m.round); break;
       case "bets":
         if (S.round && m.roundId !== S.round.id) break;
-        (m.bets || []).forEach(function (c) { c.player = c.player || m.player; S.chips[c.id] = c; });
-        if (m.player === S.you) { S.pending = []; S.myTotal = m.total; }
+        (m.bets || []).forEach(function (c) { c.player = c.player || m.player; c.coin = c.coin || m.coin; S.chips[c.id] = c; });
+        if (m.player === S.you && (m.coin || "bch") === COIN) { S.pending = []; S.myTotal = m.total; }
         if (m.player !== S.you) sfx.chip();
         renderChips(); renderPlayers(); renderRack(); renderResults();
         break;
       case "cleared":
         if (S.round && m.roundId !== S.round.id) break;
-        Object.keys(S.chips).forEach(function (id) { if (S.chips[id].player === m.player) delete S.chips[id]; });
-        if (m.player === S.you) { S.pending = []; S.myTotal = 0; }
+        Object.keys(S.chips).forEach(function (id) { if (S.chips[id].player === m.player && chipCoin(S.chips[id]) === (m.coin || "bch")) delete S.chips[id]; });
+        if (m.player === S.you && (m.coin || "bch") === COIN) { S.pending = []; S.myTotal = 0; }
         renderChips(); renderPlayers(); renderRack(); renderResults();
         break;
       case "spin": roundChanged(m.round); break;
@@ -854,8 +869,11 @@
         loadRounds(true);
         break;
       case "settled":
-        S.settled = { roundId: m.roundId, bet: m.bet, win: m.win, balance: m.balance };
-        S.balance = m.balance; if (Auth && Auth.setBalance) Auth.setBalance(m.balance);
+        // Once per coin you played; the other coin (from another tab) only updates its balance.
+        if (Auth && Auth.setBalance) Auth.setBalance(m.balance, m.coin || "bch");
+        if ((m.coin || "bch") !== COIN) { renderStatus(true); break; }
+        S.settled = { roundId: m.roundId, coin: COIN, bet: m.bet, win: m.win, balance: m.balance };
+        S.balance = m.balance;
         if (S.revealed) celebrateMine();
         renderStatus(true);
         break;
@@ -871,7 +889,7 @@
       case "error": chatError(m.message || m.error); break;
     }
   }
-  function mineTotal() { var t = 0; Object.keys(S.chips).forEach(function (id) { if (S.chips[id].player === S.you) t += S.chips[id].amount; }); return t; }
+  function mineTotal() { var t = 0; Object.keys(S.chips).forEach(function (id) { var c = S.chips[id]; if (c.player === S.you && chipCoin(c) === COIN) t += c.amount; }); return t; }
 
   /* ═══════════════ Placing chips ═══════════════ */
   function canPlace() { return signedIn() && S.canBet && S.connected && phase() === "betting"; }
@@ -881,7 +899,7 @@
     if (!S.canBet) { toast("You joined mid-round: you can bet from the next round."); return; }
     if (phase() !== "betting") { toast("No more bets."); sfx.tilt(); return; }
     var pendingSum = S.pending.reduce(function (a, c) { return a + c.amount; }, 0);
-    if (S.myTotal + pendingSum + S.chipValue > ROUND_LIMIT) { toast("At most " + fmt(ROUND_LIMIT) + " tBCH sats a round."); sfx.tilt(); return; }
+    if (S.myTotal + pendingSum + S.chipValue > roundLimit()) { toast("At most " + sats(roundLimit()) + " a round."); sfx.tilt(); return; }
     if (S.balance != null && S.chipValue > S.balance - pendingSum) { toast("Not enough credit for that chip."); sfx.tilt(); return; }
     var chip = { type: spot.type, numbers: spot.numbers, amount: S.chipValue };
     S.pending.push(chip); queue.push(chip);
@@ -892,12 +910,12 @@
     if (sending || !queue.length || !S.round) return;
     var batch = queue.splice(0, MAX_PER_REQUEST), roundId = S.round.id;
     sending = true;
-    api.rouletteBet(roundId, newRequestId(), batch.map(function (c) { var b = { type: c.type, amount: c.amount }; if (c.numbers) b.numbers = c.numbers; return b; })).then(function (r) {
+    api.rouletteBet(roundId, newRequestId(), batch.map(function (c) { var b = { type: c.type, amount: c.amount }; if (c.numbers) b.numbers = c.numbers; return b; }), COIN).then(function (r) {
       sending = false;
       if (r.status === 200 && r.data) {
-        (r.data.bets || []).forEach(function (c) { c.player = c.player || S.you; S.chips[c.id] = c; });
+        (r.data.bets || []).forEach(function (c) { c.player = c.player || S.you; c.coin = c.coin || r.data.coin || COIN; S.chips[c.id] = c; });
         S.pending = S.pending.filter(function (c) { return batch.indexOf(c) === -1; });
-        S.myTotal = r.data.total; S.balance = r.data.balance; if (Auth && Auth.setBalance) Auth.setBalance(r.data.balance);
+        S.myTotal = r.data.total; S.balance = r.data.balance; if (Auth && Auth.setBalance) Auth.setBalance(r.data.balance, COIN);
       } else {
         S.pending = S.pending.filter(function (c) { return batch.indexOf(c) === -1; });
         var code = api.errorCode(r);
@@ -912,11 +930,11 @@
   function clearBets() {
     if (!canPlace() || !(S.myTotal > 0 || S.pending.length)) return;
     queue = []; S.pending = [];
-    api.rouletteClear(S.round.id).then(function (r) {
+    api.rouletteClear(S.round.id, COIN).then(function (r) {
       if (r.status === 200 && r.data) {
-        Object.keys(S.chips).forEach(function (id) { if (S.chips[id].player === S.you) delete S.chips[id]; });
-        (r.data.bets || []).forEach(function (c) { c.player = c.player || S.you; S.chips[c.id] = c; });
-        S.myTotal = r.data.total; S.balance = r.data.balance; if (Auth && Auth.setBalance) Auth.setBalance(r.data.balance);
+        Object.keys(S.chips).forEach(function (id) { if (S.chips[id].player === S.you && chipCoin(S.chips[id]) === COIN) delete S.chips[id]; });
+        (r.data.bets || []).forEach(function (c) { c.player = c.player || S.you; c.coin = c.coin || COIN; S.chips[c.id] = c; });
+        S.myTotal = r.data.total; S.balance = r.data.balance; if (Auth && Auth.setBalance) Auth.setBalance(r.data.balance, COIN);
         sfx.chip();
       } else toast(api.errorText(r, "Your chips could not be taken back."));
       renderChips(); renderRack(); renderStatus(true); renderResults();
@@ -925,7 +943,7 @@
   function repeatBets() {
     if (!canPlace() || !S.lastMine.length) return;
     var sum = S.lastMine.reduce(function (a, c) { return a + c.amount; }, 0);
-    if (S.myTotal + sum > ROUND_LIMIT) { toast("Repeating would pass " + fmt(ROUND_LIMIT) + " tBCH sats this round."); return; }
+    if (S.myTotal + sum > roundLimit()) { toast("Repeating would pass " + sats(roundLimit()) + " this round."); return; }
     S.lastMine.forEach(function (c) { var x = { type: c.type, numbers: c.numbers, amount: c.amount }; S.pending.push(x); queue.push(x); });
     sfx.chip(); renderChips(); renderRack(); flush();
   }
@@ -993,13 +1011,13 @@
   });
   function renderPlayers() {
     playersEl.textContent = "";
-    var totals = {};
-    Object.keys(S.chips).forEach(function (id) { var c = S.chips[id]; totals[c.player] = (totals[c.player] || 0) + c.amount; });
+    var totals = {};   // player -> { coin: sats }
+    Object.keys(S.chips).forEach(function (id) { var c = S.chips[id], t = totals[c.player] || (totals[c.player] = {}); t[chipCoin(c)] = (t[chipCoin(c)] || 0) + c.amount; });
     S.players.forEach(function (p) {
       var li = el("li", p === S.you ? "is-me" : "");
       var dot = el("span", "rt-dot"); dot.style.background = hashColor(p); li.appendChild(dot);
       li.appendChild(el("span", "rt-name", p === S.you ? p + " (you)" : p));
-      if (totals[p]) li.appendChild(el("span", "rt-bet", sats(totals[p])));
+      if (totals[p]) (Coin ? Coin.list : ["bch"]).forEach(function (c) { if (totals[p][c]) { var b = el("span", "rt-bet", sats(totals[p][c], c)); b.setAttribute("data-coin", c); li.appendChild(b); } });
       playersEl.appendChild(li);
     });
     if (!S.players.length) playersEl.appendChild(el("li", "rt-sys", "Nobody at the table yet."));
@@ -1018,27 +1036,30 @@
       if (!S.results.length) { resultsEl.appendChild(el("p", "acct-empty", "No bets this round.")); return; }
       var ul = el("ul", "rt-res");
       S.results.forEach(function (x) {
-        var net = x.win - x.bet, li = el("li", x.player === S.you ? "is-me" : "");
+        var net = x.win - x.bet, xc = x.coin || "bch", li = el("li", x.player === S.you ? "is-me" : "");
+        li.setAttribute("data-coin", xc);
         var dot = el("span", "rt-dot"); dot.style.background = hashColor(x.player); li.appendChild(dot);
         li.appendChild(el("span", "rt-name", x.player === S.you ? "You" : x.player));
         if (x.win > 0 && isGolden(r)) li.appendChild(el("span", "rt-x10", "×" + RULES.goldenMultiplier));
-        li.appendChild(el("span", "rt-amt " + (net > 0 ? "is-win" : net < 0 ? "is-loss" : ""), (net > 0 ? "+" : net < 0 ? "−" : "±") + sats(Math.abs(net))));
-        li.title = "Bet " + sats(x.bet) + ", won " + sats(x.win);
+        li.appendChild(el("span", "rt-amt " + (net > 0 ? "is-win" : net < 0 ? "is-loss" : ""), (net > 0 ? "+" : net < 0 ? "−" : "±") + sats(Math.abs(net), xc)));
+        li.title = "Bet " + sats(x.bet, xc) + ", won " + sats(x.win, xc);
         ul.appendChild(li);
       });
       resultsEl.appendChild(ul);
       return;
     }
-    var by = {};
-    Object.keys(S.chips).forEach(function (id) { var c = S.chips[id]; (by[c.player] = by[c.player] || []).push(c); });
+    var by = {};   // "player|coin" -> chips
+    Object.keys(S.chips).forEach(function (id) { var c = S.chips[id], k = c.player + "|" + chipCoin(c); (by[k] = by[k] || []).push(c); });
     var players = Object.keys(by);
     if (!players.length) { resultsEl.appendChild(el("p", "acct-empty", phase() === "betting" ? "No chips on the table yet." : "No bets this round.")); return; }
     var list = el("ul", "rt-res");
     players.forEach(function (p) {
-      var li = el("li", p === S.you ? "is-me" : ""), sum = by[p].reduce(function (a, c) { return a + c.amount; }, 0);
-      var dot = el("span", "rt-dot"); dot.style.background = hashColor(p); li.appendChild(dot);
-      li.appendChild(el("span", "rt-name", (p === S.you ? "You" : p) + " · " + by[p].length + " chip" + (by[p].length > 1 ? "s" : "")));
-      li.appendChild(el("span", "rt-amt", sats(sum)));
+      var pl = p.split("|")[0], pc = p.split("|")[1];
+      var li = el("li", pl === S.you ? "is-me" : ""), sum = by[p].reduce(function (a, c) { return a + c.amount; }, 0);
+      li.setAttribute("data-coin", pc);
+      var dot = el("span", "rt-dot"); dot.style.background = hashColor(pl); li.appendChild(dot);
+      li.appendChild(el("span", "rt-name", (pl === S.you ? "You" : pl) + " · " + by[p].length + " chip" + (by[p].length > 1 ? "s" : "")));
+      li.appendChild(el("span", "rt-amt", sats(sum, pc)));
       li.title = by[p].map(function (c) { return (TYPE_NAMES[c.type] || c.type) + (c.numbers && c.numbers.length ? " " + c.numbers.join("-") : "") + ": " + c.amount; }).join("\n");
       list.appendChild(li);
     });
@@ -1102,11 +1123,12 @@
       cell.appendChild(dl);
       if (bets.length) {
         var t = el("table", "acct-table rt-chips"), hb = el("tbody");
-        t.innerHTML = '<thead><tr><th scope="col">Player</th><th scope="col">Bet</th><th scope="col" class="num">Stake</th><th scope="col" class="num">Payout</th></tr></thead>';
+        t.innerHTML = '<thead><tr><th scope="col">Player</th><th scope="col">Bet</th><th scope="col">Coin</th><th scope="col" class="num">Stake (sats)</th><th scope="col" class="num">Payout (sats)</th></tr></thead>';
         bets.forEach(function (c) {
           var tr2 = el("tr");
           tr2.appendChild(el("td", "", c.player));
           tr2.appendChild(el("td", "", (TYPE_NAMES[c.type] || c.type) + (c.numbers && c.numbers.length && c.type !== "red" ? " " + c.numbers.join("-") : "")));
+          var ctd = el("td", "rt-coin", Coin ? Coin.ticker(chipCoin(c)) : "tBCH"); ctd.setAttribute("data-coin", chipCoin(c)); tr2.appendChild(ctd);
           tr2.appendChild(el("td", "num", fmt(c.amount)));
           tr2.appendChild(el("td", "num", c.payout != null ? fmt(c.payout) : "…"));
           hb.appendChild(tr2);
@@ -1159,6 +1181,7 @@
           status: statusMain && statusMain.text, sub: statusSub && statusSub.text, banner: bannerC && bannerC.visible ? bannerTitle.text + " | " + bannerAmt.text : "",
           layout: G && G.name, recent: recentNumbers.slice(0, 5).map(function (h) { return h.n; }), recentGolden: recentNumbers.slice(0, 5).map(function (h) { return !!h.golden; }),
           golden: !!(S.spin && S.spin.golden), rules: RULES, hoverTip: hoverTip && hoverTip.visible ? hoverTip.text : "",
+          coin: COIN, chipValues: CHIPS.slice(), limits: LIMITS, chipCoins: Object.keys(S.chips).map(function (id) { return chipCoin(S.chips[id]); }),
           spotPoint: function (type, numbers) { var a = anchorOf(type, numbers), p = LA(a.L, a.a), k = app.screen.width / G.W; return { x: p.x * k, y: p.y * k }; } };
       };
     });

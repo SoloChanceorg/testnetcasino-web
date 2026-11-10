@@ -2,18 +2,19 @@
  * TestnetCasino.com: session helper (every page) + sign-in page logic.
  *
  * Session helper
- *   On load it calls GET /me (via TNC_API): { user, balance, dailyBonus }, or
- *   401 when signed out. It renders the nav (#auth-nav): "Sign in" for
- *   visitors; for players the balance, the daily bonus pill, the account
- *   and "Sign out". On the lobby it also fills the daily bonus card
- *   (#daily-bonus). No token is stored: the session is an HttpOnly cookie.
- *   Exposed as window.TNC_Auth.
+ *   On load it calls GET /me (via TNC_API): { user, balances, dailyBonuses, ... }, or
+ *   401 when signed out. It renders the nav (#auth-nav): the coin switch (tBTC / tBCH, D46) on
+ *   every page, then "Sign in" for visitors; for players the selected coin's balance (the other
+ *   coin's in its tooltip and in the account chip's), its daily bonus pill, the account and
+ *   "Sign out". On the lobby it also fills the daily bonus card (#daily-bonus, both coins).
+ *   No token is stored: the session is an HttpOnly cookie. Exposed as window.TNC_Auth:
+ *   Auth.balance is the selected coin's balance; Auth.balances / Auth.bonuses have every coin.
  *
  * Sign-in page (<body data-page="login">)
- *   Two tabs: Bitcoin Cash Testnet4 wallet (address, signed challenge) and Passkey
- *   (WebAuthn).
+ *   Two tabs: Testnet4 wallet (a tBCH bchtest:q... or a tBTC tb1.../m.../n... address, signed
+ *   challenge) and Passkey (WebAuthn).
  *
- * Depends on: config.js, api.js, units.js; cashaddr.js on the sign-in page.
+ * Depends on: config.js, api.js, units.js; cashaddr.js and btcaddr.js on the sign-in page.
  */
 (function () {
   "use strict";
@@ -23,20 +24,22 @@
   var script = document.currentScript;
   var SITE = new URL("../../", script ? script.src : location.href);   // site root (works under a sub-path too)
   var LOGIN = new URL("login.html", SITE);
-  var TBCH_ICON = '<img class="tbch" src="' + new URL("assets/img/tbch.svg", SITE).href + '" alt="">';
+  var Coin = window.TNC_Coin;
+  // The network badge: a small diamond in the coin's colour.
+  function coinIcon(c) { return '<img class="tbch coin-badge" src="' + new URL("assets/img/t" + c + ".svg", SITE).href + '" alt="">'; }
 
   function $(id) { return document.getElementById(id); }
   function short(addr) {
-    if (window.TNC_CashAddr) return window.TNC_CashAddr.short(addr);
     var p = String(addr).split(":"), b = p[p.length - 1];
     return (p.length > 1 ? p[0] + ":" : "") + b.slice(0, 4) + "..." + b.slice(-4);
   }
   function userLabel(u) { return u.method === "wallet" && u.address ? short(u.address) : "Passkey account"; }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  // Amounts outside the games are always tBCH: format() for balances, short() in text.
-  function fmtSats(n) { return U ? U.short(n) : Number(n).toLocaleString("en-US") + " sats"; }
-  function fmtBalance(n) { return U ? U.format(n) : fmtSats(n); }
+  // Amounts in sats of a coin (default: the selected one).
+  function fmtSats(n, c) { return U ? U.format(n, c) : Number(n).toLocaleString("en-US") + " sats"; }
+  function fmtBalance(n, c) { return fmtSats(n, c); }
+  function coin() { return Coin ? Coin.get() : "bch"; }
   function reducedMotion() { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
 
   // "5h 12m" (an hour or more), "12m 30s" (less than an hour), "45s"
@@ -50,9 +53,11 @@
   /* ═══════════════ Session helper (all pages) ═══════════════ */
   var listeners = [];
   var Auth = {
-    user: null,          // { id, method, address?, withdrawalAddress? }
-    balance: null,       // sats
-    dailyBonus: null,    // { available, amount, nextClaimAt? }
+    user: null,          // { id, method, address?, addressCoin?, withdrawalAddress?, withdrawalAddresses? }
+    balance: null,       // sats of the selected coin
+    dailyBonus: null,    // the selected coin's { available, amount, nextClaimAt? }
+    balances: {},        // { btc: sats, bch: sats }
+    bonuses: {},         // { btc: {...}, bch: {...} }
     ready: null,
     short: short,
     label: userLabel,
@@ -60,11 +65,28 @@
     // me: a GET /me body, or { user } alone after sign-in.
     set: function (me) {
       Auth.user = me && me.user || null;
-      Auth.balance = Auth.user && typeof me.balance === "number" ? me.balance : null;
-      Auth.dailyBonus = Auth.user && me.dailyBonus || null;
+      Auth.balances = {}; Auth.bonuses = {};
+      if (Auth.user) {
+        // Before D46 the server only had balance / dailyBonus (tBCH).
+        Auth.balances = me.balances || (typeof me.balance === "number" ? { bch: me.balance } : {});
+        Auth.bonuses = me.dailyBonuses || (me.dailyBonus ? { bch: me.dailyBonus } : {});
+        // The selected coin is off on the server: show the other one (not remembered).
+        if (Coin && typeof Auth.balances[coin()] !== "number") {
+          var on = Coin.list.filter(function (c) { return typeof Auth.balances[c] === "number"; })[0];
+          if (on) Coin.fallback(on);
+        }
+      }
+      sync();
       changed();
     },
-    setBalance: function (sats) { if (Auth.user && typeof sats === "number") { Auth.balance = sats; changed(); } },
+    // A new balance from a spin, a bet or a bonus; coin defaults to the selected one.
+    setBalance: function (sats, c) {
+      if (!Auth.user || typeof sats !== "number") return;
+      Auth.balances[c || coin()] = sats;
+      sync(); changed();
+    },
+    balanceOf: function (c) { return typeof Auth.balances[c] === "number" ? Auth.balances[c] : null; },
+    coinIcon: coinIcon,
     refresh: function () {
       return api.me().then(function (r) {
         Auth.set(r.status === 200 && r.data ? r.data : null);
@@ -80,6 +102,11 @@
     claimBonus: claimBonus
   };
 
+  function sync() {
+    Auth.balance = Auth.user && typeof Auth.balances[coin()] === "number" ? Auth.balances[coin()] : null;
+    Auth.dailyBonus = Auth.user && Auth.bonuses[coin()] || null;
+  }
+
   function changed() {
     renderNav();
     renderBonusCard();
@@ -90,18 +117,20 @@
   function announce(msg) { var l = $("auth-live"); if (l) { l.textContent = ""; setTimeout(function () { l.textContent = msg; }, 50); } }
 
   /* --- Daily bonus --- */
-  var claiming = false, bonusNote = "";
-  function claimBonus() {
+  var claiming = null, bonusNote = "";   // claiming: the coin being claimed
+  function claimBonus(c) {
+    c = c || coin();
     if (claiming || !Auth.user) return Promise.resolve(false);
-    claiming = true; bonusNote = "";
+    claiming = c; bonusNote = "";
     renderNav(); renderBonusCard();
-    return api.claimDailyBonus().then(function (r) {
-      claiming = false;
+    return api.claimDailyBonus(c).then(function (r) {
+      claiming = null;
       if (r.status === 200 && r.data) {
-        Auth.balance = r.data.balance;
-        Auth.dailyBonus = { available: false, amount: r.data.amount, nextClaimAt: r.data.nextClaimAt };
-        changed();
-        announce("Daily bonus claimed: " + fmtSats(r.data.amount) + " added. Balance " + fmtBalance(r.data.balance) + ".");
+        var rc = r.data.coin || c;
+        Auth.balances[rc] = r.data.balance;
+        Auth.bonuses[rc] = { available: false, amount: r.data.amount, nextClaimAt: r.data.nextClaimAt };
+        sync(); changed();
+        announce("Daily bonus claimed: " + fmtSats(r.data.amount, rc) + " added. Balance " + fmtBalance(r.data.balance, rc) + ".");
         if (window.TNC_fx && !reducedMotion()) window.TNC_fx.coinShower(40);
         return true;
       }
@@ -114,9 +143,12 @@
     });
   }
 
-  function bonusAmount() { return Auth.dailyBonus && Auth.dailyBonus.amount || 1000; }
+  function bonusOf(c) { return Auth.bonuses[c || coin()] || null; }
+  function bonusAmount(c) { var b = bonusOf(c); return b && b.amount || (Coin ? Coin.info(c).bonus : 1000); }
+  // Every coin's bonus resets at 00:00 UTC, so one countdown serves both.
   function nextClaimMs() {
-    var t = Auth.dailyBonus && Date.parse(Auth.dailyBonus.nextClaimAt);
+    var t = NaN;
+    (Coin ? Coin.list : ["bch"]).forEach(function (c) { var b = Auth.bonuses[c], x = b && Date.parse(b.nextClaimAt); if (!isNaN(x) && (isNaN(t) || x < t)) t = x; });
     return isNaN(t) ? null : t - Date.now();
   }
 
@@ -137,19 +169,20 @@
   }
 
   function bonusPill() {
-    var b = Auth.dailyBonus;
+    var b = Auth.dailyBonus, c = coin();
     if (!b) return null;
     if (b.available) {
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "chip-link bonus-pill is-ready";
-      btn.disabled = claiming;
-      btn.innerHTML = '<span class="chip-emoji" aria-hidden="true">🎁</span> ' + (claiming ? "Claiming..." : "Claim " + fmtSats(bonusAmount()));
+      btn.disabled = !!claiming;
+      btn.innerHTML = '<span class="chip-emoji" aria-hidden="true">🎁</span> ' + (claiming === c ? "Claiming..." : "Claim " + fmtSats(bonusAmount(c)));
       if (bonusNote) btn.title = bonusNote;
-      btn.addEventListener("click", function () { claimBonus(); });
+      btn.addEventListener("click", function () { claimBonus(c); });
       return btn;
     }
-    if (nextClaimMs() === null) return null;
+    var t = Date.parse(b.nextClaimAt);
+    if (isNaN(t)) return null;
     var span = document.createElement("span");
     span.className = "chip-link bonus-pill";
     span.title = "The daily bonus resets at 00:00 UTC.";
@@ -157,26 +190,54 @@
     return span;
   }
 
+  // Lobby card: one line per coin (tBTC first), each with its own Claim button.
   function renderBonusCard() {
     var body = $("daily-bonus-body");
     if (!body) return;
-    var amount = fmtSats(bonusAmount());
+    var coins = Coin ? Coin.list : ["bch"];
     if (!Auth.user) {
-      body.innerHTML = '<p class="db-text">Sign in and claim <strong>' + amount + '</strong> every day. New accounts also get a ' + fmtSats(10000) + ' sign-up bonus.</p>' +
-        '<a class="btn-gold db-btn" href="' + Auth.loginHref() + '">🔑 Sign in to claim</a>';
+      body.innerHTML = '<p class="db-text">Sign in and claim every day:</p>' +
+        '<ul class="db-coins">' + coins.map(function (c) {
+          return '<li class="db-coin" data-coin="' + c + '"><span class="db-amount">' + esc(fmtSats(bonusAmount(c), c)) + '</span></li>';
+        }).join("") + '</ul>' +
+        '<p class="db-note">New accounts also get ' + coins.map(function (c) { return esc(fmtSats(Coin ? Coin.info(c).signup : 10000, c)); }).join(" and ") + '.</p>' +
+        '<a class="btn-outline db-btn" href="' + Auth.loginHref() + '">Sign in to claim</a>';
       return;
     }
-    var b = Auth.dailyBonus || {};
-    if (b.available) {
-      body.innerHTML = '<p class="db-text">Your free <strong>' + amount + '</strong> for today is waiting.</p>' +
-        '<button type="button" class="btn-red db-btn" id="db-claim"' + (claiming ? " disabled" : "") + '>🎁 ' + (claiming ? "Claiming..." : "Claim " + amount) + '</button>' +
-        (bonusNote ? '<p class="db-note is-error">' + esc(bonusNote) + '</p>' : "");
-      $("db-claim").addEventListener("click", function () { claimBonus(); });
-    } else {
-      body.innerHTML = '<p class="db-text">Claimed for today. Your next <strong>' + amount + '</strong> is ready in</p>' +
-        '<p class="db-left"><span data-bonus-left></span></p>' +
-        '<p class="db-note">The bonus resets every day at 00:00 UTC.</p>';
-    }
+    var shown = coins.filter(function (c) { return Auth.bonuses[c]; });
+    body.innerHTML = '<ul class="db-coins">' + shown.map(function (c) {
+      var b = Auth.bonuses[c], amt = esc(fmtSats(b.amount || bonusAmount(c), c));
+      return '<li class="db-coin" data-coin="' + c + '"><span class="db-amount">' + amt + '</span>' +
+        (b.available
+          ? '<button type="button" class="btn-outline db-claim" data-claim="' + c + '"' + (claiming ? " disabled" : "") + '>' + (claiming === c ? "Claiming..." : "Claim") + '</button>'
+          : '<span class="db-done">Claimed today</span>') + '</li>';
+    }).join("") + '</ul>' +
+      (shown.some(function (c) { return !Auth.bonuses[c].available; }) ? '<p class="db-note">Next bonus in <span data-bonus-left></span> (every day at 00:00 UTC).</p>' : "") +
+      (bonusNote ? '<p class="db-note is-error">' + esc(bonusNote) + '</p>' : "");
+    body.querySelectorAll("[data-claim]").forEach(function (btn) {
+      btn.addEventListener("click", function () { claimBonus(btn.getAttribute("data-claim")); });
+    });
+  }
+
+  // The coin switch: two radio-like buttons, tBTC first. Choosing one reloads the page in that coin.
+  function coinSwitch() {
+    var wrap = document.createElement("span");
+    wrap.className = "coin-switch";
+    wrap.setAttribute("role", "radiogroup");
+    wrap.setAttribute("aria-label", "Coin to play and show");
+    (Coin ? Coin.list : []).forEach(function (c) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "coin-opt";
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", c === coin() ? "true" : "false");
+      b.setAttribute("data-coin", c);
+      b.title = Coin.info(c).name;
+      b.innerHTML = coinIcon(c) + Coin.ticker(c);
+      b.addEventListener("click", function () { Coin.set(c); });
+      wrap.appendChild(b);
+    });
+    return wrap;
   }
 
   function renderNav() {
@@ -185,6 +246,9 @@
     var onLogin = document.body.getAttribute("data-page") === "login";
     var hadFocus = nav.contains(document.activeElement) && document.activeElement.classList.contains("bonus-pill");
     nav.textContent = "";
+    if (Coin) nav.appendChild(coinSwitch());
+    var mob = $("sh-coin");
+    if (mob && Coin && !mob.firstChild) mob.appendChild(coinSwitch());
     if (!Auth.user) {
       var a = document.createElement("a");
       a.className = "chip-link auth-pill";
@@ -193,12 +257,15 @@
       a.textContent = "Sign in";
       nav.appendChild(a);
     } else {
+      var c = coin(), other = Coin ? Coin.list.filter(function (x) { return x !== c && typeof Auth.balances[x] === "number"; }) : [];
       if (Auth.balance !== null) {
         var bal = document.createElement("span");
         bal.className = "chip-balance";
-        bal.innerHTML = TBCH_ICON + "<strong></strong>";
-        bal.querySelector("strong").textContent = fmtBalance(Auth.balance);
-        bal.setAttribute("aria-label", "Balance " + fmtBalance(Auth.balance));
+        bal.innerHTML = coinIcon(c) + "<strong></strong>";
+        bal.querySelector("strong").textContent = fmtBalance(Auth.balance, c);
+        var all = "Balance " + fmtBalance(Auth.balance, c) + other.map(function (x) { return ", " + fmtBalance(Auth.balances[x], x); }).join("");
+        bal.setAttribute("aria-label", all);
+        bal.title = all;
         nav.appendChild(bal);
       }
       var pill = bonusPill();
@@ -208,13 +275,22 @@
       who.href = new URL("account.html", SITE).pathname;
       if (document.body.getAttribute("data-page") === "account") who.setAttribute("aria-current", "page");
       if (Auth.user.address) who.title = Auth.user.address;
-      who.innerHTML = (Auth.user.method === "wallet" ? TBCH_ICON : '<span class="chip-emoji" aria-hidden="true">🔐</span>') + " ";
+      who.innerHTML = (Auth.user.method === "wallet" ? coinIcon(Auth.user.addressCoin || "bch") : '<span class="chip-emoji" aria-hidden="true">🔐</span>') + " ";
       // A wallet address is shown as written (lowercase, monospaced); "Passkey account" keeps the sign font.
       var name = document.createElement("span");
       if (Auth.user.method === "wallet" && Auth.user.address) name.className = "auth-addr";
       name.textContent = userLabel(Auth.user);
       who.appendChild(name);
-      who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account"));
+      // The other coin's balance, small, in the account chip.
+      other.forEach(function (x) {
+        var o = document.createElement("span");
+        o.className = "auth-other";
+        o.setAttribute("data-coin", x);
+        o.textContent = fmtBalance(Auth.balances[x], x);
+        who.appendChild(o);
+      });
+      who.setAttribute("aria-label", "Your account, signed in as " + (Auth.user.address || "a passkey account") +
+        other.map(function (x) { return ", " + fmtBalance(Auth.balances[x], x); }).join(""));
       var out = document.createElement("button");
       out.type = "button";
       out.className = "chip-link auth-out";
@@ -230,6 +306,7 @@
   }
 
   window.TNC_Auth = Auth;
+
   // The site header's menu button (phones): opens and closes the links.
   function menu() {
     document.documentElement.classList.add("js");
@@ -256,7 +333,7 @@
 
   /* ═══════════════ Sign-in page ═══════════════ */
   function loginPage() {
-    var CA = window.TNC_CashAddr;
+    var AD = window.TNC_Address;
 
     // Where to go after signing in: same-origin paths only (no open redirect).
     function nextUrl() {
@@ -354,8 +431,10 @@
 
     $("w-step1").addEventListener("submit", function (e) {
       e.preventDefault();
-      var res = CA.checkTestnetLogin(addrInput.value);
+      var res = AD.check(addrInput.value, { login: true });
       if (!res.ok) { fieldError(addrInput, addrErr, res.message); addrInput.focus(); return; }
+      var btc = res.coin === "btc";
+      $("w-howto-btc").hidden = !btc; $("w-howto-bch").hidden = btc;
       fieldError(addrInput, addrErr, "");
       addrInput.value = res.address;
       requestChallenge(res.address, $("w-get"));
@@ -368,7 +447,7 @@
       return api.walletChallenge(address).then(function (r) {
         busy(btn, false);
         if (r.status !== 200 || !r.data || !r.data.message) {
-          if (api.errorCode(r) === "invalid_address") { fieldError(addrInput, addrErr, api.errorText(r, CA.MESSAGES.invalid)); addrInput.focus(); return; }
+          if (api.errorCode(r) === "invalid_address") { fieldError(addrInput, addrErr, api.errorText(r, "That is not a valid Testnet4 address.")); addrInput.focus(); return; }
           setStatus(wStatus, api.errorText(r), "error");
           return;
         }
@@ -436,11 +515,12 @@
 
     $("w-form-sign").addEventListener("submit", function (e) {
       e.preventDefault();
-      var sig = sigInput.value.replace(/\s+/g, "");
+      // Pasted as the wallet gives it: only the spaces around it are trimmed (BIP-322 signatures may carry an "smp" prefix).
+      var sig = sigInput.value.trim();
       sigInput.value = sig;
       if (!sig) { fieldError(sigInput, sigErr, "Paste the signature from your wallet."); sigInput.focus(); return; }
-      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(sig) || sig.length < 80) {
-        fieldError(sigInput, sigErr, "That does not look like a signature. It is usually 88 characters of letters, numbers, + and /.");
+      if (sig.length < 60) {
+        fieldError(sigInput, sigErr, "That does not look like a signature. Copy the whole signature your wallet shows.");
         sigInput.focus(); return;
       }
       if (Date.now() > w.expiresAt) { expired(VERIFY_ERRORS.challenge_expired); return; }

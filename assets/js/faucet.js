@@ -1,18 +1,16 @@
 /*
  * TestnetCasino.com: live faucet totals at the top of every page.
  *
- * GET {apiBase}/faucet (public): { wallet, house, users, pendingWithdrawals,
- * updatedAt, stale? }, all in sats:
+ * GET {apiBase}/faucet (public): { wallet, house, users, pendingWithdrawals, players, updatedAt, stale?,
+ * coins: { btc: { wallet, house, users, pendingWithdrawals, jackpots, updatedAt, stale? }, bch: {...} } }
+ * (D46; the top-level amounts are tBCH), all in sats:
  *   house               what the faucet has left to give away
- *   wallet              the hot wallet's confirmed balance (not shown)
  *   users               sum of all player balances
- *   pendingWithdrawals  withdrawals requested but not yet sent (not shown)
  *   players             { allTime, withBalance, last24h, last30d } (counts)
- * The server recomputes them at most every 5 minutes; the bar re-reads them
- * every minute while the tab is visible. Amounts are shown in whole tBCH (the only place on the
- * site that does; the tooltip gives the exact tBCH sats): the faucet
- * rounded to 2 decimals (exact value in the tooltip), player balances with all
- * 8 decimals.
+ * The bar shows both coins side by side (tBTC first): the faucet rounded to 2 decimals (exact
+ * value in the tooltip), player balances with all 8 decimals. It is the only place on the site
+ * that shows whole coins. The server recomputes them at most every 5 minutes; the bar re-reads
+ * them every minute while the tab is visible.
  *
  * Depends on: api.js, units.js.
  */
@@ -25,7 +23,8 @@
 
   var REFRESH_MS = 60000;
   var SITE = new URL("../", document.currentScript && document.currentScript.src || location.href).href;
-  var COIN = new URL("img/tbch.svg", SITE).href;
+  function icon(c) { return new URL("img/t" + c + ".svg", SITE).href; }
+  var COINS = window.TNC_Coin ? window.TNC_Coin.list : ["bch"];
 
   var data = null, failed = false, timer = null;
 
@@ -47,9 +46,11 @@
     return '<dd><strong data-p="' + key + '">…</strong> ' + label + '</dd>';
   }
 
+  // One label, then the amount of every coin (tBTC first).
   function stat(key, label, cls) {
-    return '<div class="fb-stat' + (cls ? " " + cls : "") + '"><dt>' + label + '</dt><dd>' +
-      '<img class="tbch" src="' + COIN + '" alt=""><span data-k="' + key + '">…</span></dd></div>';
+    return '<div class="fb-stat' + (cls ? " " + cls : "") + '"><dt>' + label + '</dt>' + COINS.map(function (c) {
+      return '<dd data-coin="' + c + '"><img class="tbch" src="' + icon(c) + '" alt=""><span data-k="' + key + ':' + c + '">…</span></dd>';
+    }).join("") + '</div>';
   }
 
   function q(k) { return bar.querySelector('[data-k="' + k + '"]'); }
@@ -60,17 +61,22 @@
     bar.classList.toggle("is-stale", stale || (failed && !!data));
     q("live").textContent = stale ? "STALE" : "LIVE";
     if (!data) {
-      if (failed) {
-        ["house", "users"].forEach(function (k) { q(k).textContent = "n/a"; });
-        q("time").textContent = "Faucet offline";
-      }
+      if (failed) bar.querySelectorAll("[data-k*=':']").forEach(function (e) { e.textContent = "n/a"; });
+      if (failed) q("time").textContent = "Faucet offline";
       return;
     }
     // Faucet totals are rounded to 2 decimals; player balances are small, so they show all 8.
-    [["house", data.house, true], ["users", data.users, false]].forEach(function (p) {
-      var e = q(p[0]);
-      e.textContent = p[2] ? U.round2(p[1]) : U.coins(p[1]);
-      e.parentNode.title = U.format(p[1]);
+    COINS.forEach(function (c) {
+      // Before D46 there was no `coins`: the top-level amounts are tBCH.
+      var d = data.coins ? data.coins[c] : c === "bch" ? data : null;
+      [["house", true], ["users", false]].forEach(function (p) {
+        var e = q(p[0] + ":" + c);
+        if (!e) return;
+        e.parentNode.hidden = !d;
+        if (!d) return;
+        e.textContent = p[1] ? U.round2(d[p[0]], c) : U.coins(d[p[0]], c);
+        e.parentNode.title = U.format(d[p[0]], c);
+      });
     });
     var pl = data.players, plEl = q("players");
     plEl.hidden = !pl;

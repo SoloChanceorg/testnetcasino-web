@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TestnetCasino.com | Bitcoin Cash Testnet4 Faucet</title>
-  <meta name="description" content="TestnetCasino.com is a Bitcoin Cash Testnet4 faucet with slot machines. Not a real casino: no real money, no mainnet crypto, no deposits. A project from SoloChance.org.">
+  <title>TestnetCasino.com | tBTC &amp; tBCH Testnet4 Faucet</title>
+  <meta name="description" content="TestnetCasino.com is a Bitcoin Testnet4 (tBTC) and Bitcoin Cash Testnet4 (tBCH) faucet with slot machines and roulette. Not a real casino: no real money, no mainnet crypto, no deposits. A project from SoloChance.org.">
   <!-- site:head -->
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="favicon.ico" sizes="48x48">
@@ -20,10 +20,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <meta property="og:title" content="TestnetCasino.com | Bitcoin Cash Testnet4 Faucet">
-  <meta property="og:description" content="Spin the slots for fun and win Bitcoin Cash Testnet4 coins (tBCH). No real money, no deposits.">
+  <meta property="og:title" content="TestnetCasino.com | tBTC &amp; tBCH Testnet4 Faucet">
+  <meta property="og:description" content="Spin the slots for fun and win Bitcoin Testnet4 (tBTC) or Bitcoin Cash Testnet4 (tBCH) coins. No real money, no deposits.">
   <meta property="og:type" content="website">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110n">
 </head>
 <body data-page="lobby">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -32,7 +32,7 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
     <a href="#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
@@ -45,6 +45,7 @@
   <header class="site-head">
     <div class="sh-inner">
       <a class="sh-logo" href="./" aria-current="page"><img src="assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <span class="sh-coin" id="sh-coin"></span>
       <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="sh-drawer" id="site-nav">
         <nav class="nav-bar" aria-label="Site">
@@ -68,10 +69,11 @@
     <main id="main" tabindex="-1">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-main">
-        <p class="eyebrow">tBCH TESTNET4 FAUCET</p>
+        <p class="eyebrow">tBTC &amp; tBCH TESTNET4 FAUCET</p>
         <h1 class="hero-title" id="hero-title">Finally a casino you can play <em>irresponsibly</em></h1>
         <p class="hero-rtp">The casino with <strong>&gt;100% RTP</strong> rate</p>
-        <p class="tagline">The fun way to get Bitcoin Cash Testnet4 coins. Spin the reels, win tBCH and withdraw it to your own Bitcoin Cash Testnet4 address.</p>
+        <p class="tagline">The fun way to get Testnet4 coins. Spin the reels, win tBTC or tBCH and withdraw it to your own Testnet4 address.</p>
+        <p class="hero-coins" id="coins">Play with <b data-coin="btc">Bitcoin Testnet4 (tBTC)</b> or <b data-coin="bch">Bitcoin Cash Testnet4 (tBCH)</b>: choose the coin at the top of the page. They are separate: what you win in a coin stays in that coin.</p>
         <div class="hero-cta">
           <a class="btn-primary" href="#floor">Take a seat</a>
           <a class="btn-outline" href="#rules">How it works</a>
@@ -85,28 +87,28 @@
           <p>
             <strong>No real money of any kind is involved.</strong>
             No Bitcoin, no Bitcoin Cash and no other real mainnet cryptocurrency is involved.
-            <strong>There is no deposit process of any kind, not even for Bitcoin Cash Testnet4 coins.</strong>
-            You can only play, win and withdraw <strong>Bitcoin Cash Testnet4</strong> coins, which have no monetary value.
+            <strong>There is no deposit process of any kind, not even for Testnet4 coins.</strong>
+            You can only play, win and withdraw <strong>Bitcoin Testnet4</strong> and <strong>Bitcoin Cash Testnet4</strong> coins, which have no monetary value.
           </p>
         </section>
         <section class="card daily-bonus" id="daily-bonus" aria-labelledby="daily-bonus-title">
           <h2 class="db-title" id="daily-bonus-title">Daily bonus</h2>
           <div class="db-main" id="daily-bonus-body">
-            <p class="db-text">Sign in and claim <strong>1,000 tBCH sats</strong> every day.</p>
+            <p class="db-text">Sign in and claim <strong>100 tBTC sats</strong> and <strong>1,000 tBCH sats</strong> every day.</p>
           </div>
         </section>
       </div>
     </section>
 
     <section class="panel quick-coins" id="quick-coins" aria-labelledby="quick-coins-title">
-      <h2 class="panel-label" id="quick-coins-title">JUST NEED tBCH?</h2>
-      <p>The casino part is only for fun. You can simply sign up, claim your sign-up bonus and daily bonus, and withdraw your tBCH right away, without playing at all.</p>
+      <h2 class="panel-label" id="quick-coins-title">JUST NEED tBTC OR tBCH?</h2>
+      <p>The casino part is only for fun. You can simply sign up, claim your sign-up bonus and daily bonus in each coin, and withdraw your tBTC or tBCH right away, without playing at all.</p>
       <p class="qc-actions"><a class="btn-gold" href="login.html?next=%2Faccount.html%23withdraw">🔑 Sign up and withdraw</a></p>
     </section>
 
     <section class="panel" id="floor" aria-labelledby="floor-title">
       <h2 class="panel-label" id="floor-title">THE CASINO FLOOR</h2>
-      <p class="panel-sub">Pick a game. New accounts get a <strong>10,000 tBCH sats</strong> sign-up bonus plus <strong>1,000 tBCH sats</strong> every day, and bets run from 1 to 1,000 tBCH sats a spin. All machines pay on 10 lines with an RTP of <span data-rtp>101%</span>, jackpots and collectors included. Roulette is one live table for everyone, with chips of 1 to 1,000 tBCH sats and its own RTP of 101% with the golden ball.</p>
+      <p class="panel-sub">Pick a game. New accounts get a sign-up bonus of <strong>1,000 tBTC sats</strong> and <strong>10,000 tBCH sats</strong>, plus <strong>100 tBTC sats</strong> and <strong>1,000 tBCH sats</strong> every day. Bets run from 1 to 100 tBTC sats or 1 to 1,000 tBCH sats a spin. All machines pay on 10 lines with an RTP of <span data-rtp>101%</span>, jackpots and collectors included. Roulette is one live table for everyone, with chips of up to 100 tBTC sats or 1,000 tBCH sats and its own RTP of 101% with the golden ball.</p>
       <div class="jp-hero" role="group" aria-labelledby="jp-hero-label">
         <span class="jp-hero-label" id="jp-hero-label">🏆 GRAND JACKPOT</span>
         <span class="jp-hero-value" data-jackpot-units="bch8" data-jackpot="grand">…</span>
@@ -170,12 +172,12 @@
         <li>
           <div class="step-emoji" aria-hidden="true">🔑</div>
           <h3>1. Sign in</h3>
-          <p>Use your Bitcoin Cash Testnet4 wallet or a passkey. New accounts get 10,000 tBCH sats, plus 1,000 tBCH sats every day.</p>
+          <p>Use your Bitcoin Testnet4 or Bitcoin Cash Testnet4 wallet, or a passkey. New accounts get 1,000 tBTC sats and 10,000 tBCH sats, plus a daily bonus in each coin.</p>
         </li>
         <li>
           <div class="step-emoji" aria-hidden="true">🎰</div>
           <h3>2. Play</h3>
-          <p>Pick a machine and spin. 5 reels, 3 rows, 10 paylines. Bets are 1 to 1,000 tBCH sats per spin (1 tBCH is 100,000,000 sats).</p>
+          <p>Choose tBTC or tBCH at the top, pick a machine and spin. 5 reels, 3 rows, 10 paylines. Bets are 1 to 100 tBTC sats or 1 to 1,000 tBCH sats per spin (1 coin is 100,000,000 sats).</p>
         </li>
         <li>
           <div class="step-emoji" aria-hidden="true">🏆</div>
@@ -183,9 +185,9 @@
           <p>Line up 3, 4 or 5 symbols on any payline. Every machine has wilds, free spins, a bonus game and a special feature of its own.</p>
         </li>
         <li>
-          <img class="step-coin" src="assets/img/tbch.svg" alt="" width="40" height="40">
+          <span class="step-coins" aria-hidden="true"><img class="step-coin" src="assets/img/tbtc.svg" alt="" width="40" height="40"><img class="step-coin" src="assets/img/tbch.svg" alt="" width="40" height="40"></span>
           <h3>4. Withdraw</h3>
-          <p>Send your winnings to any Bitcoin Cash Testnet4 address from <a href="account.html#withdraw">your account</a>.</p>
+          <p>Send your winnings to any Testnet4 address of their coin from <a href="account.html#withdraw">your account</a>.</p>
         </li>
       </ol>
     </section>
@@ -193,14 +195,24 @@
     <section class="panel house-return" id="return" aria-labelledby="return-title">
       <h2 class="panel-label" id="return-title">RETURN TO THE HOUSE</h2>
       <div class="hr-body">
-        <img class="hr-coin" src="assets/img/tbch.svg" alt="" width="44" height="44">
         <div class="hr-text">
-          <p>Done playing? Please send your tBCH back so others can continue to play:</p>
-          <div class="copy-field">
-            <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
-            <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the house address">📋 Copy</button>
+          <p>Done playing? Please send your coins back so others can continue to play. Each coin to its own address:</p>
+          <div class="hr-coin-row" data-coin="btc">
+            <h3 class="dn-label"><img class="tbch" src="assets/img/tbtc.svg" alt=""> tBTC (Bitcoin Testnet4)</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="house-address-btc">tb1qm2xvvwdv4xtxcagg2xtfy45kj58506sy8fyx2c</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#house-address-btc" aria-label="Copy the tBTC house address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#house-address-btc" role="status" aria-live="polite"></span></p>
           </div>
-          <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+          <div class="hr-coin-row" data-coin="bch">
+            <h3 class="dn-label"><img class="tbch" src="assets/img/tbch.svg" alt=""> tBCH (Bitcoin Cash Testnet4)</h3>
+            <div class="copy-field">
+              <code class="copy-code" id="house-address">bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy</code>
+              <button type="button" class="btn-gold copy-btn" data-copy="#house-address" aria-label="Copy the tBCH house address">📋 Copy</button>
+            </div>
+            <p class="hr-note"><span data-copy-state="#house-address" role="status" aria-live="polite"></span></p>
+          </div>
         </div>
       </div>
     </section>
@@ -226,18 +238,18 @@
             <p class="hr-note"><span data-copy-state="#bch-address" role="status" aria-live="polite"></span></p>
           </div>
       </div>
-      <p class="dn-note">Donations are optional and separate from the games. They never add tBCH to your balance.</p>
+      <p class="dn-note">Donations are optional and separate from the games. They never add anything to your balance.</p>
     </section>
 
     <section class="panel faq" aria-labelledby="faq-title">
       <h2 class="panel-label" id="faq-title">ASK THE DEALER</h2>
       <details>
         <summary>What is this website for?</summary>
-        <p>TestnetCasino is a set of slot machines you can play just for fun, with nothing to deposit and nothing to lose. Unlike other free-to-play casino games, you can withdraw what you win: tBCH, the coins of the Bitcoin Cash Testnet4 network. They have no monetary value, but they are real coins on a real blockchain. You can send them to your own Bitcoin Cash Testnet4 wallet and follow the transaction on an explorer such as <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a>. It is all for fun and for learning.</p>
+        <p>TestnetCasino is a set of slot machines you can play just for fun, with nothing to deposit and nothing to lose. Unlike other free-to-play casino games, you can withdraw what you win: tBTC, the coins of the Bitcoin Testnet4 network, or tBCH, the coins of the Bitcoin Cash Testnet4 network. They have no monetary value, but they are real coins on real blockchains. You can send them to your own Testnet4 wallet and follow the transaction on an explorer such as <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> or <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a>. It is all for fun and for learning.</p>
       </details>
       <details>
         <summary>Is this gambling?</summary>
-        <p>No. Nothing of value goes in and nothing of value comes out. You cannot deposit anything, and Bitcoin Cash Testnet4 coins have no monetary value. They exist only so developers can test Bitcoin Cash software.</p>
+        <p>No. Nothing of value goes in and nothing of value comes out. You cannot deposit anything, and Testnet4 coins have no monetary value. They exist only so developers can test Bitcoin and Bitcoin Cash software.</p>
       </details>
       <details>
         <summary>Is it good or bad for gambling addiction?</summary>
@@ -245,16 +257,20 @@
         <p><strong>If you have ever had a gambling problem, please do not use this website.</strong> Consider talking to a doctor or a local gambling support service.</p>
       </details>
       <details>
-        <summary>What is Bitcoin Cash Testnet4?</summary>
-        <p>Bitcoin Cash Testnet4 is a public test network. Its coins (tBCH) behave like real BCH, but they are free and worthless by design, which makes them ideal for building and testing wallets, apps and smart contracts.</p>
+        <summary>What are Bitcoin Testnet4 and Bitcoin Cash Testnet4?</summary>
+        <p>They are public test networks. Their coins (tBTC and tBCH) behave like real BTC and BCH, but they are free and worthless by design, which makes them ideal for building and testing wallets, apps and smart contracts.</p>
       </details>
       <details>
-        <summary>Can I deposit tBCH into my account?</summary>
-        <p>No. To keep this clearly a faucet and never a casino, there is no way to deposit anything, not even tBCH. Your balance only grows from the sign-up bonus, the daily bonus and your wins. When you have had enough fun, you are welcome to <a href="#return">send your tBCH back to the house</a> so others can continue to play.</p>
+        <summary>Can I play with both coins?</summary>
+        <p>Yes. Every account has a balance in tBTC and one in tBCH, whether you signed in with a Bitcoin wallet, a Bitcoin Cash wallet or a passkey. Choose the coin at the top of the page. The two never mix: there is no exchange, and what you win in a coin stays in that coin. Each coin has its own daily bonus, jackpots, leaderboards and withdrawals. tBTC amounts are a tenth of tBCH's (bets up to 100 sats, a daily bonus of 100 sats), and the RTP is <span data-rtp>101%</span> in both.</p>
       </details>
       <details>
-        <summary>Where do the tBCH come from?</summary>
-        <p>tBCH are free, but they still have to be mined. Ours come from the test environments of the bch.ee Parasite Pool and the bitcoincash.ee pools, which mine on Bitcoin Cash Testnet4. You can see them at <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> and <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a>.</p>
+        <summary>Can I deposit tBTC or tBCH into my account?</summary>
+        <p>No. To keep this clearly a faucet and never a casino, there is no way to deposit anything, not even Testnet4 coins. Your balance only grows from the sign-up bonus, the daily bonus and your wins. When you have had enough fun, you are welcome to <a href="#return">send your coins back to the house</a> so others can continue to play.</p>
+      </details>
+      <details>
+        <summary>Where do the coins come from?</summary>
+        <p>Testnet4 coins are free, but they still have to be mined. Our tBCH come from the test environments of the bch.ee Parasite Pool and the bitcoincash.ee pools, which mine on Bitcoin Cash Testnet4. You can see them at <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> and <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a>.</p>
       </details>
       <details>
         <summary>Where does my balance live?</summary>
@@ -286,26 +302,26 @@
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110k"></script>
-  <script src="assets/js/api.js?v=20261110k"></script>
-  <script src="assets/js/units.js?v=20261110k"></script>
-  <script src="assets/js/jackpots.js?v=20261110k"></script>
-  <script src="assets/js/faucet.js?v=20261110k"></script>
-  <script src="assets/js/auth.js?v=20261110k"></script>
-  <script src="assets/js/copy.js?v=20261110k"></script>
-  <script src="assets/js/fx.js?v=20261110k"></script>
-  <script src="assets/js/music.js?v=20261110k"></script>
-  <script src="assets/js/lobby.js?v=20261110k"></script>
+  <script src="assets/js/config.js?v=20261110n"></script>
+  <script src="assets/js/api.js?v=20261110n"></script>
+  <script src="assets/js/units.js?v=20261110n"></script>
+  <script src="assets/js/jackpots.js?v=20261110n"></script>
+  <script src="assets/js/faucet.js?v=20261110n"></script>
+  <script src="assets/js/auth.js?v=20261110n"></script>
+  <script src="assets/js/copy.js?v=20261110n"></script>
+  <script src="assets/js/fx.js?v=20261110n"></script>
+  <script src="assets/js/music.js?v=20261110n"></script>
+  <script src="assets/js/lobby.js?v=20261110n"></script>
 </body>
 </html>

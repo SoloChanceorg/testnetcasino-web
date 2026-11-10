@@ -68,6 +68,8 @@ const COLLECTOR = { "fruit-orchard": { filled: 57, size: 186 }, "deep-sea": { fi
 function resetApi() {
   Object.assign(api, {
     user: null, balance: 50000, bonus: { available: false, amount: 1000, nextClaimAt: new Date(Date.now() + 3600e3).toISOString() },
+    // tBTC (D46): its own balance and daily bonus; every request is logged (method, path, query, body).
+    btc: 5000, btcBonus: { available: true, amount: 100 }, log: [], withdrawn: [],
     spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0, rt: { chips: [], nextId: 1 },
     history: [],
     jackpots: { grand: { amount: 121994, cycle: 3, seedHash: "a".repeat(64) },
@@ -78,21 +80,34 @@ function resetApi() {
   });
 }
 resetApi();
+function hasCoinGlobal(path, coin) { return api.log.some((x) => x.path === path && new URLSearchParams(x.query).get("coin") === coin); }
+function bal(coin) { return coin === "btc" ? api.btc : api.balance; }
+function addBal(coin, d) { if (coin === "btc") api.btc += d; else api.balance += d; }
+// tBTC jackpots: a tenth of tBCH's (D46).
+function btcJackpots() {
+  const j = JSON.parse(JSON.stringify(api.jackpots));
+  j.coin = "btc"; j.grand.amount = 12199;
+  for (const g of GAMES) { j.games[g].major.amount = Math.round(j.games[g].major.amount / 10); j.games[g].minor.amount = Math.round(j.games[g].minor.amount / 10); }
+  j.recentWins = []; return j;
+}
 function handle(method, url, body) {
-  const p = url.pathname;
+  const p = url.pathname, qcoin = url.searchParams.get("coin");
+  api.log.push({ method, path: p, query: url.search, body: body ? JSON.parse(body) : null });
   const cfg = /^\/games\/([\w-]+)\/config$/.exec(p);
   if (cfg && CONFIGS[cfg[1]]) return [200, CONFIGS[cfg[1]]];
   // Roulette (D44): the REST side; the WebSocket is a fake in the page (see FAKE_WS), driven by the tests.
   if (p === "/roulette/state") return [200, { type: "table", serverTime: new Date().toISOString(), players: [], bets: [], rules: RULES2 }];
   if (p === "/roulette/bets" && method === "POST") {
-    const b = JSON.parse(body), rt = api.rt;
-    for (const x of b.bets) rt.chips.push({ id: rt.nextId++, player: "bchtest:qphp...hdxy", type: x.type, numbers: x.numbers || null, amount: x.amount });
-    const total = rt.chips.reduce((a, c) => a + c.amount, 0); api.balance -= b.bets.reduce((a, c) => a + c.amount, 0);
-    return [200, { roundId: b.roundId, bets: rt.chips, total, balance: api.balance }];
+    const b = JSON.parse(body), rt = api.rt, coin = b.coin || "bch";
+    for (const x of b.bets) rt.chips.push({ id: rt.nextId++, player: "bchtest:qphp...hdxy", coin, type: x.type, numbers: x.numbers || null, amount: x.amount });
+    const mine = rt.chips.filter((c) => c.coin === coin);
+    addBal(coin, -b.bets.reduce((a, c) => a + c.amount, 0));
+    return [200, { roundId: b.roundId, coin, bets: mine, total: mine.reduce((a, c) => a + c.amount, 0), balance: bal(coin) }];
   }
   if (p === "/roulette/bets/clear" && method === "POST") {
-    api.balance += api.rt.chips.reduce((a, c) => a + c.amount, 0); api.rt.chips = [];
-    return [200, { roundId: JSON.parse(body).roundId, bets: [], total: 0, balance: api.balance }];
+    const coin = JSON.parse(body).coin || "bch";
+    addBal(coin, api.rt.chips.filter((c) => c.coin === coin).reduce((a, c) => a + c.amount, 0)); api.rt.chips = api.rt.chips.filter((c) => c.coin !== coin);
+    return [200, { roundId: JSON.parse(body).roundId, coin, bets: [], total: 0, balance: bal(coin) }];
   }
   if (p === "/roulette/rounds") return [200, { items: ROULETTE.slice(0, 5).map((v, i) => ({ id: v.roundId, startsAt: new Date(Date.now() - (i + 1) * 60000).toISOString(),
     status: "settled", rules: v.rules, number: v.number, spinSeconds: v.spinSeconds, ...(v.rules === 2 ? { golden: v.golden } : {}), seedHash: v.seedHash, seed: v.seed })), nextCursor: null }];
@@ -105,8 +120,17 @@ function handle(method, url, body) {
   }
   switch (p) {
     case "/faucet": return [200, { wallet: 111044000000, house: 111043000000, users: 97981, pendingWithdrawals: 0,
-      players: { allTime: 18, withBalance: 13, last24h: 14, last30d: 17 }, updatedAt: new Date().toISOString() }];
-    case "/me": return api.user ? [200, { user: api.user, balance: api.balance, dailyBonus: api.bonus }] : [401, { error: "unauthorized", message: "Sign in first." }];
+      players: { allTime: 18, withBalance: 13, last24h: 14, last30d: 17 }, updatedAt: new Date().toISOString(),
+      coins: { bch: { wallet: 111044000000, house: 111043000000, users: 97981, pendingWithdrawals: 0, jackpots: 0 },
+               btc: { wallet: 5000000, house: 4321000, users: 12345, pendingWithdrawals: 0, jackpots: 0 } } }];
+    case "/me": return api.user ? [200, { user: api.user, balance: api.balance, dailyBonus: api.bonus,
+      balances: { bch: api.balance, btc: api.btc }, dailyBonuses: { bch: api.bonus, btc: api.btcBonus } }] : [401, { error: "unauthorized", message: "Sign in first." }];
+    case "/bonus/daily": {
+      const coin = qcoin || "bch", b = coin === "btc" ? api.btcBonus : api.bonus;
+      if (!b.available) return [409, { error: "daily_bonus_claimed", message: "Already claimed today." }];
+      addBal(coin, b.amount); b.available = false; b.nextClaimAt = new Date(Date.now() + 3600e3).toISOString();
+      return [200, { coin, amount: b.amount, balance: bal(coin), nextClaimAt: b.nextClaimAt }];
+    }
     case "/auth/logout": api.user = null; return [204, null];
     case "/spins":
       if (method === "POST") {
@@ -130,17 +154,25 @@ function handle(method, url, body) {
           } else steps.push(st);
         }
         if (v.reward) { steps.push(...v.reward.steps); totalWin += v.reward.win; }
-        api.balance += totalWin - v.bet + jackpotWin;
-        return [200, { spinId: 1, gameId: v.gameId, gameVersion: v.gameVersion, bet: v.bet, nonce: v.nonce, serverSeedHash: v.serverSeedHash,
-          clientSeed: v.clientSeed, steps, totalWin, jackpotWin, balance: api.balance }];
+        const coin = JSON.parse(body).coin || "bch";
+        addBal(coin, totalWin - v.bet + jackpotWin);
+        return [200, { spinId: 1, gameId: v.gameId, gameVersion: v.gameVersion, coin, bet: v.bet, nonce: v.nonce, serverSeedHash: v.serverSeedHash,
+          clientSeed: v.clientSeed, steps, totalWin, jackpotWin, balance: bal(coin) }];
       }
       return [200, { items: api.history, nextCursor: null }];
     case "/fairness/seed": return [200, { serverSeedHash: "ab".repeat(32), clientSeed: "smoke-test", nonce: 0 }];
-    case "/withdrawals": return [200, { items: [] }];
+    case "/withdrawals":
+      if (method === "POST") {
+        const b = JSON.parse(body), coin = b.coin || "bch";
+        addBal(coin, -b.amount);
+        const w = { id: api.withdrawn.length + 1, coin, amount: b.amount, address: b.address || "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", status: "PENDING", txid: null, createdAt: new Date().toISOString(), sentAt: null };
+        api.withdrawn.unshift(w); return [200, w];
+      }
+      return [200, { items: api.withdrawn }];
     case "/ledger": return [200, { items: [], nextCursor: null }];
-    case "/faucet/withdrawals": return [200, { items: api.payouts, nextCursor: null }];
-    case "/jackpots": api.jackpotCalls++; return [200, api.jackpots];
-    case "/leaderboards": return [200, api.leaderboards || { balances: [], wins24h: [], wins30d: [], winsAllTime: [], withdrawals24h: [], withdrawals30d: [], withdrawalsAllTime: [], updatedAt: new Date().toISOString() }];
+    case "/faucet/withdrawals": return [200, { items: qcoin ? api.payouts.filter((w) => (w.coin || "bch") === qcoin) : api.payouts, nextCursor: null }];
+    case "/jackpots": api.jackpotCalls++; return [200, qcoin === "btc" ? btcJackpots() : api.jackpots];
+    case "/leaderboards": return [200, (qcoin === "btc" && api.btcLeaderboards) || api.leaderboards || { balances: [], wins24h: [], wins30d: [], winsAllTime: [], withdrawals24h: [], withdrawals30d: [], withdrawalsAllTime: [], updatedAt: new Date().toISOString() }];
     default: return [404, { error: "not_found", message: "Not found." }];
   }
 }
@@ -214,7 +246,7 @@ async function open(page, width, opts = {}) {
   await send("Emulation.setDeviceMetricsOverride", { width, height: opts.height || 900, deviceScaleFactor: 1, mobile: width < 600 });
   await send("Page.navigate", { url: `${ORIGIN}/${page}${opts.hash || ""}` });
   await sleep(300);
-  await ev(`try { localStorage.setItem("tnc.music.open", "false") } catch (e) {}`);
+  await ev(`try { localStorage.setItem("tnc.music.open", "false"); localStorage.setItem("tnc.coin", "${opts.coin || "bch"}") } catch (e) {}`);
   pageErrors = [];
   await send("Page.reload");
   await until(`document.readyState === "complete"`);
@@ -249,7 +281,7 @@ try {
       await open(p, width);
       const info = await ev(`({ sw: document.documentElement.scrollWidth, iw: innerWidth,
         nav: document.querySelectorAll('.site-head [aria-current="page"]').length, footer: !!document.querySelector(".casino-footer .cf-links"),
-        faucet: (document.querySelector('#faucet-bar [data-k="house"]') || {}).textContent || "",
+        faucet: (document.querySelector('#faucet-bar [data-k="house:bch"]') || {}).textContent || "",
         signedIn: !!document.querySelector(".auth-user") })`);
       const problems = [];
       if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
@@ -270,8 +302,8 @@ try {
   // Space spins (and stops), TNC_PixiGo() presses a stage's button (or Auto) like a player would.
   const THEME = { "fruit-orchard": "orchard", "deep-sea": "deepsea", "cosmic-voyage": "cosmic" };
   const CFG = Object.fromEntries(GAMES.map((g) => [g, JSON.parse(CONFIGS[g])]));
-  async function openMachine(g, width = 1280) {
-    await open(`games/${g}.html`, width);
+  async function openMachine(g, width = 1280, coin = "bch") {
+    await open(`games/${g}.html`, width, { coin });
     return until(`typeof TNC_PixiState === "function" && TNC_PixiState().theme === "${THEME[g]}" && !!document.querySelector("#px-canvas canvas")`, 15000);
   }
   const space = `document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))`;
@@ -621,6 +653,139 @@ try {
   const unlocked = await ev(`!document.getElementById("wd-fields").disabled && document.getElementById("wd-locked").hidden`);
   check("account: withdraw form locked below 1,000 tBCH sats, open above", locked && unlocked);
 
+  /* ═══ 7b. Two coins (D46): the header switch, tBTC everywhere ═══ */
+  {
+    const problems = [], hasCoin = (path, coin) => api.log.some((x) => x.path === path && new URLSearchParams(x.query).get("coin") === coin);
+    // Header and lobby in tBTC: the switch, both balances, both faucets, tBTC jackpots, the daily bonus per coin.
+    resetApi(); signIn(50000);
+    await open("index.html", 1280, { coin: "btc" });
+    await until(`!!document.querySelector(".chip-balance") && /12,199/.test(document.querySelector('[data-jackpot="grand"]').textContent)`, 8000);
+    const h = await ev(`({ sel: (document.querySelector('.coin-opt[aria-checked="true"]') || {}).dataset?.coin, bal: document.querySelector(".chip-balance").textContent,
+      other: (document.querySelector(".auth-other") || {}).textContent, fBtc: document.querySelector('[data-k="house:btc"]').textContent, fBch: document.querySelector('[data-k="house:bch"]').textContent,
+      grand: document.querySelector('.jp-hero [data-jackpot="grand"]').textContent, bonus: [...document.querySelectorAll(".db-coin")].map((l) => l.dataset.coin + ":" + l.textContent),
+      card: document.querySelector('.game-card [data-jackpot="major:fruit-orchard"]').textContent, coinAttr: document.documentElement.dataset.coin })`);
+    if (h.sel !== "btc" || h.coinAttr !== "btc") problems.push("selected coin " + h.sel + "/" + h.coinAttr);
+    if (h.bal !== "5,000 tBTC sats" || h.other !== "50,000 tBCH sats") problems.push("balances: " + h.bal + " / " + h.other);
+    if (h.fBtc !== "0.04 tBTC" || h.fBch !== "1,110.43 tBCH") problems.push("faucet bar: " + h.fBtc + " / " + h.fBch);
+    if (h.grand !== "12,199 tBTC sats" || h.card !== "4,568 tBTC sats" || !hasCoin("/jackpots", "btc")) problems.push("jackpots: " + h.grand + " / " + h.card);
+    if (!(h.bonus.length === 2 && /^btc:100 tBTC satsClaim$/.test(h.bonus[0]) && /^bch:1,000 tBCH satsClaimed today$/.test(h.bonus[1]))) problems.push("bonus card: " + JSON.stringify(h.bonus));
+    await ev(`document.querySelector('[data-claim="btc"]').click()`);
+    if (!(await until(`document.querySelector(".chip-balance").textContent === "5,100 tBTC sats"`, 4000)) || !api.log.some((x) => x.method === "POST" && x.path === "/bonus/daily" && x.query === "?coin=btc")) problems.push("tBTC bonus not claimed");
+    // Switching to tBCH reloads the page in tBCH (remembered).
+    await ev(`document.querySelector('.coin-opt[data-coin="bch"]').click()`);
+    await sleep(800);
+    if (!(await until(`document.documentElement.dataset.coin === "bch" && (document.querySelector(".chip-balance") || {}).textContent === "50,000 tBCH sats" && localStorage.getItem("tnc.coin") === "bch"`, 8000))) problems.push("switch to tBCH: " + await ev(`document.documentElement.dataset.coin + " " + ((document.querySelector(".chip-balance") || {}).textContent)`));
+    check("coins: the header switch (tBTC first), both balances, both faucets, tBTC jackpots, a daily bonus per coin, switching reloads in the other coin", !problems.length, problems.join("; "));
+  }
+  {
+    // A slot machine in tBTC: tBTC jackpots, bets up to 100, the spin's coin and the tBTC balance.
+    const problems = [], g = "fruit-orchard", v = SPINS[g];
+    resetApi(); signIn(500000); api.spinQueue.push(v);
+    if (!(await openMachine(g, 1280, "btc"))) problems.push("not built");
+    await until(`TNC_PixiState().jackpots.grand === "12,199 tBTC sats"`, 8000);
+    const j = await ev(`TNC_PixiState().jackpots`);
+    if (j.grand !== "12,199 tBTC sats" || j.major !== "4,568 tBTC sats") problems.push("jackpots " + JSON.stringify(j));
+    await ev(`TNC_PixiBet(1000)`);
+    if ((await ev(`TNC_PixiState().bet`)) !== 100) problems.push("max bet " + await ev(`TNC_PixiState().bet`));
+    if (!/tBTC sats/.test(await ev(`document.getElementById("unit-switch").textContent`))) problems.push("unit switch");
+    await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiBet(${v.bet}); ${space}`);
+    await sleep(300);
+    if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");
+    const sp = api.log.find((x) => x.method === "POST" && x.path === "/spins");
+    if (!sp || sp.body.coin !== "btc" || sp.body.bet !== v.bet) problems.push("spin request " + JSON.stringify(sp && sp.body));
+    const after = await ev(`({ bal: TNC_Auth.balance, bch: TNC_Auth.balanceOf("bch"), shown: TNC_PixiState().balance })`);
+    if (after.bal !== api.btc || after.bch !== 500000 || after.shown.replace(/\D/g, "") !== String(api.btc)) problems.push("balances " + JSON.stringify(after) + " server " + api.btc);
+    check("coins: a slot machine in tBTC (tBTC jackpots, bets up to 100, the spin's coin, the tBTC balance; tBCH untouched)", !problems.length, problems.join("; "));
+  }
+  {
+    // Roulette in tBTC: tBTC chips and limits, chips of both coins on one table, results per coin.
+    const problems = [];
+    resetApi(); signIn(50000);
+    await open("games/roulette.html", 1280, { coin: "btc", height: 1000 });
+    if (!(await until(`typeof TNC_RouletteState === "function" && TNC_RouletteState().connected`, 20000))) problems.push("not connected");
+    const iso = (ms) => new Date(Date.now() + ms).toISOString();
+    const round = { id: 901, startsAt: iso(-3000), bettingEndsAt: iso(15000), seedHash: "b".repeat(64), status: "betting", nextRoundAt: iso(57000) };
+    await ev(`__emit(${JSON.stringify({ type: "table", serverTime: new Date().toISOString(), round, nextRoundAt: round.nextRoundAt, players: ["bchtest:qphp...hdxy", "Passkey 3f9a2c"],
+      bets: [{ id: 9001, player: "Passkey 3f9a2c", coin: "bch", type: "red", numbers: null, amount: 100 }, { id: 9002, player: "Passkey 3f9a2c", coin: "btc", type: "black", numbers: null, amount: 7 }],
+      canBet: true, you: "bchtest:qphp...hdxy", rules: RULES2, limits: { bch: { maxChip: 1000, maxPerRound: 10000 }, btc: { maxChip: 100, maxPerRound: 1000 } } })}); 0`);
+    await sleep(300);
+    const s0 = await ev(`TNC_RouletteState()`);
+    if (s0.coin !== "btc" || JSON.stringify(s0.chipValues) !== "[1,2,5,10,25,50,100]" || s0.limits.btc.maxPerRound !== 1000) problems.push("tBTC rack " + JSON.stringify({ c: s0.coin, v: s0.chipValues }));
+    await ev(`scrollTo(0, document.getElementById("rt-stage").getBoundingClientRect().top + scrollY - 10)`);
+    const pt = await ev(`(() => { const c = document.querySelector("#rt-canvas canvas").getBoundingClientRect(), s = TNC_RouletteState().spotPoint("straight", [17]); return { x: c.left + s.x, y: c.top + s.y }; })()`);
+    for (const t of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: pt.x, y: pt.y, button: "left", clickCount: 1 });
+    await until(`TNC_RouletteState().pending === 0 && TNC_RouletteState().myTotal > 0`, 4000);
+    const bet = api.log.find((x) => x.path === "/roulette/bets");
+    const s1 = await ev(`({ my: TNC_RouletteState().myTotal, coins: TNC_RouletteState().chipCoins.sort().join(","), players: document.getElementById("rt-players").textContent, bal: TNC_Auth.balance })`);
+    if (!bet || bet.body.coin !== "btc" || s1.my !== 10 || s1.coins !== "bch,btc,btc" || s1.bal !== 4990) problems.push("bet " + JSON.stringify({ b: bet && bet.body, s1 }));
+    if (!/100 tBCH sats/.test(s1.players) || !/7 tBTC sats/.test(s1.players)) problems.push("players: " + s1.players);
+    const spun = { ...round, status: "spinning", bettingEndsAt: iso(0), number: 17, spinSeconds: 2, golden: false, resultAt: iso(2000) };
+    await ev(`__emit(${JSON.stringify({ type: "spin", serverTime: new Date().toISOString(), round: spun })}); 0`);
+    await sleep(2300);
+    await ev(`__emit(${JSON.stringify({ type: "result", round: { ...spun, status: "settled", seed: "c".repeat(64) }, results: [{ player: "bchtest:qphp...hdxy", coin: "btc", bet: 10, win: 360 }, { player: "Passkey 3f9a2c", coin: "bch", bet: 100, win: 0 }, { player: "Passkey 3f9a2c", coin: "btc", bet: 7, win: 14 }] })});
+      __emit({ type: "settled", roundId: 901, coin: "btc", bet: 10, win: 360, balance: 5350 }); 0`);
+    const won = await until(`/BIG WIN! \\| \\+360 tBTC sats/.test(TNC_RouletteState().banner) && TNC_Auth.balance === 5350`, 6000);
+    const res = await ev(`document.getElementById("rt-results").textContent`);
+    if (!won || !/You\+350 tBTC sats/.test(res) || !/−100 tBCH sats/.test(res) || !/\+7 tBTC sats/.test(res)) problems.push("result: " + res + " | banner " + (await ev(`TNC_RouletteState().banner + " | balance " + TNC_Auth.balance`)));
+    check("coins: roulette in tBTC (tBTC chips and limits, both coins on one table, results and the win per coin)", !problems.length, problems.join("; "));
+  }
+  {
+    // Leaderboards: the coin toggle loads that coin's boards. Withdrawals page: both coins, each to its explorer.
+    const problems = [];
+    resetApi(); signIn();
+    api.leaderboards = { balances: [{ rank: 1, player: "Passkey aaaaaa", method: "passkey", amount: 99999 }], wins24h: [], wins30d: [], winsAllTime: [], withdrawals24h: [], withdrawals30d: [], withdrawalsAllTime: [], updatedAt: new Date().toISOString() };
+    api.btcLeaderboards = { ...api.leaderboards, balances: [{ rank: 1, player: "tb1qw5...jzsx", method: "wallet", amount: 4242 }] };
+    await open("leaderboards.html", 1280, { coin: "bch" });
+    await until(`/99,999/.test(document.getElementById("lb-panels").textContent)`, 6000);
+    await ev(`document.querySelector('.lb-coin-opt[data-coin="btc"]').click()`);
+    const lb = await until(`/4,242/.test(document.getElementById("lb-panels").textContent) && /Balance \\(tBTC sats\\)/.test(document.getElementById("lb-panels").textContent)`, 6000);
+    if (!lb || !hasCoinGlobal("/leaderboards", "btc")) problems.push("leaderboard toggle");
+    api.payouts = [{ coin: "btc", sentAt: new Date().toISOString(), address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", amount: 2000, txid: "d".repeat(64) },
+      { coin: "bch", sentAt: new Date().toISOString(), address: ADDR, amount: 150000, txid: "e".repeat(64) }];
+    await open("withdrawals.html", 1280);
+    await until(`document.querySelectorAll("#pay-body tr").length === 2`, 6000);
+    const w = await ev(`({ links: [...document.querySelectorAll("#pay-body a")].map((a) => a.href), total: document.getElementById("pay-total").textContent, title: document.getElementById("pay-total").title })`);
+    if (w.links[0] !== "https://mempool.space/testnet4/tx/" + "d".repeat(64) || w.links[1] !== "https://bchexplorer.cash/testnet4/tx/" + "e".repeat(64)) problems.push("explorer links " + JSON.stringify(w.links));
+    if (w.title !== "2,000 tBTC sats, 150,000 tBCH sats" || !/0\.00002000 tBTC/.test(w.total)) problems.push("totals " + w.total + " | " + w.title);
+    check("coins: the leaderboards coin toggle; the withdrawals page lists both coins, tBTC on mempool.space, tBCH on bchexplorer.cash", !problems.length, problems.join("; "));
+  }
+  {
+    // Account in tBTC: both balances, the tBTC history, address checks by coin, a tBTC withdrawal, saved addresses.
+    const problems = [];
+    resetApi(); signIn(50000);
+    await open("account.html", 1280, { coin: "btc" });
+    await until(`!document.getElementById("acct").hidden && document.getElementById("acct-balance").textContent === "5,000 tBTC sats"`, 6000);
+    const a = await ev(`({ other: document.getElementById("acct-balances").textContent, saved: [...document.querySelectorAll("#sv-list li")].map((l) => l.dataset.coin + ":" + l.textContent),
+      hint: [...document.querySelectorAll("[data-coin-show]")].filter((e) => !e.hidden).map((e) => e.id), ph: document.getElementById("wd-address").placeholder })`);
+    if (a.other !== "50,000 tBCH sats" || a.ph !== "tb1..." || a.hint.join() !== "wd-hint-btc") problems.push("account " + JSON.stringify(a));
+    if (!(a.saved.length === 2 && /^btc:.*None saved.*Save a tBTC address$/.test(a.saved[0]) && /^bch:.*bchtest:qphp.*Your sign-in address$/.test(a.saved[1]))) problems.push("saved: " + JSON.stringify(a.saved));
+    if (!hasCoinGlobal("/ledger", "btc")) problems.push("ledger not in tBTC");
+    await ev(`document.getElementById("wd-amount").value = "2000"; document.getElementById("wd-address").value = "${ADDR}"; document.getElementById("wd-form").requestSubmit()`);
+    const wrong = await ev(`document.getElementById("wd-address-error").textContent`);
+    if (!/That is a Bitcoin Cash Testnet4 address/.test(wrong)) problems.push("wrong coin: " + wrong);
+    await ev(`document.getElementById("wd-address").value = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"; document.getElementById("wd-form").requestSubmit()`);
+    await until(`/Withdrawal requested: 2,000 tBTC sats/.test(document.getElementById("wd-status").textContent)`, 5000);
+    const wd = api.log.find((x) => x.method === "POST" && x.path === "/withdrawals");
+    if (!wd || wd.body.coin !== "btc" || wd.body.address !== "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx" || wd.body.amount !== 2000) problems.push("withdraw " + JSON.stringify(wd && wd.body));
+    await ev(`document.getElementById("wd-amount").value = "200000"; document.getElementById("wd-form").requestSubmit()`);
+    if (!/The maximum is 100,000 tBTC sats/.test(await ev(`document.getElementById("wd-error").textContent`))) problems.push("tBTC maximum");
+    check("coins: the account in tBTC (both balances, tBTC history, the address checked by coin, a tBTC withdrawal, saved addresses per coin)", !problems.length, problems.join("; "));
+  }
+  {
+    // Sign-in with a tBTC wallet: the address decides the coin; mainnet and script addresses are refused early.
+    const problems = [];
+    resetApi();
+    await open("login.html", 1280);
+    async function tryAddr(x) { await ev(`document.getElementById("w-address").value = ${JSON.stringify(x)}; document.getElementById("w-step1").requestSubmit()`); await sleep(150); return ev(`document.getElementById("w-address-error").hidden ? "" : document.getElementById("w-address-error").textContent`); }
+    if (!/Bitcoin mainnet/.test(await tryAddr("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"))) problems.push("mainnet not refused");
+    if (!/cannot sign/.test(await tryAddr("2MzQwSSnBHWHqSAqtTVQ6v47XtaisrJa1Vc"))) problems.push("script not refused");
+    if (!/typo/.test(await tryAddr("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsy"))) problems.push("typo not caught");
+    if ((await tryAddr("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")) !== "") problems.push("tb1q refused");
+    if (!api.log.some((x) => x.path === "/auth/wallet/challenge" && x.body.address === "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")) problems.push("no challenge for tb1q");
+    if ((await tryAddr("mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn")) !== "") problems.push("m... refused");
+    check("coins: sign-in takes a tBTC address (tb1q, m...), refuses mainnet, script addresses and typos before asking the server", !problems.length, problems.join("; "));
+  }
+
   /* ═══ 8. Fairness verifier ═══ */
   resetApi();
   await open("fairness.html", 1280);
@@ -639,15 +804,15 @@ try {
   const j4ok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Major jackpot won \\(Magic Oyster\\)/.test(t) && /clams Major, Major, Major/.test(t); })()`, 10000);
   const rv = SPINS["reward-deep-sea"];
   await fill({ ...base(rv), "vf-expect": rv.totalWin + rv.reward.win, "vf-reward": rv.rewardBet });
-  const rvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Treasure Hold & Win at 3 tBCH sats/.test(t); })()`, 10000);
+  const rvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Treasure Hold & Win at 3 sats/.test(t); })()`, 10000);
   check("fairness: the verifier replays a version 4 jackpot (clam pick) and a collector reward at its bet", j4ok && rvok, `jackpot ${!!j4ok}, reward ${!!rvok}: ${(await result()).slice(0, 160)}`);
   const mv = METERS[2];
   await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("mt-tier", "grand"); f("mt-rules", "current"); f("mt-min", ${mv.minSats}); f("mt-max", ${mv.maxSats});
     f("mt-seed", "${mv.seed}"); f("mt-hash", "${mv.seedHash}"); f("mt-amount", ${mv.startSats + 1});
     document.getElementById("mt-submit").click(); })()`);
   const meterOk = await until(`(() => { const t = document.getElementById("mt-result").textContent;
-    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} tBCH sats") && !/Display scale/.test(t)
-      && t.includes("Head start${mv.startSats.toLocaleString("en-US")} tBCH sats") && t.includes("${mv.seedHash}"); })()`, 5000);
+    return /Every check passed/.test(t) && t.includes("${mv.target.toLocaleString("en-US")} sats") && !/Display scale/.test(t)
+      && t.includes("Head start${mv.startSats.toLocaleString("en-US")} sats") && t.includes("${mv.seedHash}"); })()`, 5000);
   check("fairness: the jackpot checker derives seed hash, target and head start from a seed", meterOk);
   const rv0 = ROULETTE[0];
   await ev(`document.getElementById("rl-id").value = ${rv0.roundId}; document.getElementById("rl-load").click(); 0`);
@@ -675,7 +840,7 @@ try {
   const listOk = await until(`/1 of 8 spins did NOT match/.test(document.getElementById("sp-status").textContent)`, 30000);
   const notes = await ev(`[...document.querySelectorAll("#sp-body tr")].map(r => r.querySelector(".sp-check").textContent + " | " + ((r.querySelector(".sp-result") || {}).title || ""))`);
   check("fairness: Verify all finds each collector reward's bet and checks jackpots against jackpotWin",
-    listOk && notes.slice(0, 3).every((n) => /✓ Verified \| This spin filled the collector; its reward played at 3 tBCH sats/.test(n))
+    listOk && notes.slice(0, 3).every((n) => /✓ Verified \| This spin filled the collector; its reward played at 3 sats/.test(n))
       && notes.slice(3, 6).every((n) => /^✓ Verified/.test(n)) && /^✓ Verified \| Jackpots were off for this spin/.test(notes[6]) && /^✗ Mismatch/.test(notes[7]),
     JSON.stringify(notes).slice(0, 400));
 

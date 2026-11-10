@@ -26,7 +26,9 @@
 
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return Number(n).toLocaleString("en-US"); }
-  function bch(n) { return U.format(n); }   // amounts are shown in tBCH sats
+  var Coin = window.TNC_Coin;
+  function bch(n, c) { return U.format(n, c || "bch"); }   // amounts in sats of their coin (spins without a coin are tBCH)
+  function tick(c) { return Coin ? Coin.ticker(c || "bch") : "tBCH"; }
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -145,13 +147,17 @@
     var tr = el("tr");
     tr.appendChild(el("td", "", when(s.createdAt)));
     tr.appendChild(el("td", "", GAMES[s.gameId] || s.gameId));
-    tr.appendChild(el("td", "num", U.int(s.bet)));
+    var sc = s.coin || "bch";
+    tr.setAttribute("data-coin", sc);
+    var betCell = el("td", "num", U.int(s.bet));
+    betCell.appendChild(el("span", "sp-coin", " " + tick(sc)));
+    tr.appendChild(betCell);
     var winCell = el("td", "num", U.int(s.totalWin));
     if (s.jackpotWin > 0) {   // a jackpot is paid on top of the game's result (totalWin)
       var jp = el("span", "sp-jp", "+ 🏆 " + U.int(s.jackpotWin));
-      jp.title = "Plus a jackpot of " + bch(s.jackpotWin);
+      jp.title = "Plus a jackpot of " + bch(s.jackpotWin, sc);
       winCell.appendChild(jp);
-      winCell.appendChild(el("span", "sr-only", " tBCH from a jackpot"));
+      winCell.appendChild(el("span", "sr-only", " sats from a jackpot"));
     }
     tr.appendChild(winCell);
     tr.appendChild(el("td", "num", fmt(s.nonce)));
@@ -187,7 +193,7 @@
         return { ok: hashOk && winOk && jpOk, got: got, jpOk: jpOk,
           note: !hashOk ? "The seed does not match its hash." : !winOk ? "Replay won " + bch(got.totalWin) + ", the server paid " + bch(s.totalWin) + "."
             : !jpOk ? (hit ? "The replay hits a jackpot, but none was paid." : "A jackpot was paid, but the replay does not hit one.")
-            : got.rewardBet ? "This spin filled the collector; its reward played at " + fmt(got.rewardBet) + " tBCH sats." : "" };
+            : got.rewardBet ? "This spin filled the collector; its reward played at " + fmt(got.rewardBet) + " sats." : "" };
       }
       return Fair.replay(game, s, { matchTotal: s.totalWin }).then(function (got) {
         var res = check(got);
@@ -235,10 +241,12 @@
   $("sp-verify-all").addEventListener("click", verifyAll);
 
   /* ═══════════════ Verify any spin ═══════════════ */
+  if ($("vf-coin") && Coin) $("vf-coin").value = Coin.get();   // the coin selected in the header
   $("vf-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var out = $("vf-result"), btn = $("vf-submit");
     var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
+    var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = vcoin === "btc" ? 100 : 1000;
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
     var rewardBet = $("vf-reward").value.trim() === "" ? null : parseInt($("vf-reward").value, 10), noJp = $("vf-nojp").checked;
@@ -247,13 +255,13 @@
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The server seed must be 64 hex characters."
       : !/^[A-Za-z0-9_-]{1,64}$/.test(client) ? "The client seed must be 1 to 64 letters, digits, _ or -."
       : !(nonce >= 0) ? "The nonce must be 0 or more."
-      : !(bet >= 1 && bet <= 1000) ? "The bet must be 1 to 1,000 tBCH sats."
+      : !(bet >= 1 && bet <= maxBet) ? "The bet must be 1 to " + fmt(maxBet) + " " + tick(vcoin) + " sats."
       : rewardBet !== null && !(rewardBet >= 1 && rewardBet <= bet) ? "The reward bet must be 1 tSat up to the spin's bet." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
     getConfig(gameId).then(function (current) {
       var game = Fair.configFor(current, version);
-      return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet }, { jackpots: !noJp, rewardBet: rewardBet })
+      return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet, coin: vcoin }, { jackpots: !noJp, rewardBet: rewardBet, coin: vcoin })
         .then(function (got) { showReplay(game, got, expect, rewardBet); });
     }).catch(function (err) {
       out.className = "vf-result is-bad";
@@ -267,7 +275,7 @@
     var match = expect === null ? null : expect === got.totalWin;
     out.className = "vf-result" + (match === true ? " is-ok" : match === false ? " is-bad" : "");
     out.appendChild(el("p", "rv-title", "Total win: " + bch(got.totalWin) +
-      (match === true ? " ✓ matches" : match === false ? " ✗ expected " + fmt(expect) + " tBCH sats" : "")));
+      (match === true ? " ✓ matches" : match === false ? " ✗ expected " + fmt(expect) + " sats" : "")));
     var dl = el("dl", "seed-list");
     var d = el("div"); d.appendChild(el("dt", "", "Server seed hash")); d.appendChild(el("dd", "auth-mono", got.serverSeedHash)); dl.appendChild(d);
     out.appendChild(dl);
@@ -295,8 +303,8 @@
         (s.picks ? ", clams " + s.picks.map(function (t) { return TIER[t]; }).join(", ") : "") +
         (s.slice != null ? ", the wheel stops on slice " + (s.slice + 1) : "") + ". It pays what the jackpot holds at that moment."));
       else if (s.type === "collect") ul.appendChild(el("li", "", game.collector.emoji + " " + s.cells.length + " " + game.collector.symbolName.toLowerCase() + (s.cells.length > 1 ? "s" : "") + " for the " + game.collector.name + ": " + cells(s.cells)));
-      else if (s.type === "rewardStart") { inReward = true; ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " tBCH sats: " + s.spins + " free spins")); }
-      else if (s.type === "holdAndWin") ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " tBCH sats: " + (s.start.length + s.respins.reduce(function (n, r) { return n + r.length; }, 0)) +
+      else if (s.type === "rewardStart") { inReward = true; ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " sats: " + s.spins + " free spins")); }
+      else if (s.type === "holdAndWin") ul.appendChild(el("li", "", game.collector.reward.name + " at " + fmt(s.bet) + " sats: " + (s.start.length + s.respins.reduce(function (n, r) { return n + r.length; }, 0)) +
         " pearls, " + s.respins.length + " respins, " + s.prize + "× = " + bch(s.win)));
     });
     if (game.jackpot && !got.jackpot) ul.appendChild(el("li", "", "No jackpot on this spin."));
@@ -333,8 +341,8 @@
       out.className = "vf-result" + (checks.length ? (bad ? " is-bad" : " is-ok") : "");
       out.appendChild(el("p", "rv-title", checks.length ? (bad ? "✗ Something does not match." : "✓ Every check passed.") : "Derived from the seed:"));
       var dl = el("dl", "seed-list");
-      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " tBCH sats"]].concat(old ? [["Display scale", fmt(d.legacy.displayScale) + " tBCH sats"]] : [])
-       .concat([["Head start", old && tier === "minor" ? "0 tBCH sats (a Minor started empty)" : fmt(start) + " tBCH sats"]]).forEach(function (p) {
+      [["Seed hash (SHA-256)", d.seedHash], ["Target", fmt(d.target) + " sats"]].concat(old ? [["Display scale", fmt(d.legacy.displayScale) + " sats"]] : [])
+       .concat([["Head start", old && tier === "minor" ? "0 sats (a Minor started empty)" : fmt(start) + " sats"]]).forEach(function (p) {
         var div = el("div"); div.appendChild(el("dt", "", p[0])); div.appendChild(el("dd", "auth-mono", p[1])); dl.appendChild(div);
       });
       out.appendChild(dl);
@@ -409,7 +417,7 @@
         var ul2 = el("ul", "vf-steps");
         bets.forEach(function (c, i) {
           var name = (RL_TYPES[c.type] || c.type) + (c.numbers && c.numbers.length ? " " + c.numbers.join("-") : "");
-          ul2.appendChild(el("li", "", name + ", " + fmt(c.amount) + " tBCH sats: " + (d.payouts[i] ? "pays " + fmt(d.payouts[i]) + " tBCH sats" : "loses") +
+          ul2.appendChild(el("li", "", name + ", " + fmt(c.amount) + " sats: " + (d.payouts[i] ? "pays " + fmt(d.payouts[i]) + " sats" : "loses") +
             (c.payout != null && c.payout !== d.payouts[i] ? " (the table paid " + fmt(c.payout) + ")" : "")));
         });
         out.appendChild(ul2);

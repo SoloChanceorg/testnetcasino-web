@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sign in · TestnetCasino.com</title>
-  <meta name="description" content="Sign in to TestnetCasino.com with your Bitcoin Cash Testnet4 wallet or a passkey. New accounts get a 10,000 tBCH sats sign-up bonus.">
+  <meta name="description" content="Sign in to TestnetCasino.com with your Bitcoin Testnet4 or Bitcoin Cash Testnet4 wallet, or a passkey. New accounts get 1,000 tBTC sats and 10,000 tBCH sats.">
   <!-- site:head -->
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="favicon.ico" sizes="48x48">
@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="assets/css/style.css?v=20261110k">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261110n">
 </head>
 <body data-page="login">
   <a class="skip-link" href="#main">Skip to sign-in</a>
@@ -31,7 +31,7 @@
 
   <!-- site:warning -->
   <div class="warning-strip" role="note">
-    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
+    <span>NOT A REAL CASINO</span><span class="ws-sep" aria-hidden="true">♦</span><span>NO WAY TO DEPOSIT OR LOSE FIAT, CRYPTO OR MONEY OF ANY KIND</span><span class="ws-sep" aria-hidden="true">♦</span><span>PLAY FOR FUN, WIN BY LUCK, WITHDRAW tBTC &amp; tBCH TESTNET4 COINS WITH NO MONETARY VALUE</span>
     <a href="./#notice">HOUSE NOTICE</a>
   </div>
   <!-- /site:warning -->
@@ -44,6 +44,7 @@
   <header class="site-head">
     <div class="sh-inner">
       <a class="sh-logo" href="./"><img src="assets/img/logo-horizontal.svg" alt="TestnetCasino.com" width="230" height="28"></a>
+      <span class="sh-coin" id="sh-coin"></span>
       <button type="button" class="sh-menu" id="sh-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="sh-drawer" id="site-nav">
         <nav class="nav-bar" aria-label="Site">
@@ -69,7 +70,7 @@
       <section class="panel auth-card" aria-labelledby="auth-title">
         <p class="panel-label">PLAYER SIGN-IN</p>
         <h1 class="auth-title" id="auth-title">Sign in</h1>
-        <p class="auth-lead">Sign in to play. New accounts get a 10,000 tBCH sats sign-up bonus, plus 1,000 tBCH sats every day. Your balance is kept on the server and you can withdraw it to your Bitcoin Cash Testnet4 wallet.</p>
+        <p class="auth-lead">Sign in to play with Bitcoin Testnet4 (tBTC) or Bitcoin Cash Testnet4 (tBCH). New accounts get 1,000 tBTC sats and 10,000 tBCH sats, plus a daily bonus of 100 tBTC sats and 1,000 tBCH sats. Your balances are kept on the server and you can withdraw them to your Testnet4 wallets.</p>
 
         <!-- Already signed in -->
         <div class="auth-signed-in" id="auth-signed-in" hidden>
@@ -84,12 +85,12 @@
         <div id="auth-forms">
           <div class="auth-tabs" role="tablist" aria-label="Sign-in method">
             <button type="button" class="auth-tab" role="tab" id="tab-wallet" aria-selected="true" aria-controls="panel-wallet" tabindex="0">
-              <img class="tbch" src="assets/img/tbch.svg" alt=""> Bitcoin Cash Testnet4 wallet</button>
+              <img class="tbch" src="assets/img/tbtc.svg" alt=""><img class="tbch" src="assets/img/tbch.svg" alt=""> Testnet4 wallet</button>
             <button type="button" class="auth-tab" role="tab" id="tab-passkey" aria-selected="false" aria-controls="panel-passkey" tabindex="-1">
               <span class="chip-emoji" aria-hidden="true">🔐</span> Passkey</button>
           </div>
 
-          <!-- ═══ Bitcoin Cash Testnet4 wallet ═══ -->
+          <!-- ═══ Testnet4 wallet (tBTC or tBCH: the address decides) ═══ -->
           <div class="auth-panel" role="tabpanel" id="panel-wallet" aria-labelledby="tab-wallet">
             <ol class="auth-steps" aria-label="Wallet sign-in steps">
               <li id="w-dot1" aria-current="step"><span>1</span> Address</li>
@@ -99,11 +100,11 @@
 
             <!-- Step 1 -->
             <form class="auth-step" id="w-step1" novalidate>
-              <label class="auth-label" for="w-address">Your Bitcoin Cash Testnet4 address</label>
+              <label class="auth-label" for="w-address">Your Testnet4 address</label>
               <input class="auth-input auth-mono" id="w-address" name="address" type="text" inputmode="text"
-                     autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="bchtest:q..."
+                     autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="tb1... or bchtest:q..."
                      aria-describedby="w-address-hint w-address-error" required>
-              <p class="auth-hint" id="w-address-hint">Starts with bchtest:q. The prefix is optional.</p>
+              <p class="auth-hint" id="w-address-hint">Your Testnet4 address: tb1... (Bitcoin; also m... or n...) or bchtest:q... (Bitcoin Cash; the prefix is optional). Either account plays both coins.</p>
               <p class="auth-error" id="w-address-error" hidden></p>
               <button type="submit" class="btn-red auth-wide" id="w-get">Get sign-in message</button>
             </form>
@@ -121,14 +122,15 @@
                 <span class="auth-expiry" id="w-expiry">Expires in <strong id="w-countdown">5:00</strong></span>
               </div>
 
-              <p class="auth-howto">In Electron Cash (testnet4): Tools &gt; Sign/verify Message. Paste this message, choose your address, click Sign, then copy the signature here.</p>
+              <p class="auth-howto" id="w-howto-bch">In Electron Cash (testnet4): Tools &gt; Sign/verify Message. Paste this message, choose your address, click Sign, then copy the signature here.</p>
+              <p class="auth-howto" id="w-howto-btc" hidden>In your Bitcoin wallet, use "Sign message": Sparrow (Tools &gt; Sign/Verify Message), Electrum (Tools &gt; Sign/verify message), Bitcoin Core (signmessage, m... or n... addresses), Unisat, Xverse, Leather and others. Paste this message, sign it with this address, then paste the signature here exactly as the wallet gives it.</p>
 
               <form id="w-form-sign" novalidate>
                 <label class="auth-label" for="w-signature">Signature</label>
                 <textarea class="auth-input auth-mono" id="w-signature" rows="3" spellcheck="false" autocomplete="off" autocapitalize="none"
-                          placeholder="Paste the signature (base64, usually 88 characters)" aria-describedby="w-signature-note w-signature-error"></textarea>
+                          placeholder="Paste the signature as your wallet gives it (base64)" aria-describedby="w-signature-note w-signature-error"></textarea>
                 <p class="auth-error" id="w-signature-error" hidden></p>
-                <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals go to it unless you enter another Bitcoin Cash Testnet4 address.</p>
+                <p class="auth-hint" id="w-signature-note">Your address is your account. Withdrawals in its coin go to it unless you enter another address.</p>
                 <div class="auth-row">
                   <button type="submit" class="btn-red auth-wide" id="w-submit">Sign in</button>
                   <button type="button" class="btn-gold auth-wide" id="w-renew" hidden>Get a new message</button>
@@ -148,14 +150,14 @@
 
           <!-- ═══ Passkey ═══ -->
           <div class="auth-panel" role="tabpanel" id="panel-passkey" aria-labelledby="tab-passkey" hidden>
-            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Bitcoin Cash Testnet4 wallet option.</p>
+            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Testnet4 wallet option.</p>
             <div id="pk-actions">
               <p class="auth-hint">Use Face ID, Touch ID, Windows Hello or a security key. No password needed.</p>
               <div class="auth-col">
                 <button type="button" class="btn-red auth-wide" id="pk-login">🔐 Sign in with passkey</button>
                 <button type="button" class="btn-gold auth-wide" id="pk-create">✨ Create a passkey account</button>
               </div>
-              <p class="auth-hint">Passkey accounts enter a Bitcoin Cash Testnet4 address when they withdraw.</p>
+              <p class="auth-hint">Passkey accounts play both coins and enter a Testnet4 address of the coin when they withdraw.</p>
             </div>
             <p class="auth-status" id="pk-status" role="status" aria-live="polite"></p>
           </div>
@@ -169,7 +171,7 @@
           <span class="notice-icon" aria-hidden="true">⚠️</span>
           <div>
             <h2 id="auth-notice-title">Not a real casino</h2>
-            <p>Bitcoin Cash Testnet4 coins have no monetary value and there are no deposits.
+            <p>Testnet4 coins (tBTC and tBCH) have no monetary value and there are no deposits.
               <strong>We never ask for a password, a private key or a seed phrase.</strong>
               Signing a message proves you own an address. It cannot move your coins.</p>
           </div>
@@ -191,24 +193,25 @@
       </div>
       <div class="cf-networks">
         <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>
-        <div>Bitcoin Cash Testnet4 explorer: <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
+        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>
       </div>
       <div class="cf-bottom">
         <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>
         <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>
-        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Bitcoin Cash Testnet4 coins only. No deposits, no real money.</div>
+        <div class="cf-disclaimer"><span class="cf-pip" aria-hidden="true"></span> Not a real casino. Testnet4 coins only (tBTC and tBCH). No deposits, no real money.</div>
       </div>
     </footer>
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261110k"></script>
-  <script src="assets/js/api.js?v=20261110k"></script>
-  <script src="assets/js/units.js?v=20261110k"></script>
-  <script src="assets/js/faucet.js?v=20261110k"></script>
-  <script src="assets/js/cashaddr.js?v=20261110k"></script>
-  <script src="assets/js/auth.js?v=20261110k"></script>
-  <script src="assets/js/fx.js?v=20261110k"></script>
-  <script src="assets/js/music.js?v=20261110k"></script>
+  <script src="assets/js/config.js?v=20261110n"></script>
+  <script src="assets/js/api.js?v=20261110n"></script>
+  <script src="assets/js/units.js?v=20261110n"></script>
+  <script src="assets/js/faucet.js?v=20261110n"></script>
+  <script src="assets/js/cashaddr.js?v=20261110n"></script>
+  <script src="assets/js/btcaddr.js?v=20261110n"></script>
+  <script src="assets/js/auth.js?v=20261110n"></script>
+  <script src="assets/js/fx.js?v=20261110n"></script>
+  <script src="assets/js/music.js?v=20261110n"></script>
 </body>
 </html>
