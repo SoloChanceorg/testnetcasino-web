@@ -137,6 +137,7 @@ const BLOCKS = {
       `        <div>Bitcoin Cash Testnet4 coins mined by: <a href="https://test.bch.ee" rel="noopener">test.bch.ee</a> · <a href="https://test.bitcoincash.ee" rel="noopener">test.bitcoincash.ee</a></div>`,
       `        <div>Explorers: Bitcoin Testnet4 <a href="https://mempool.space/testnet4/" rel="noopener">mempool.space/testnet4</a> · Bitcoin Cash Testnet4 <a href="https://bchexplorer.cash/testnet4/" rel="noopener">bchexplorer.cash/testnet4</a></div>`,
       `      </div>`,
+      `      <div class="cf-contact">Write to the house: <a href="mailto:house@testnetcasino.com">house@testnetcasino.com</a></div>`,
       `      <div class="cf-bottom">`,
       `        <div>© 2026 TestnetCasino.com · a <a class="cf-solochance" href="https://solochance.org" rel="noopener">SoloChance.org</a> project</div>`,
       `        <div>Built in 🇪🇪 Estonia · Hosted in 🇳🇱 Netherlands</div>`,

@@ -18,8 +18,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer, KeepTogether
 
-EFFECTIVE = "8 November 2026"
-CONTACT = "hello@solochance.org"
+EFFECTIVE = "11 November 2026"
+CONTACT = "house@testnetcasino.com"
 SITE = "TestnetCasino.com"
 HOUSE = "bchtest:qphp0rfnp6uyjfh5p235r8lwykv6knknfqqw5ghdxy"
 

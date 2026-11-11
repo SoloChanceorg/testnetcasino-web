@@ -1473,6 +1473,7 @@ body.is-fullscreen .px-machine { width: auto; }
 @media (max-width: 600px) { .fb-stat { flex-wrap: wrap; } .fb-stat dt { flex-basis: 100%; } .fb-stat dd + dd { padding-left: 0; border-left: 0; } .fb-stat { justify-content: flex-start; gap: 2px 14px; } }
 
 /* Lobby: the two coins, the daily bonus per coin */
+.hero-coins + .hero-coins { margin-top: 8px !important; }
 .hero-coins { margin: 14px 0 0; max-width: 560px; font-size: .95rem; color: var(--tc-ivory-dim); }
 .hero-coins b { font-weight: 600; color: var(--tc-net); }
 .db-coins { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
@@ -1554,3 +1555,7 @@ tr[data-coin] .pay-amount, tr[data-coin] .pay-coin, tr[data-coin] td.num { color
 tr[data-coin] a, tr[data-coin] a:hover { color: var(--tc-net); }
 .pay-total-amount .pay-total-coin { color: var(--tc-net); }
 .pay-total-amount .pay-total-unit { color: var(--tc-net); opacity: .85; }
+
+/* Footer: the house's email */
+.cf-contact { margin-top: .85rem; }
+.casino-footer .cf-contact a { font-family: var(--mono); color: var(--tc-mint); }
