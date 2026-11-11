@@ -18,7 +18,7 @@
  *     smoothly to each new reading. Units: sats of the selected coin (data-jackpot-units="bch8" on
  *     the lobby and jackpots page, "game" on the machines: the same).
  *   - The COLLECTOR is every game's shared fill meter (`filled` of `size` collect symbols):
- *     [data-collector="<gameId>"], a small bar with "filled / size" (lobby, jackpots page). The
+ *     [data-collector="<gameId>"], a small bar, no numbers (lobby, jackpots page). The
  *     machines draw their own (the Apple Tree, the Treasure Chest, the Fuel Tank) from onRender.
  *   - When a `cycle` goes up between two readings, someone won (a short "WON!", then the new, smaller
  *     amount) or filled the collector ("FULL!", then it starts again empty).
@@ -117,7 +117,7 @@
   }
 
   /* ═══════════════ COLLECTOR: the shared fill meter ═══════════════ */
-  // A bar with "filled / size" (the machines draw their own collector).
+  // A bar only, never "filled / size" (the machines draw their own collector).
   var NAMES = { "fruit-orchard": "Apple Tree", "deep-sea": "Treasure Chest", "cosmic-voyage": "Fuel Tank" };
   function collName(node) { return node.getAttribute("data-collector-name") || NAMES[node.getAttribute("data-collector")] || "Collector"; }
 
@@ -133,19 +133,17 @@
     cl.level = el("span", "cl-level");
     track.appendChild(cl.level);
     node.appendChild(track);
-    cl.count = el("span", "cl-count");
-    node.appendChild(cl.count);
     node._cl = cl;
     return cl;
   }
   function paintCollector(node, filled, size) {
     var cl = buildCollector(node), f = Math.max(0, Math.min(size, filled)), share = size > 0 ? f / size : 0;
     if (cl.level) cl.level.style.setProperty("--fill", (share * 100).toFixed(2) + "%");
-    if (cl.count) cl.count.textContent = f.toLocaleString("en-US") + " / " + size.toLocaleString("en-US");
-    node.setAttribute("aria-valuemax", String(size));
-    node.setAttribute("aria-valuenow", String(f));
-    node.setAttribute("aria-valuetext", f + " of " + size);
-    node.title = collName(node) + ": " + f + " of " + size + ". Shared by all players: the spin that fills it plays the reward.";
+    var pct = Math.round(share * 100);
+    node.setAttribute("aria-valuemax", "100");
+    node.setAttribute("aria-valuenow", String(pct));
+    node.setAttribute("aria-valuetext", pct >= 100 ? "full" : pct >= 75 ? "nearly full" : pct >= 40 ? "about half full" : pct > 0 ? "filling up" : "empty");
+    node.title = collName(node) + ": shared by all players. The spin that fills it plays the reward.";
   }
   // Full: everything glows, "FULL!"; with done, it then starts again empty (someone else's, or ours
   // after the reward). Our own full meter stays lit while its reward plays (see collect).

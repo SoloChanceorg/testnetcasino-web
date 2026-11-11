@@ -161,7 +161,6 @@
       g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, chestBot + 4, 56, 6, 0, 0, Math.PI * 2); g.fill();
     }));
     var icon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "🪙", 20)); icon.anchor.set(0.5); icon.position.set(22, TH - 23); tank.addChild(icon);
-    var count = k.txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 14, fill: "#ffe79a" }); count.position.set(TW / 2 + 8, TH - 23); tank.addChild(count);
     var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#2a1d05", width: 4 } });
     full.position.set(TW / 2, 80); full.visible = false; tank.addChild(full);
     var wave = 0, shown = -1;
@@ -177,7 +176,7 @@
       if (TANK.full) { full.scale.set(1 + Math.sin(wave * 3) * 0.06); pile.tint = Math.sin(wave * 4) > 0 ? 0xffffff : 0xfff3c0; }
     });
     return {
-      count: function (filled, size) { count.text = k.fmt(filled) + " / " + k.fmt(size); },
+      count: function () {},   // no numbers: the pile itself shows how full it is
       flash: function (on) { full.visible = on; panel.tint = on ? 0xfff0c0 : 0xffffff; if (!on) pile.tint = 0xffffff; },
       target: function () { return { x: k.TX + cx, y: k.TY + mouth - 10 }; }
     };

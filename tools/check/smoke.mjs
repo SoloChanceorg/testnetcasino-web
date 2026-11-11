@@ -548,7 +548,7 @@ try {
     const page = await until(`(() => { const amounts = document.querySelectorAll(".jpp-pools [data-jackpot]"), pools = document.querySelector(".jpp-pools"),
         cols = [...document.querySelectorAll(".jpp-pools [data-collector]")], rows = document.querySelectorAll("#jp-wins-body tr");
       return amounts.length === 7 && [...amounts].every(a => /^[\\d,]+ tBCH sats$/.test(a.textContent)) && !/Must hit|before it is full|reaches its limit|10,000|50,000|2,500,000|gift/.test(pools.textContent + document.querySelector(".lb-lead").textContent)
-        && cols.length === 3 && cols.map(c => c.textContent).join(",") === "${COLLECTOR["fruit-orchard"].filled} / ${COLLECTOR["fruit-orchard"].size},${COLLECTOR["deep-sea"].filled} / ${COLLECTOR["deep-sea"].size},${COLLECTOR["cosmic-voyage"].filled} / ${COLLECTOR["cosmic-voyage"].size}"
+        && cols.length === 3 && cols.every(c => c.textContent === "" && !/\\d/.test(c.title)) && cols.map(c => c.querySelector(".cl-level").style.getPropertyValue("--fill")).join(",") === "${["fruit-orchard", "deep-sea", "cosmic-voyage"].map(g => (COLLECTOR[g].filled / COLLECTOR[g].size * 100).toFixed(2) + "%").join(",")}"
         && rows.length === 4 && document.querySelectorAll("#jp-hashes > div").length === 7 && /3,290 tBCH sats/.test(rows[0].textContent)
         && rows[0].querySelector(".jpw-verify") && rows[1].querySelector(".jpw-verify") && rows[2].querySelector(".jpw-verify") && !rows[3].querySelector(".jpw-verify") && /Old jackpot/.test(rows[3].textContent); })()`);
     const verifyRow = async (k) => { await ev(`document.querySelectorAll("#jp-wins-body .jpw-verify")[${k}].click()`);
@@ -561,7 +561,7 @@ try {
     resetApi();
     await open("jackpots.html", 375);
     const empty = await until(`!document.getElementById("jp-winners-empty").hidden && document.querySelectorAll("#jp-wins-body tr").length === 0`);
-    check("jackpots page: 7 amounts and 3 collectors (no limits shown), seed hashes, wins with Verify (real passes, tampered fails, D40 by its own rules, first pools none), empty state",
+    check("jackpots page: 7 amounts and 3 collectors (bars only, no numbers; no limits shown), seed hashes, wins with Verify (real passes, tampered fails, D40 by its own rules, first pools none), empty state",
       page && pass && fail && old && empty, `page ${!!page}, verify ${pass}, tampered ${fail}, d40 ${old}, empty ${!!empty}`);
   }
 

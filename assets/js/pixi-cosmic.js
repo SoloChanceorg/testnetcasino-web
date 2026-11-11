@@ -76,7 +76,6 @@
     for (var mk = 1; mk < 10; mk++) marks.moveTo(TIN.x + 4, TIN.y + TIN.h * mk / 10).lineTo(TIN.x + 14, TIN.y + TIN.h * mk / 10);
     marks.stroke({ width: 1.5, color: 0x9ff0ff, alpha: 0.5 }); tank.addChild(marks);
     var tankIcon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "⛽", 40)); tankIcon.anchor.set(0.5); tankIcon.position.set(TW / 2, TIN.y + 24); tankIcon.alpha = 0.9; tank.addChild(tankIcon);
-    var tankCount = k.txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 15, fill: "#fff6dc" }); tankCount.position.set(TW / 2, TH - 26); tank.addChild(tankCount);
     var tankFull = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#000", width: 3 } });
     tankFull.position.set(TW / 2, TIN.y + TIN.h / 2); tankFull.visible = false; tank.addChild(tankFull);
     var wave = 0;
@@ -92,7 +91,7 @@
       if (TANK.full) tankFull.scale.set(1 + Math.sin(wave * 3) * 0.06);
     });
     return {
-      count: function (filled, size) { tankCount.text = k.fmt(filled) + " / " + k.fmt(size); },
+      count: function () {},   // no numbers: the fuel level itself shows how full it is
       flash: function (on) { tankFull.visible = on; tankGlass.tint = on ? 0xffe9a8 : 0xffffff; },
       target: function () { return { x: k.TX + TW / 2, y: k.TY + TIN.y + TIN.h * 0.5 }; }
     };

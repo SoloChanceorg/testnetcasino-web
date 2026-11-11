@@ -170,7 +170,6 @@
       var s = new PIXI.Sprite(k.emojiTex("🍎", 30)); s.anchor.set(0.5); s.position.set(cx + p[0] * SKY.w, crownTop + p[1] * (crownBot - crownTop)); s.visible = false; tank.addChild(s); return s;
     });
     var icon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "🍃", 22)); icon.anchor.set(0.5); icon.position.set(24, TH - 22); tank.addChild(icon);
-    var count = k.txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 14, fill: "#fff6dc" }); count.position.set(TW / 2 + 8, TH - 22); tank.addChild(count);
     var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ff9f43", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#4a2a10", width: 4 } });
     full.position.set(TW / 2, crownBot + 30); full.visible = false; tank.addChild(full);
     var wave = 0, shown = -1;
@@ -186,7 +185,7 @@
       if (TANK.full) full.scale.set(1 + Math.sin(wave * 3) * 0.06);
     });
     return {
-      count: function (filled, size) { count.text = k.fmt(filled) + " / " + k.fmt(size); },
+      count: function () {},   // no numbers: the crown itself shows how full it is
       flash: function (on) { full.visible = on; panel.tint = on ? 0xfff0c0 : 0xffffff; },
       target: function () { return { x: k.TX + cx, y: k.TY + (crownTop + crownBot) / 2 }; }
     };

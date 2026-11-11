@@ -265,7 +265,7 @@ Treasure Chest (109 coins), ⛽ the Fuel Tank (940 fuel cells). Every paid spin 
 on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every game's `collector { filled, size, cycle }`.
 
 - **Games**: the collector has its own screen right of the reels, about 1.5 reels wide (`.reel-bay` grid, 5 : 1.45), under
-  the reels as a strip on phones (600 px and less), with "filled / size". The Apple Tree's crown and the Treasure Chest fill
+  the reels as a strip on phones (600 px and less). It never shows numbers ("filled / size"): only the fill. The Apple Tree's crown and the Treasure Chest fill
   with leaves and coins: a pile of 15 spots (a pyramid of rows 5, 4, 3, 2, 1, or on phones 8 + 7), `floor(filled / size of
   15)` shown, so it is complete only when full. The Fuel Tank fills like a tank. When someone else fills it (its `cycle`
   goes up) it says "FULL!" and starts again empty.
@@ -275,7 +275,7 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
   and the multiplier rising every spin) and a `freeSpinsEnd`; 🐚 **Treasure Hold & Win** is one `holdAndWin` step
   (`start` pearls, `respins[]`, `prize`, `win`), shown on a 5 × 3 board with each pearl's value × bet, the respins counter
   (back to 3 whenever a pearl lands) and the total. Then the meter starts again empty. `totalWin` includes the reward.
-- **Jackpots page**: each game's collector as a bar with "filled / size".
+- **Jackpots page**: each game's collector as a bar, with no numbers.
 
 ## Roulette
 
@@ -499,7 +499,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111t`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111u`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
