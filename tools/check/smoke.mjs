@@ -651,6 +651,39 @@ try {
   const unlocked = await ev(`!document.getElementById("wd-fields").disabled && document.getElementById("wd-locked").hidden`);
   check("account: withdraw form locked below 1,000 tBCH sats, open above", locked && unlocked);
 
+  {
+    // Roulette: the first player at an empty table (no round yet, canBet false) can bet once the first round opens,
+    // without a reload; a player who joined during a round waits for the next one.
+    const problems = [];
+    resetApi(); signIn(50000);
+    await open("games/roulette.html", 1280, { height: 1000 });
+    if (!(await until(`typeof TNC_RouletteState === "function" && TNC_RouletteState().connected`, 20000))) problems.push("not connected");
+    const iso = (ms) => new Date(Date.now() + ms).toISOString();
+    await ev(`__emit(${JSON.stringify({ type: "table", serverTime: new Date().toISOString(), nextRoundAt: iso(2000), players: ["bchtest:qphp...hdxy"], bets: [], canBet: false, you: "bchtest:qphp...hdxy", rules: RULES2 })}); 0`);
+    await sleep(200);
+    if (await ev(`TNC_RouletteState().canBet`)) problems.push("canBet before any round");
+    const r1 = { id: 701, startsAt: iso(500), bettingEndsAt: iso(15000), seedHash: "b".repeat(64), status: "betting", nextRoundAt: iso(60000) };
+    await ev(`__emit(${JSON.stringify({ type: "round", round: r1 })}); 0`);
+    await sleep(200);
+    if (!(await ev(`TNC_RouletteState().canBet`))) problems.push("first round: cannot bet");
+    await ev(`scrollTo(0, document.getElementById("rt-stage").getBoundingClientRect().top + scrollY - 10)`);
+    const pt = await ev(`(() => { const c = document.querySelector("#rt-canvas canvas").getBoundingClientRect(), s = TNC_RouletteState().spotPoint("red", null); return { x: c.left + s.x, y: c.top + s.y }; })()`);
+    for (const t of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: pt.x, y: pt.y, button: "left", clickCount: 1 });
+    if (!(await until(`TNC_RouletteState().myTotal > 0`, 4000))) problems.push("first round: chip not placed");
+    // Joined during a round (table with a betting round that started before we joined): wait for the next round.
+    resetApi(); signIn(50000);
+    await open("games/roulette.html", 1280, { height: 1000 });
+    await until(`typeof TNC_RouletteState === "function" && TNC_RouletteState().connected`, 20000);
+    const r2 = { id: 702, startsAt: iso(-5000), bettingEndsAt: iso(15000), seedHash: "b".repeat(64), status: "betting", nextRoundAt: iso(55000) };
+    await ev(`__emit(${JSON.stringify({ type: "table", serverTime: new Date().toISOString(), round: r2, nextRoundAt: r2.nextRoundAt, players: ["bchtest:qphp...hdxy"], bets: [], canBet: false, you: "bchtest:qphp...hdxy", rules: RULES2 })}); 0`);
+    await sleep(200);
+    if (await ev(`TNC_RouletteState().canBet`)) problems.push("mid-round join could bet");
+    await ev(`__emit(${JSON.stringify({ type: "round", round: { ...r2, id: 703, startsAt: iso(1000), bettingEndsAt: iso(20000) } })}); 0`);
+    await sleep(200);
+    if (!(await ev(`TNC_RouletteState().canBet`))) problems.push("next round after a mid-round join: cannot bet");
+    check("roulette: the first player at an empty table can bet when the first round opens (no reload); a mid-round join bets from the next round", !problems.length, problems.join("; "));
+  }
+
   /* ═══ 7b. Two coins (D46): the header switch, tBTC everywhere ═══ */
   {
     const problems = [], hasCoin = (path, coin) => api.log.some((x) => x.path === path && new URLSearchParams(x.query).get("coin") === coin);

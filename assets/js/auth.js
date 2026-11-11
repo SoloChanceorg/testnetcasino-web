@@ -11,8 +11,8 @@
  *   Auth.balance is the selected coin's balance; Auth.balances / Auth.bonuses have every coin.
  *
  * Sign-in page (<body data-page="login">)
- *   Two tabs: Testnet4 wallet (a tBCH bchtest:q... or a tBTC tb1.../m.../n... address, signed
- *   challenge) and Passkey (WebAuthn).
+ *   Two tabs: Passkey (WebAuthn; the first choice, open by default) and Testnet4 wallet (a tBCH
+ *   bchtest:q... or a tBTC tb1.../m.../n... address, signed challenge).
  *
  * Depends on: config.js, api.js, units.js; cashaddr.js and btcaddr.js on the sign-in page.
  */
@@ -545,6 +545,7 @@
     if (!window.PublicKeyCredential || !navigator.credentials) {
       $("pk-unsupported").hidden = false;
       $("pk-actions").hidden = true;
+      selectTab($("tab-wallet"));   // passkeys are the first choice, but this browser cannot use them
     }
 
     function b64uToBuf(s) {

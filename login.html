@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.testnetcasino.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sign in · TestnetCasino.com</title>
-  <meta name="description" content="Sign in to TestnetCasino.com with your Bitcoin Testnet4 or Bitcoin Cash Testnet4 wallet, or a passkey. New accounts get 1,000 tBTC sats and 10,000 tBCH sats.">
+  <meta name="description" content="Sign in to TestnetCasino.com with a passkey, or your Bitcoin Testnet4 or Bitcoin Cash Testnet4 wallet. New accounts get 1,000 tBTC sats and 10,000 tBCH sats.">
   <!-- site:head -->
   <meta name="theme-color" content="#052a19">
   <link rel="icon" href="favicon.ico" sizes="48x48">
@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="assets/css/style.css?v=20261111o">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261111q">
 </head>
 <body data-page="login">
   <a class="skip-link" href="#main">Skip to sign-in</a>
@@ -84,14 +84,28 @@
 
         <div id="auth-forms">
           <div class="auth-tabs" role="tablist" aria-label="Sign-in method">
-            <button type="button" class="auth-tab" role="tab" id="tab-wallet" aria-selected="true" aria-controls="panel-wallet" tabindex="0">
-              <img class="tbch" src="assets/img/tbtc.svg" alt=""><img class="tbch" src="assets/img/tbch.svg" alt=""> Testnet4 wallet</button>
-            <button type="button" class="auth-tab" role="tab" id="tab-passkey" aria-selected="false" aria-controls="panel-passkey" tabindex="-1">
+            <button type="button" class="auth-tab" role="tab" id="tab-passkey" aria-selected="true" aria-controls="panel-passkey" tabindex="0">
               <span class="chip-emoji" aria-hidden="true">🔐</span> Passkey</button>
+            <button type="button" class="auth-tab" role="tab" id="tab-wallet" aria-selected="false" aria-controls="panel-wallet" tabindex="-1">
+              <img class="tbch" src="assets/img/tbtc.svg" alt=""><img class="tbch" src="assets/img/tbch.svg" alt=""> Testnet4 wallet</button>
+          </div>
+
+          <!-- ═══ Passkey ═══ -->
+          <div class="auth-panel" role="tabpanel" id="panel-passkey" aria-labelledby="tab-passkey">
+            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Testnet4 wallet option.</p>
+            <div id="pk-actions">
+              <p class="auth-hint">The quickest way in: Face ID, Touch ID, Windows Hello or a security key. No password, no wallet needed.</p>
+              <div class="auth-col">
+                <button type="button" class="btn-red auth-wide" id="pk-login">🔐 Sign in with passkey</button>
+                <button type="button" class="btn-gold auth-wide" id="pk-create">✨ Create a passkey account</button>
+              </div>
+              <p class="auth-hint">Passkey accounts play both coins and enter a Testnet4 address of the coin when they withdraw.</p>
+            </div>
+            <p class="auth-status" id="pk-status" role="status" aria-live="polite"></p>
           </div>
 
           <!-- ═══ Testnet4 wallet (tBTC or tBCH: the address decides) ═══ -->
-          <div class="auth-panel" role="tabpanel" id="panel-wallet" aria-labelledby="tab-wallet">
+          <div class="auth-panel" role="tabpanel" id="panel-wallet" aria-labelledby="tab-wallet" hidden>
             <ol class="auth-steps" aria-label="Wallet sign-in steps">
               <li id="w-dot1" aria-current="step"><span>1</span> Address</li>
               <li id="w-dot2"><span>2</span> Sign</li>
@@ -148,19 +162,6 @@
             <p class="auth-status" id="w-status" role="status" aria-live="polite"></p>
           </div>
 
-          <!-- ═══ Passkey ═══ -->
-          <div class="auth-panel" role="tabpanel" id="panel-passkey" aria-labelledby="tab-passkey" hidden>
-            <p class="auth-error auth-error-block" id="pk-unsupported" hidden>This browser does not support passkeys. Use the Testnet4 wallet option.</p>
-            <div id="pk-actions">
-              <p class="auth-hint">Use Face ID, Touch ID, Windows Hello or a security key. No password needed.</p>
-              <div class="auth-col">
-                <button type="button" class="btn-red auth-wide" id="pk-login">🔐 Sign in with passkey</button>
-                <button type="button" class="btn-gold auth-wide" id="pk-create">✨ Create a passkey account</button>
-              </div>
-              <p class="auth-hint">Passkey accounts play both coins and enter a Testnet4 address of the coin when they withdraw.</p>
-            </div>
-            <p class="auth-status" id="pk-status" role="status" aria-live="polite"></p>
-          </div>
         </div>
         <p class="auth-legal">By signing in you accept the <a href="legal/terms-of-service.pdf" type="application/pdf">Terms of Service</a> and confirm that you are 18 or older. See the <a href="legal/privacy-policy.pdf" type="application/pdf">Privacy Policy</a> for how your data is used.</p>
       </section>
@@ -206,14 +207,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261111o"></script>
-  <script src="assets/js/api.js?v=20261111o"></script>
-  <script src="assets/js/units.js?v=20261111o"></script>
-  <script src="assets/js/faucet.js?v=20261111o"></script>
-  <script src="assets/js/cashaddr.js?v=20261111o"></script>
-  <script src="assets/js/btcaddr.js?v=20261111o"></script>
-  <script src="assets/js/auth.js?v=20261111o"></script>
-  <script src="assets/js/fx.js?v=20261111o"></script>
-  <script src="assets/js/music.js?v=20261111o"></script>
+  <script src="assets/js/config.js?v=20261111q"></script>
+  <script src="assets/js/api.js?v=20261111q"></script>
+  <script src="assets/js/units.js?v=20261111q"></script>
+  <script src="assets/js/faucet.js?v=20261111q"></script>
+  <script src="assets/js/cashaddr.js?v=20261111q"></script>
+  <script src="assets/js/btcaddr.js?v=20261111q"></script>
+  <script src="assets/js/auth.js?v=20261111q"></script>
+  <script src="assets/js/fx.js?v=20261111q"></script>
+  <script src="assets/js/music.js?v=20261111q"></script>
 </body>
 </html>

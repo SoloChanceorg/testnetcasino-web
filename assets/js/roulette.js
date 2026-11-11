@@ -779,7 +779,9 @@
       if (mine.length) S.lastMine = mine.map(function (c) { return { type: c.type, numbers: c.numbers, amount: c.amount }; });
       S.chips = {}; S.pending = []; S.myTotal = 0; S.spin = null; S.revealed = false; S.results = null; S.settled = null;
       if (bannerC) bannerC.visible = false;
-      if (S.canBet === false && r.status === "betting" && S.joinedRoundId != null && r.id !== S.joinedRoundId) S.canBet = true;
+      // A new round: you can bet in it if you were at the table when it started (the server's rule). The
+      // table message's own round keeps the server's canBet (a reconnect may still hold an older place).
+      if (!S.fromTable && r.status === "betting" && signedIn() && S.joinedAt != null) S.canBet = S.joinedAt <= at(r.startsAt);
       renderResults();
     }
     S.round = r;
@@ -835,13 +837,17 @@
     switch (m.type) {
       case "table":
         S.you = m.you || S.you; S.canBet = !!m.canBet; S.nextRoundAt = m.nextRoundAt || null;
+        // The table message is the first one after joining: its serverTime is (just after) when we joined.
+        if (signedIn()) S.joinedAt = at(m.serverTime) || now();
+        S.fromTable = true;
         if (m.limits) Object.keys(m.limits).forEach(function (c) { if (LIMITS[c] && m.limits[c]) LIMITS[c] = Object.assign({}, LIMITS[c], m.limits[c]); });
         if ((m.rules && m.rules.payoutPockets) || m.limits) { if (m.rules && m.rules.payoutPockets) RULES = Object.assign({}, RULES, m.rules); $("rt-rules").innerHTML = rulesHtml(); }
         S.players = (m.players || []).slice();
         S.chips = {}; (m.bets || []).forEach(function (c) { S.chips[c.id] = c; });
         S.myTotal = mineTotal();
-        if (m.round) { if (!m.canBet && signedIn()) S.joinedRoundId = m.round.id; roundChanged(m.round); }
+        if (m.round) roundChanged(m.round);
         else { S.round = null; renderStatus(true); }
+        S.fromTable = false;
         // re-apply the chips (roundChanged cleared them for a new round)
         S.chips = {}; (m.bets || []).forEach(function (c) { S.chips[c.id] = c; }); S.myTotal = mineTotal();
         renderPlayers(); renderChips(); renderRack(); renderResults();
