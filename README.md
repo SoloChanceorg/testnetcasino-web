@@ -481,11 +481,25 @@ tools/verify-vectors.mjs      Checks the verifier against the backend test vecto
 tools/site.mjs                Shared head, warning strip, faucet bar, header and footer for every page; ?v= version tag
 tools/check/smoke.mjs         Smoke tests: every page in headless Chrome against a fake API
 .nojekyll             Serve files as-is on GitHub Pages
+robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 ```
+
+## SEO
+
+- **Every page** (the shared head block in `tools/site.mjs`): a canonical URL (`https://testnetcasino.com/...`), Open Graph and X
+  share tags (`og:url`, `og:title` and `og:description` copied from the page's own `<title>` and meta description, the share
+  card `og-image.png` with its alt text), the icons and the theme colour. Meta descriptions stay at 160 characters or fewer.
+- **One `<h1>` per page**; on the game pages it is a visually hidden one in the HTML, since the machines are drawn in JavaScript.
+- **`account.html` is `noindex`** (personal, empty without a session). Every other page is in `sitemap.xml`; `robots.txt`
+  allows everything and names the sitemap. Add a page to the sitemap when you add one to `PAGES`.
+- **The lobby** carries JSON-LD: a `WebSite` and an `Organization` (logo, house@testnetcasino.com, a SoloChance.org project).
+- **`404.html`**: GitHub Pages serves it for any missing path, so all its links are absolute; `noindex`.
+- The smoke test checks all of this (canonical, share tags, description length, one `h1` per rendered page, the sitemap
+  against the indexable pages, robots.txt, the JSON-LD and the 404 page).
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111r`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261111s`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

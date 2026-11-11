@@ -262,7 +262,7 @@ try {
 
   /* ═══ 2. Every local link resolves ═══ */
   const missing = [];
-  for (const p of PAGES) {
+  for (const p of PAGES.concat("404.html")) {
     const html = fs.readFileSync(path.join(ROOT, p), "utf8");
     for (const m of html.matchAll(/(?:href|src)="([^"#]+)/g)) {
       const ref = m[1];
@@ -274,6 +274,30 @@ try {
   }
   check("every local link and asset resolves", !missing.length, missing.slice(0, 5).join(", "));
 
+  /* ═══ 2b. SEO: canonical and share tags, descriptions, robots.txt, the sitemap, the 404 page ═══ */
+  {
+    const problems = [], SITE = "https://testnetcasino.com/";
+    for (const p of PAGES) {
+      const html = fs.readFileSync(path.join(ROOT, p), "utf8"), head = html.slice(0, html.indexOf("</head>"));
+      const url = SITE + (p === "index.html" ? "" : p), get = (re) => (re.exec(head) || [])[1];
+      const title = get(/<title>([^<]*)<\/title>/), desc = get(/<meta name="description" content="([^"]*)">/);
+      if (get(/<link rel="canonical" href="([^"]*)">/) !== url || get(/<meta property="og:url" content="([^"]*)">/) !== url) problems.push(p + ": canonical / og:url");
+      if (!desc || desc.length > 160) problems.push(`${p}: description ${desc ? desc.length : 0} characters`);
+      if (get(/<meta property="og:title" content="([^"]*)">/) !== title || get(/<meta property="og:description" content="([^"]*)">/) !== desc) problems.push(p + ": og:title / og:description");
+      if ((head.match(/property="og:title"/g) || []).length !== 1) problems.push(p + ": og:title twice");
+      if (/\bRTP\b/.test(head)) problems.push(p + ": RTP in the head");
+    }
+    const sitemap = fs.readFileSync(path.join(ROOT, "sitemap.xml"), "utf8"), locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const indexable = PAGES.filter((p) => !/name="robots" content="noindex"/.test(fs.readFileSync(path.join(ROOT, p), "utf8"))).map((p) => SITE + (p === "index.html" ? "" : p));
+    if (JSON.stringify([...locs].sort()) !== JSON.stringify([...indexable].sort())) problems.push("sitemap: " + JSON.stringify(locs.filter((l) => !indexable.includes(l)).concat(indexable.filter((l) => !locs.includes(l)))));
+    if (!/Sitemap: https:\/\/testnetcasino\.com\/sitemap\.xml/.test(fs.readFileSync(path.join(ROOT, "robots.txt"), "utf8"))) problems.push("robots.txt");
+    const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"));
+    try { const g = JSON.parse(ld[1])["@graph"]; if (!g.some((x) => x["@type"] === "WebSite") || !g.some((x) => x["@type"] === "Organization")) problems.push("JSON-LD types"); } catch (e) { problems.push("JSON-LD: " + e.message); }
+    const nf = fs.readFileSync(path.join(ROOT, "404.html"), "utf8");
+    if (!/content="noindex"/.test(nf) || /(?:src|href)="(?!\/|https?:|#)/.test(nf)) problems.push("404.html: noindex and absolute links only");
+    check("SEO: canonical URL, share tags and a description of at most 160 characters on every page; robots.txt, the sitemap (indexable pages only), JSON-LD, the 404 page", !problems.length, problems.join("; "));
+  }
+
   /* ═══ 3. Every page loads cleanly ═══ */
   for (const [label, width, signed] of [["desktop, signed in", 1280, true], ["phone, signed out", 375, false]]) {
     for (const p of PAGES) {
@@ -282,7 +306,7 @@ try {
       const info = await ev(`({ sw: document.documentElement.scrollWidth, iw: innerWidth,
         nav: document.querySelectorAll('.site-head [aria-current="page"]').length, footer: !!document.querySelector(".casino-footer .cf-links"),
         faucet: (document.querySelector('#faucet-bar [data-k="house:bch"]') || {}).textContent || "",
-        signedIn: !!document.querySelector(".auth-user") })`);
+        signedIn: !!document.querySelector(".auth-user"), h1: document.querySelectorAll("h1").length })`);
       const problems = [];
       if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
       if (info.sw > info.iw) problems.push(`sideways scroll ${info.sw}px > ${info.iw}px`);
@@ -291,6 +315,7 @@ try {
       const expectCurrent = !((p === "account.html" && !signed) || (p === "login.html" && signed));
       if (expectCurrent && info.nav < 1) problems.push("no current page in the nav");
       if (!info.footer) problems.push("no footer");
+      if (info.h1 !== 1) problems.push(`${info.h1} h1 headings`);
       if (!/tBCH/.test(info.faucet)) problems.push("faucet bar not filled");
       if (info.signedIn !== signed) problems.push(signed ? "not shown as signed in" : "shown as signed in");
       check(`${p} loads (${label})`, !problems.length, problems.join("; "));

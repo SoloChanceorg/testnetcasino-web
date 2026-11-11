@@ -26,7 +26,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES = [
   { file: "index.html", id: "lobby", games: true },
   { file: "login.html", id: "login" },
-  { file: "account.html", id: "account" },
+  { file: "account.html", id: "account", noindex: true },   // personal: nothing for search engines
   { file: "fairness.html", id: "fairness" },
   { file: "leaderboards.html", id: "leaderboards" },
   { file: "jackpots.html", id: "jackpots" },
@@ -59,15 +59,25 @@ function rel(page, to) {
   return "../" + to;
 }
 
+const SITE_URL = "https://testnetcasino.com/";
 const FONTS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap";
 const FONTS_GAMES = FONTS.replace("family=Inter", "family=Bungee&family=Inter");
 
 const BLOCKS = {
-  // Icons, theme colour, share card and fonts (testnetcasino-brand). The game pages also load
-  // Bungee, the sign font the machines and the lobby cards are drawn in.
+  // Icons, theme colour, canonical URL, share card (Open Graph, X) and fonts (testnetcasino-brand). The
+  // share title and description are the page's own <title> and meta description. The game pages also
+  // load Bungee, the sign font the machines and the lobby cards are drawn in.
   head(page) {
     const r = (to) => rel(page, to);
+    const url = SITE_URL + (page.file === "index.html" ? "" : page.file);
     return [
+      `  <link rel="canonical" href="${url}">`,
+      ...(page.noindex ? [`  <meta name="robots" content="noindex">`] : []),
+      `  <meta property="og:type" content="website">`,
+      `  <meta property="og:url" content="${url}">`,
+      `  <meta property="og:title" content="${page.meta.title}">`,
+      `  <meta property="og:description" content="${page.meta.description}">`,
+      `  <meta property="og:locale" content="en_US">`,
       `  <meta name="theme-color" content="#052a19">`,
       `  <link rel="icon" href="${r("favicon.ico")}" sizes="48x48">`,
       `  <link rel="icon" href="${r("assets/img/favicon.svg")}" type="image/svg+xml">`,
@@ -77,6 +87,7 @@ const BLOCKS = {
       `  <meta property="og:image" content="https://testnetcasino.com/assets/img/og-image.png">`,
       `  <meta property="og:image:width" content="1200">`,
       `  <meta property="og:image:height" content="630">`,
+      `  <meta property="og:image:alt" content="testnetcasino.com: tBTC and tBCH Testnet4 faucet. No real money, no deposits.">`,
       `  <meta name="twitter:card" content="summary_large_image">`,
       `  <link rel="preconnect" href="https://fonts.googleapis.com">`,
       `  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
@@ -153,7 +164,9 @@ function blocksFor() {
   return ["head", "warning", "faucet", "nav", "footer"];
 }
 
-const VERSION_RE = /((?:src|href)="(?:\.\.\/)?assets\/(?:js|css)\/[\w.-]+\.(?:js|css))\?v=(\w+)"/g;
+const VERSION_RE = /((?:src|href)="(?:\.\.\/|\/)?assets\/(?:js|css)\/[\w.-]+\.(?:js|css))\?v=(\w+)"/g;
+// Pages outside the shared blocks that still carry the version tag (404.html uses absolute paths).
+const VERSION_ONLY = ["404.html"];
 
 function currentVersion() {
   const s = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
@@ -178,6 +191,10 @@ function nextVersion(cur) {
 
 // Returns the page text with every block and version tag up to date.
 function render(page, text, version) {
+  // The page's own title and description feed the share tags in the head block.
+  const t = /<title>([^<]*)<\/title>/.exec(text), d = /<meta name="description" content="([^"]*)">/.exec(text);
+  if (!t || !d) throw new Error(`${page.file}: needs a <title> and a meta description`);
+  page.meta = { title: t[1], description: d[1] };
   for (const name of blocksFor(page)) {
     const open = `<!-- site:${name} -->`, close = `<!-- /site:${name} -->`;
     const a = text.indexOf(open), b = text.indexOf(close);
@@ -200,6 +217,12 @@ function run(mode, version) {
     stale++;
     if (mode === "check") console.log(`out of date: ${page.file}`);
     else { fs.writeFileSync(file, after); console.log(`updated: ${page.file}`); }
+  }
+  for (const f of VERSION_ONLY) {
+    const file = path.join(ROOT, f), before = fs.readFileSync(file, "utf8"), after = before.replace(VERSION_RE, (m, link) => `${link}?v=${version}"`);
+    if (after === before) continue;
+    stale++;
+    if (mode === "check") console.log(`out of date: ${f}`); else { fs.writeFileSync(file, after); console.log(`updated: ${f}`); }
   }
   // The README names the current tag.
   const readme = path.join(ROOT, "README.md");

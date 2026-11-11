@@ -127,7 +127,6 @@
 
   /* ═══════════════ Page ═══════════════ */
   root.innerHTML =
-    '<h1 class="sr-only">Roulette</h1>' +
     '<div class="rt-stage" id="rt-stage"><div class="rt-canvas" id="rt-canvas"></div>' +
       '<div class="rt-lock" id="rt-lock" hidden><a class="btn-red" id="rt-login" href="../login.html">🔑 Sign in to play</a>' +
         '<p>Sign in to join the table. New accounts get ' + sats(Coin ? Coin.info(COIN).signup : 10000) + ' to play with.</p></div></div>' +

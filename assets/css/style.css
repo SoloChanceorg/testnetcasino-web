@@ -1564,3 +1564,9 @@ tr[data-coin] a, tr[data-coin] a:hover { color: var(--tc-net); }
 .donate .dn-label { color: var(--tc-ivory); font: 500 .8rem var(--mono); letter-spacing: .04em; }
 .donate .copy-code { color: var(--tc-ivory); }
 .dn-foot { margin: 18px 0 0; font-size: .84rem; color: var(--tc-felt-300); }
+
+/* 404 page */
+.nf-main { max-width: 640px; margin: 40px auto; text-align: center; }
+.nf-main .eyebrow { justify-content: center; }
+.nf-text { color: var(--tc-ivory-dim); }
+.nf-cta { justify-content: center; }
