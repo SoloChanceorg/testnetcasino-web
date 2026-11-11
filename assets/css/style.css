@@ -1559,3 +1559,8 @@ tr[data-coin] a, tr[data-coin] a:hover { color: var(--tc-net); }
 /* Footer: the house's email */
 .cf-contact { margin-top: .85rem; }
 .casino-footer .cf-contact a { font-family: var(--mono); color: var(--tc-mint); }
+
+/* Donations: the only real coins on the site, so set apart from tBTC / tBCH: neutral ivory, no network colours or badges. */
+.donate .dn-label { color: var(--tc-ivory); font: 500 .8rem var(--mono); letter-spacing: .04em; }
+.donate .copy-code { color: var(--tc-ivory); }
+.dn-foot { margin: 18px 0 0; font-size: .84rem; color: var(--tc-felt-300); }
