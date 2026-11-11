@@ -592,7 +592,7 @@
     function passkeyError(err, creating) {
       var n = err && err.name;
       if (n === "NotAllowedError" || n === "AbortError") return "Sign-in cancelled.";
-      if (n === "InvalidStateError" && creating) return "This device already has a passkey for this site. Use Sign in with passkey.";
+      if (n === "InvalidStateError" && creating) return "This device already has a passkey for this site. Use \"I have an account: sign in\".";
       if (n === "SecurityError") return "Passkeys only work on the real testnetcasino.com address over https.";
       return "The passkey could not be used. Please try again.";
     }
@@ -614,7 +614,7 @@
         if (r.status === 200 && r.data && r.data.user) return succeed(r.data.user, pkStatus);
         var code = api.errorCode(r);
         if (code === "challenge_expired") throw { api: "That took too long. Please try again." };
-        if (code === "invalid_passkey") throw { api: creating ? "The passkey could not be registered. Please try again." : "That passkey is not registered here. Create a passkey account first." };
+        if (code === "invalid_passkey") throw { api: creating ? "The passkey could not be registered. Please try again." : "That passkey is not registered here. Create an account first with \"New here? Create an account\"." };
         throw { api: api.errorText(r) };
       }).catch(function (err) {
         busy(btn, false);
