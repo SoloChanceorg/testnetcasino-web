@@ -306,6 +306,7 @@
     capShine.mask = capMask; launchTop.addChildAt(capShine, launchTop.getChildIndex(launchLabel));
     var capGlow = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 2); g.fillStyle = "#ffffff"; g.fill(); });
     capGlow.anchor.set(0.5); capGlow.blendMode = "add"; capGlow.alpha = 0; launchTop.addChildAt(capGlow, 1);
+    var ring = k.keyRing(launch, { r: LR + 14, y: LDEPTH, n: 18, color: 0xff4fd8, core: "#ffd6f6", scale: 0.9 }); launch.addChildAt(ring.view, launch.getChildIndex(launchTop));
     k.app.ticker.add(function (tk) {
       var dt = Math.min(40, tk.deltaMS);
       launchTop.y = k.keySpring(LDEPTH, dt);
@@ -314,6 +315,7 @@
       launchTop.tint = off ? 0x8c8c99 : 0xffffff;
       launch.alpha = off ? 0.8 : 1;
       launchWell.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(keyT / 140) : 0.75 + Math.sin(keyT / 600) * 0.25;
+      ring.update(s); capGlow.alpha = Math.max(capGlow.alpha, s.flash * 0.6); launchLabel.scale.set(1 + s.flash * 0.08);
       var sp = (keyT % 3600) / 3600;
       capShine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       capShine.x = -LR * 1.4 + LR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));

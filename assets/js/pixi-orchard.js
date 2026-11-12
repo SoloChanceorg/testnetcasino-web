@@ -392,6 +392,7 @@
     shine.mask = capMask; top.addChildAt(shine, top.getChildIndex(label));
     var glow = paint(240, 240, function (g) { circle(g, 120, 120, KR - 2); g.fillStyle = "#ffffff"; g.fill(); });
     glow.anchor.set(0.5); glow.blendMode = "add"; glow.alpha = 0; top.addChildAt(glow, 1);
+    var ring = k.keyRing(key, { r: KR + 14, y: DEPTH, n: 18, color: 0xffd166, core: "#fff6dc", scale: 0.9 }); key.addChildAt(ring.view, key.getChildIndex(top));
     k.app.ticker.add(function (tk) {
       var dt = Math.min(40, tk.deltaMS);
       top.y = k.keySpring(DEPTH, dt);
@@ -400,6 +401,7 @@
       top.tint = off ? 0x8c8c99 : 0xffffff;
       key.alpha = off ? 0.8 : 1;
       well.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(t / 140) : 0.75 + Math.sin(t / 600) * 0.25;
+      ring.update(s); glow.alpha = Math.max(glow.alpha, s.flash * 0.6); label.scale.set(1 + s.flash * 0.08);
       var sp = (t % 3600) / 3600;
       shine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));

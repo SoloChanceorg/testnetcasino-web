@@ -616,11 +616,12 @@
     kit.deckHit = function (x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); };
     // The spin key's depth: a spring toward its target (pressed: all the way; while the spin plays: half;
     // idle: a half press now and then, an invitation; off: up). The skin draws the key at that depth.
-    var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0;
-    kit.keyState = function () { return { busy: busy, off: !!(ctl && ctl.key && ctl.key._off) && !busy, t: keyT, x: keyX }; };
+    var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0, keyPressAt = -1e9;
+    // flash: 1 right after a press, gone 320 ms later (the cap and its ring flare with it)
+    kit.keyState = function () { return { busy: busy, off: !!(ctl && ctl.key && ctl.key._off) && !busy, t: keyT, x: keyX, flash: Math.max(0, 1 - (performance.now() - keyPressAt) / 320) }; };
     kit.keySpring = function (depth, dt) {
       var now = performance.now(), off = !!(ctl && ctl.key && ctl.key._off) && !busy, target;
-      keyT += dt;
+      dt = Math.min(50, dt); keyT += dt;
       if (now < keyPressUntil) target = depth - 2;
       else if (busy) target = depth * 0.55;
       else if (off || reduce) target = 0;
@@ -628,11 +629,35 @@
         var p = (keyT % 4200) / 4200;
         target = p < 0.7 ? 0 : p < 0.78 ? depth * 0.5 * (p - 0.7) / 0.08 : p < 0.86 ? depth * 0.5 * (1 - (p - 0.78) / 0.08) : 0;
       }
-      keyV += ((target - keyX) * 0.0009 - keyV * 0.032) * dt;     // spring (about 15% overshoot)
-      keyX += keyV * dt;
+      // The spring (about 15% overshoot), stepped at most 4 ms at a time: one step over a long frame (40 ms and
+      // more happen on a heavy win in full screen) blows up and the key shoots up and down.
+      for (var h; dt > 0; dt -= h) { h = Math.min(4, dt); keyV += ((target - keyX) * 0.0009 - keyV * 0.032) * h; keyX += keyV * h; }
+      if (keyX < -5) { keyX = -5; keyV = 0; } else if (keyX > depth + 3) { keyX = depth + 3; keyV = 0; }
       return keyX;
     };
-    function pressKey() { keyPressUntil = performance.now() + 120; }
+    function pressKey() { keyPressUntil = performance.now() + 120; keyPressAt = performance.now(); }
+    // The lit ring round a key (bulbs on the bezel): they breathe while the key is ready, chase round it while
+    // the spin plays, go dim when it is off, and all flare on a press. The skin calls update(keyState) each frame.
+    kit.keyRing = function (parent, o) {
+      var n = o.n || 16, bulbs = [], c = new PIXI.Container(); c.position.set(0, o.y || 0);
+      var tex = texOf(22, 22, function (g) {
+        var rg = g.createRadialGradient(11, 11, 1, 11, 11, 11); rg.addColorStop(0, "#ffffff"); rg.addColorStop(0.3, o.core || "#fff6dc"); rg.addColorStop(0.6, "rgba(255,255,255,.4)"); rg.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = rg; g.fillRect(0, 0, 22, 22);
+      });
+      for (var i = 0; i < n; i++) {
+        var a = -Math.PI / 2 + i / n * Math.PI * 2, s = new PIXI.Sprite(tex); s.anchor.set(0.5);
+        s.position.set(Math.cos(a) * o.r, Math.sin(a) * o.r); s.tint = o.color == null ? 0xffffff : o.color; c.addChild(s); bulbs.push(s);
+      }
+      parent.addChild(c);
+      return { view: c, update: function (st) {
+        var step = reduce ? 0 : Math.floor(st.t / 75);
+        for (var i = 0; i < n; i++) {
+          var a = st.off ? 0.1 : st.busy ? (reduce ? 0.7 : ((i - step) % 4 + 4) % 4 === 0 ? 1 : 0.16) : reduce ? 0.6 : 0.3 + 0.35 * (0.5 + 0.5 * Math.sin(st.t / 480 + i / n * 6.28));
+          a = Math.max(a, st.flash);
+          bulbs[i].alpha = a; bulbs[i].scale.set((o.scale || 1) * (0.65 + a * 0.55));
+        }
+      } };
+    };
     kit.press = function () { press(); };
     kit.setBet = function (v) { if (!busy) { sfx.chip(); setBet(v); } };
     kit.stepBet = function (d) { stepBet(d); };
