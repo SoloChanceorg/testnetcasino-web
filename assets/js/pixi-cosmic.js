@@ -58,6 +58,23 @@
     })).position.set(k.RX - 12, k.RY - 12);
   }
 
+  /* ═══ A cell full of fuel, on the reel strip itself: it rides on some passing symbols while the reels turn and
+     on the cells about to be collected, so the fuel arrives with the reel. Painted to match the live fuel cell
+     (the collector's overlay) that takes over at the stop. ═══ */
+  function cellDeco(k) {
+    var w = k.CW - 6, h = k.CH - 6;
+    return { chance: 0.07, tex: k.texOf(w, h, function (g) {
+      k.rr(g, 0, 0, w, h, 12); g.save(); g.clip();
+      g.fillStyle = "rgba(26,163,232,.92)"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "rgba(159,240,255,.35)"; g.beginPath(); g.moveTo(0, 8);
+      for (var x = 0; x <= w; x += 4) g.lineTo(x, 7 + Math.sin(x / 9) * 1.5); g.lineTo(w, h); g.lineTo(0, h); g.closePath(); g.fill();
+      g.fillStyle = "rgba(3,26,46,.35)"; g.fillRect(0, h - 30, w, 30);
+      g.strokeStyle = "rgba(230,251,255,.5)"; g.lineWidth = 1; [[14, h - 20], [42, h - 48], [70, h - 32]].forEach(function (b) { g.beginPath(); g.arc(b[0], b[1], 2, 0, Math.PI * 2); g.stroke(); });
+      g.restore();
+      k.rr(g, 1.25, 1.25, w - 2.5, h - 2.5, 12); g.lineWidth = 2.5; g.strokeStyle = "rgba(159,240,255,.65)"; g.stroke();
+    }) };
+  }
+
   /* ═══ The collector: the Fuel Tank. A fuel cell lands on the reels already full of fuel (no badge: the
      cell itself is the fuel), sloshing as the reel stops; at the collect step each cell drains along a stream
      over to the tank's inlet and pours down into the tank: the level rises with a splash and bubbles. Full:
@@ -523,6 +540,6 @@
   }
 
   window.TNC_PixiMachine.skin("cosmic", {
-    theme: theme, cabinet: cabinet, collector: collector, featureFx: featureFx, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
+    theme: theme, cabinet: cabinet, collector: collector, cellDeco: cellDeco, featureFx: featureFx, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
   });
 })();

@@ -412,12 +412,22 @@
       app.ticker.add(fn);
       return function () { app.ticker.remove(fn); g.destroy(); };
     }
+    // A skin may decorate cells on the strip itself (the Fuel Tank: a cell full of fuel): some passing symbols carry
+    // it at random while the reels turn, and the cells of the coming collect step land with it, so it arrives with
+    // the reel; the collector's live overlay takes over at the stop.
+    var DECO = skin.cellDeco ? skin.cellDeco(kit) : null;   // { tex, chance }
     function Reel(c) {
       this.c = c; this.box = new PIXI.Container(); this.box.position.set(RX + c * (CW + GAP), RY); reelsBox.addChild(this.box);
       this.sprites = []; this.mode = "idle"; this.offset = 0; this.speed = 0; this.cells = [];
       this.blur = new PIXI.BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
       this.box.filters = [this.blur];
     }
+    Reel.prototype.deco = function (s, on) {
+      if (!DECO) return;
+      if (on && !s._deco) { var d = new PIXI.Sprite(DECO.tex); d.anchor.set(0.5); d.position.set(s.x, s.y); this.box.addChild(d); s._deco = d; }
+      else if (!on && s._deco) { s._deco.destroy(); s._deco = null; }
+    };
+    function placeDeco(s) { if (s._deco) s._deco.y = s.y; }
     Reel.prototype.setStatic = function (col) {
       this.box.removeChildren(); this.sprites = []; this.cells = [];
       for (var r = 0; r < ROWS; r++) {
@@ -431,6 +441,7 @@
       for (var k = 0; k < ROWS + 2; k++) {
         var s = new PIXI.Sprite(SYMTEX[pickers[this.c]()]); s.anchor.set(0.5); s.x = CW / 2;
         this.box.addChild(s); this.sprites.push(s);
+        this.deco(s, DECO && Math.random() < DECO.chance);
       }
       this.offset = 0; this.speed = 0; this.mode = "spin";
       var self = this;
@@ -442,8 +453,9 @@
       while (this.offset >= CH) {
         this.offset -= CH;
         var last = this.sprites.pop(); last.texture = SYMTEX[pickers[this.c]()]; this.sprites.unshift(last);
+        this.deco(last, DECO && Math.random() < DECO.chance);
       }
-      for (var k = 0; k < this.sprites.length; k++) this.sprites[k].y = (k - 1) * CH + CH / 2 + this.offset;
+      for (var k = 0; k < this.sprites.length; k++) { this.sprites[k].y = (k - 1) * CH + CH / 2 + this.offset; placeDeco(this.sprites[k]); }
     };
     // Land on `col`: the final symbols come down from above and settle with a small bounce.
     Reel.prototype.land = function (col, ms) {
@@ -452,12 +464,16 @@
       this.box.removeChildren(); this.sprites = []; this.cells = [];
       var list = [pickers[this.c]()].concat(col);
       for (var k = 0; k < F; k++) list.push(pickers[this.c]());
-      var items = list.map(function (sym) {
-        var s = new PIXI.Sprite(SYMTEX[sym]); s.anchor.set(0.5); s.x = CW / 2; self.box.addChild(s); return s;
+      var items = list.map(function (sym, j) {
+        var s = new PIXI.Sprite(SYMTEX[sym]); s.anchor.set(0.5); s.x = CW / 2; self.box.addChild(s);
+        // the landing cells carry the collect step's decoration; the ones passing above and below at random
+        var row = j - 1, landing = row >= 0 && row < ROWS;
+        if (DECO) self.deco(s, landing ? !!(pendingCollect && pendingCollect.some(function (rc) { return rc[0] === self.c && rc[1] === row; })) : Math.random() < DECO.chance);
+        return s;
       });
       this.cells = items.slice(1, 1 + ROWS);
       var startShift = -F * CH;
-      function place(shift) { items.forEach(function (s, j) { s.y = (j - 1) * CH + CH / 2 + shift; }); }
+      function place(shift) { items.forEach(function (s, j) { s.y = (j - 1) * CH + CH / 2 + shift; placeDeco(s); }); }
       place(startShift);
       return animate(ms, function (p) { place(startShift * (1 - p)); self.blur.strengthY = 7 * Math.max(0, 1 - p * 1.6); }, ease.back).then(function () {
         self.blur.strengthY = 0; self.setStatic(col); reelImpact(self.c);
