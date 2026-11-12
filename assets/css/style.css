@@ -1279,6 +1279,13 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 .px-deepsea .px-fs:hover { background: linear-gradient(#fff1c4, #e2b85a 55%, #b8860b); }
 .px-cosmic .px-fs { border-color: rgba(154,107,255,.8); box-shadow: 0 0 12px rgba(154,107,255,.55); }
 body.is-fullscreen .px-stage { max-width: none; margin: 0; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
+/* Wide full screen: the jackpots as three lines at the top left of the screen (the canvas drops its own rows) */
+.px-jp-side { position: fixed; left: 14px; top: 14px; z-index: 6; width: 320px; display: grid; gap: 10px; }
+.px-jp-side[hidden] { display: none; }
+.px-jp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-radius: 12px; border: 2px solid; }
+.px-jp-name { font-family: var(--sign); font-size: 15px; letter-spacing: 3px; }
+.px-jp-val { font-family: var(--mono); font-weight: 700; font-size: 18px; white-space: nowrap; }
+.px-jp-grand { padding: 14px 16px; } .px-jp-grand .px-jp-name { font-size: 18px; } .px-jp-grand .px-jp-val { font-size: 22px; }
 body.is-fullscreen .px-machine { width: auto; }
 @media (max-width: 600px) { .px-fs { width: 30px; height: 30px; border-radius: 8px; } .px-fs svg { width: 17px; height: 17px; } }
 @keyframes px-tilt-big { 0%, 100% { transform: none; } 20% { transform: rotateX(6deg) scale(1.01); } 45% { transform: rotateX(-3deg); } 70% { transform: rotateX(1.5deg); } }

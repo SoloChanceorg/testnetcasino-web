@@ -381,6 +381,10 @@ start (no WebGL), the page says so with a "Try again" button.
   of coins, or the engine lighting. Everything runs through a compressor so the busiest moments stay punchy without
   clipping. Mute is remembered.
 - Outside the canvas, in HTML: sound, the fairness link, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
+- **Wide full screen**: in landscape full screen with room to spare at the sides (a desktop screen), the three jackpot
+  rows leave the canvas for a block at the top left of the screen (GRAND, MAJOR, MINOR as three lines in the same colours,
+  kept in step with the canvas's amounts, "WON!" included), and the cabinet alone fills the height from the top margin, so
+  the game is bigger; the music button stays bottom right. On narrower screens full screen keeps the rows on the canvas.
 - **Full screen** button, top right of the cabinet, in each cabinet's material (a wooden plaque with a gold rim, a round
   brass button, a neon key). A pointer click drops its focus afterwards, so the next Space spins instead of pressing the
   button again; a keyboard press keeps the focus where it was. The sound button does the same.
@@ -533,7 +537,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261112f`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261112g`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

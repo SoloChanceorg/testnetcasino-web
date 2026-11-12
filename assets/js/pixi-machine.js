@@ -138,7 +138,8 @@
     /* --- Page: the stage for the canvas, then the parts that stay HTML --- */
     root.innerHTML =
       '<div class="px-stage" id="px-stage"><div class="px-machine" id="slot-machine" role="application" aria-label="' + esc(game.name) + ' slot machine. Press Space to spin and to stop the reels.">' +
-        '<div class="px-canvas" id="px-canvas"><i class="px-corner c0"></i><i class="px-corner c1"></i><i class="px-corner c2"></i><i class="px-corner c3"></i></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div></div>' +
+        '<div class="px-canvas" id="px-canvas"><i class="px-corner c0"></i><i class="px-corner c1"></i><i class="px-corner c2"></i><i class="px-corner c3"></i></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div>' +
+        '<div class="px-jp-side" id="px-jp-side" hidden></div></div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
       '<section class="panel m-extras" aria-label="Sound and fairness"><div class="m-util">' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
@@ -165,13 +166,24 @@
     // Full screen: the page goes full screen, the site around the machine hides, and the canvas grows
     // to fill the screen (MARGIN px on the side that runs out first).
     var fsBtn = document.getElementById("fs-toggle"), docEl = document.documentElement, MARGIN = 10;
-    if (T.fsY != null) fsBtn.style.top = ((PT + T.fsY) / VH * 100).toFixed(2) + "%";   // a skin can move it off its cabinet art
+    var FS_Y = T.fsY != null ? T.fsY : 171;   // the button's place on the cabinet (a skin can move it off its art)
     function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    // Wide full screen (landscape, with room to spare at the sides): the jackpot rows leave the canvas for a
+    // block at the top left of the screen, and the cabinet alone fills the height, from the top margin down.
+    var JP_H = 140, SIDE_W = 340, jpSide = document.getElementById("px-jp-side"), wide = false;
+    document.body.appendChild(jpSide);   // fixed to the screen: inside the stage (CSS perspective) it would be fixed to the stage
     function fit() {
       var full = document.body.classList.contains("is-fullscreen");
-      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * VW / VH) : Math.min(stageEl.clientWidth || VW, VW);
-      app.renderer.resize(w, Math.round(w * VH / VW));
+      wide = full && innerWidth > innerHeight && (innerWidth - Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * VW / (VH - JP_H))) / 2 >= SIDE_W;
+      var off = wide ? JP_H : 0, vh = VH - off;
+      var w = full ? Math.min(innerWidth - 2 * MARGIN, (innerHeight - 2 * MARGIN) * VW / vh) : Math.min(stageEl.clientWidth || VW, VW);
+      app.renderer.resize(w, Math.round(w * vh / VW));
       app.stage.scale.set(w / VW);
+      frame.y = PT - off;
+      if (L && L.jackpots) L.jackpots.visible = !wide;   // (the layers come after the first fit)
+      jpSide.hidden = !wide;
+      document.body.classList.toggle("px-wide", wide);
+      fsBtn.style.top = ((PT + FS_Y - off) / vh * 100).toFixed(2) + "%";
     }
     // The machine leans and tilts in CSS 3D, so the canvas is not a flat rectangle on screen. Four
     // invisible markers sit on the canvas corners and move with it; a pointer is mapped back to the canvas
@@ -285,7 +297,12 @@
       val.anchor.set(1, 0.5); val.position.set(w - 22, h / 2);
       c.addChild(name, val);
       L.jackpots.addChild(c);
-      JR[key] = { c: c, val: val, sats: null, cycle: null, shown: null, won: false, maxW: w - 60 - name.width };
+      var el = document.createElement("div");   // the same row in HTML, for the wide full screen block
+      el.className = "px-jp-row" + (big ? " px-jp-grand" : "");
+      el.style.background = "linear-gradient(" + colors[0] + ", " + colors[1] + ")"; el.style.borderColor = colors[2]; el.style.boxShadow = "0 0 14px " + colors[2];
+      el.innerHTML = '<span class="px-jp-name" style="color:' + colors[3] + '">' + label + '</span><span class="px-jp-val" style="color:' + colors[4] + ';text-shadow:0 0 10px ' + colors[2] + '">…</span>';
+      jpSide.appendChild(el);
+      JR[key] = { c: c, val: val, el: el.lastChild, sats: null, cycle: null, shown: null, won: false, maxW: w - 60 - name.width };
     }
     // The GRAND looks the same on every machine (it is shared); MAJOR and MINOR take the game's colours.
     jpRow("grand", 20, 8, 720, 64, "GRAND", ["#3a0a12", "#14040a", "#ff4d5e", "#ffb3bb", "#fff1d0"], true);
@@ -295,12 +312,13 @@
     function paintJp(r) {
       if (r.shown == null || r.won) return;
       r.val.text = num(Math.round(r.shown)) + " " + unit();
+      r.el.textContent = r.val.text;
       r.val.scale.set(1);
       if (r.val.width > r.maxW) r.val.scale.set(r.maxW / r.val.width);
     }
     function jpTo(r, sats, cycle) {
       if (r.cycle != null && cycle > r.cycle) {   // won (by someone, or our own spin): WON!, then the new amount
-        r.won = true; r.val.scale.set(1); r.val.text = "WON!";
+        r.won = true; r.val.scale.set(1); r.val.text = "WON!"; r.el.textContent = "WON!";
         animate(R(2200), function (p) { r.val.alpha = Math.floor(p * 12) % 2 ? 0.35 : 1; }, ease.lin).then(function () {
           r.won = false; r.val.alpha = 1; r.shown = sats; paintJp(r);
         });

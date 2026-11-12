@@ -349,6 +349,15 @@ try {
     await sleep(400);
     const fs = await ev(`(() => { const r = document.querySelector("#px-canvas canvas").getBoundingClientRect(); return { l: r.left, t: r.top, r: innerWidth - r.right, b: innerHeight - r.bottom }; })()`);
     if (!(Math.min(fs.t, fs.b) >= 6 && Math.min(fs.t, fs.b) <= 14 && fs.l >= 6)) problems.push("full screen: " + JSON.stringify(fs));
+    // Wide full screen (a 1920 × 1080 screen): the jackpots as three lines at the top left, in step with the canvas's
+    // amounts, the canvas without its rows filling the height, with room for the block on its left.
+    await send("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+    await ev(`dispatchEvent(new Event("resize"))`); await sleep(400);
+    const wd = await ev(`(() => { const r = document.querySelector("#px-canvas canvas").getBoundingClientRect(), s = TNC_PixiState(), side = document.getElementById("px-jp-side");
+      return { wide: document.body.classList.contains("px-wide"), shown: !side.hidden && side.getBoundingClientRect().left < 40 && side.getBoundingClientRect().right < r.left, l: r.left, b: innerHeight - r.bottom,
+        rows: [...side.querySelectorAll(".px-jp-val")].map((e) => e.textContent), canvas: [s.jackpots.grand, s.jackpots.major, s.jackpots.minor] }; })()`);
+    if (!(wd.wide && wd.shown && wd.l >= 340 && wd.b >= 6 && wd.b <= 14 && JSON.stringify(wd.rows) === JSON.stringify(wd.canvas))) problems.push("wide full screen: " + JSON.stringify(wd));
+    await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
     await ev(`document.body.classList.remove("is-fullscreen"); document.documentElement.classList.remove("is-fullscreen"); dispatchEvent(new Event("resize"))`);
     // A spin (Space), with the bet of the test vector: the wins shown, the balance settled
     const v = SPINS[g];
@@ -369,7 +378,7 @@ try {
     resetApi(); signIn();
     if (!(await openMachine(g, 375))) problems.push("phone: not built " + JSON.stringify(await ev(`({ text: document.getElementById("app").textContent.slice(0, 200) })`)) + pageErrors.slice(0, 2).join(" | "));
     else if (!(await until(`document.documentElement.scrollWidth <= innerWidth && document.querySelector("#px-canvas canvas").getBoundingClientRect().width <= innerWidth`, 8000))) problems.push("phone: sideways scroll");
-    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} in sats only, Return to Player 101% with its four parts, a spin settles the balance, full screen, phone`, !problems.length, problems.join("; "));
+    check(`${g} (PixiJS machine): GRAND, MAJOR, MINOR and the ${CFG[g].collector.name} in sats only, Return to Player 101% with its four parts, a spin settles the balance, full screen (wide: jackpots top left), phone`, !problems.length, problems.join("; "));
   }
 
   /* ═══ 4a. Reels stop one by one; STOP (Space) lands them early; a win holds the next spin ═══ */
