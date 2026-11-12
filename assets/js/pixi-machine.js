@@ -122,7 +122,10 @@
     syms.forEach(function (s, i) { if (s.kind) K[s.kind] = i; else K.top = i; });
     var FS = game.freeSpins, BON = game.bonus, JPC = game.jackpot || null, COL = game.collector || null, S = game.payScale || 1;
     var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var R = function (ms) { return reduce ? Math.min(ms, Math.max(60, ms * 0.25)) : ms; };
+    // Every wait and move goes through R: shorter with reduced motion, and 1.2× faster during free spins (`feature`).
+    var FS_SPEED = 1.2;
+    var R = function (ms) { if (feature) ms = ms / FS_SPEED; return reduce ? Math.min(ms, Math.max(60, ms * 0.25)) : ms; };
+    function reelSpeed() { return feature ? 2.6 * FS_SPEED : 2.6; }   // px per ms while a reel turns
     sfx.setTheme(game.theme);
 
     function amt(n) { return GU ? GU.format(n) : fmt(n) + " " + SATS; }
@@ -410,7 +413,7 @@
       }
       this.offset = 0; this.speed = 0; this.mode = "spin";
       var self = this;
-      animate(R(260), function (p) { self.speed = 2.6 * p; self.blur.strengthY = 7 * p; });
+      var v = reelSpeed(); animate(R(260), function (p) { self.speed = v * p; self.blur.strengthY = 7 * p; });
     };
     Reel.prototype.tick = function (dt) {
       if (this.mode !== "spin") return;
@@ -686,6 +689,7 @@
       if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "Out of credit. Claim your daily bonus to play on." : T.lower + ": balance is " + amt(b) + ".", true); }
     }
     function renderFeature() {
+      fsMode(!!feature);
       if (!feature) { setFeatBar(FEATURES); return; }
       setFeatBar((feature.reward ? feature.emoji + " " + feature.name.toUpperCase() : syms[K.scatter].emoji + " FREE SPINS") + "   " + feature.left + " LEFT" +
         (feature.mult > 1 ? "   WINS ×" + feature.mult : "") + (feature.locked ? "   " + syms[K.wild].emoji + " LOCKED" : "") +
@@ -825,6 +829,46 @@
       });
     }
     kit.overlayCells = overlayCells;
+
+    /* ═══ Free-spins mode: the reels framed in the feature's colour with chase lights running round it, a tinted
+       wash over the window and the skin's own weather inside it (petals, bubbles, stars). Fades in and out. ═══ */
+    var FSC = T.fs || { color: 0xffd166, fill: 0xffd166, fillAlpha: 0.12, bulb: 0xfff1c4 };
+    var fsFill = new PIXI.Graphics().roundRect(RX, RY, RW, RH, 10).fill({ color: FSC.fill, alpha: FSC.fillAlpha == null ? 0.14 : FSC.fillAlpha });
+    L.lines.addChildAt(fsFill, 0);
+    // The weather is clipped to the window by a sprite mask (an alpha mask, not a stencil one: a stencil mask here
+    // is lost under the reel window on some skins)
+    var fsWeather = new PIXI.Container(), fsWeatherMask = new PIXI.Sprite(texOf(RW, RH, function (g, w, h) { rr(g, 0, 0, w, h, 10); g.fillStyle = "#fff"; g.fill(); }));
+    fsWeatherMask.position.set(RX, RY); L.fx.addChildAt(fsWeatherMask, 0); L.fx.addChildAt(fsWeather, 1); fsWeather.mask = fsWeatherMask;
+    var fsFrame = new PIXI.Container(); L.fx.addChild(fsFrame);
+    var FX0 = RX - 12, FY0 = RY - 12, FW = RW + 24, FH = RH + 24;
+    var frameG = new PIXI.Graphics();
+    frameG.roundRect(FX0 - 4, FY0 - 4, FW + 8, FH + 8, 18).stroke({ width: 18, color: FSC.color, alpha: 0.2 });
+    frameG.roundRect(FX0, FY0, FW, FH, 14).stroke({ width: 7, color: FSC.color, alpha: 0.95 });
+    frameG.roundRect(FX0 + 5, FY0 + 5, FW - 10, FH - 10, 10).stroke({ width: 1.5, color: 0xffffff, alpha: 0.5 });
+    fsFrame.addChild(frameG);
+    var bulbTex = texOf(18, 18, function (g) { var rg = g.createRadialGradient(9, 9, 1, 9, 9, 9); rg.addColorStop(0, "#ffffff"); rg.addColorStop(0.3, "#fff6dc"); rg.addColorStop(0.55, "rgba(255,246,220,.5)"); rg.addColorStop(1, "rgba(255,246,220,0)"); g.fillStyle = rg; g.fillRect(0, 0, 18, 18); });
+    var bulbs = [], per = 28, run = [];   // the bulbs in order round the frame, so the chase runs round it
+    for (var bx = FX0 + 16; bx <= FX0 + FW - 16; bx += per) run.push([bx, FY0]);
+    for (var by = FY0 + 16 + per / 2; by <= FY0 + FH - 16; by += per) run.push([FX0 + FW, by]);
+    for (var bx2 = FX0 + FW - 16; bx2 >= FX0 + 16; bx2 -= per) run.push([bx2, FY0 + FH]);
+    for (var by2 = FY0 + FH - 16 - per / 2; by2 >= FY0 + 16; by2 -= per) run.push([FX0, by2]);
+    run.forEach(function (p) { var s = new PIXI.Sprite(bulbTex); s.anchor.set(0.5); s.position.set(p[0], p[1]); s.tint = FSC.bulb || 0xffffff; fsFrame.addChild(s); bulbs.push(s); });
+    var fsWx = skin.featureFx ? skin.featureFx(kit, fsWeather) : null;
+    var fsOn = false, fsA = 0, fsT = 0;
+    fsFrame.visible = fsFill.visible = fsWeather.visible = false;
+    function fsMode(on) { fsOn = !!on; }
+    app.ticker.add(function (tk) {
+      var dt = Math.min(50, tk.deltaMS);
+      fsA = Math.max(0, Math.min(1, fsA + (fsOn ? dt / 450 : -dt / 600)));
+      var vis = fsA > 0; fsFrame.visible = fsFill.visible = fsWeather.visible = vis;
+      if (!vis) { if (fsWx && fsWeather.children.length) fsWx.clear(); return; }
+      fsT += dt;
+      fsFrame.alpha = fsFill.alpha = fsWeather.alpha = fsA;
+      var step = reduce ? 0 : Math.floor(fsT / 100);
+      for (var i = 0; i < bulbs.length; i++) { var lit = ((i - step) % 3 + 3) % 3 === 0; bulbs[i].alpha = lit ? 1 : 0.28; bulbs[i].scale.set(lit ? 1.2 : 0.75); }
+      frameG.alpha = reduce ? 1 : 0.86 + Math.sin(fsT / 170) * 0.14;
+      if (fsWx && !reduce) fsWx.tick(dt / 16.67, fsT / 1000, fsOn);
+    });
 
     /* ═══ Particles (coins and emoji), over the whole machine ═══ */
     var coinTex = texOf(40, 40, function (g) {
@@ -1097,7 +1141,7 @@
         var unglow = null;
         if (seen >= 2 && i >= 2 && !stopReq) {
           sfx.anticipation(R(1300) / 1000);
-          var r0 = reels[i]; animate(R(1300), function (p) { r0.speed = 2.6 + 1.6 * p; }, ease.lin);
+          var r0 = reels[i], v0 = reelSpeed(); animate(R(1300), function (p) { r0.speed = v0 + 1.6 * p; }, ease.lin);
           unglow = anticipationGlow(i);
           await stoppable(R(1300));
         } else if (i > 0) await (stopReq ? sleep(R(70)) : stoppable(R(420)));
@@ -1458,7 +1502,7 @@
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,
         banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, wins: wins.length, landed: landLog.slice(), turning: reelsTurning,
-        jpShown: jpShown, colShown: colShown, dimmed: dimCount, wheel: kit.wheelStopped == null ? null : kit.wheelStopped, picks: kit.picksShown || 0, pearls: kit.pearlsShown || 0, keySub: keySub,
+        jpShown: jpShown, colShown: colShown, dimmed: dimCount, fsMode: fsA > 0, weather: fsWeather.children.length, wheel: kit.wheelStopped == null ? null : kit.wheelStopped, picks: kit.picksShown || 0, pearls: kit.pearlsShown || 0, keySub: keySub,
         bounds: (function () { var b = world.getLocalBounds(); return [Math.round(b.minX), Math.round(b.minY), Math.round(b.maxX), Math.round(b.maxY)]; })() };
     };
     window.TNC_PixiGo = function () { if (kit._stageGo) { kit._stageGo(); return true; } return false; };

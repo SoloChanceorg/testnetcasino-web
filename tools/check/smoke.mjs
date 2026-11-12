@@ -432,6 +432,7 @@ try {
         if (R.lcd[R.lcd.length - 1] !== s.lcd) R.lcd.push(s.lcd);
         if (s.banner && R.banner[R.banner.length - 1] !== s.banner) R.banner.push(s.banner);
         if (s.tank.full) R.full = true; const ct = s.tank.filled + " / " + s.tank.size; if (R.count[R.count.length - 1] !== ct) R.count.push(ct);
+        if (s.fsMode) R.fs = true; R.weather = Math.max(R.weather || 0, s.weather || 0);
       }, 40);
       TNC_PixiBet(${v.bet}); })()`);
     await ev(space);
@@ -485,6 +486,7 @@ try {
     if (!r.rec.banner.some((b) => b.startsWith(cfg.collector.name.toUpperCase() + " FULL!"))) problems.push("banners: " + JSON.stringify(r.rec.banner.slice(0, 4)));
     if (R.type === "freeSpins") {
       if (!r.rec.sign.some((t) => t.includes(R.name.toUpperCase()) && (!R.lockedWild || t.includes("LOCKED")))) problems.push("feature sign: " + JSON.stringify(r.rec.sign.slice(-3)));
+      if (!r.rec.fs) problems.push("the free-spins frame never showed");   // (the weather stays off under the suite's reduced motion)
     } else {
       const pearls = rw.steps[0].start.length + rw.steps[0].respins.reduce((n, x) => n + x.length, 0);
       if (r.rec.pearls !== pearls) problems.push(`${r.rec.pearls} pearls shown, expected ${pearls}`);
@@ -492,7 +494,7 @@ try {
     }
     if (r.count !== `0 / ${COLLECTOR[g].size}`) problems.push(`collector shows ${r.count} after the reward`);
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tBCH sats, then the collector starts again`, !problems.length, problems.join("; "));
+    check(`${g}: filling the ${cfg.collector.name} plays ${R.name} at ${v.rewardBet} tBCH sats (free spins framed), then the collector starts again`, !problems.length, problems.join("; "));
   }
   {
     // The bonus games, from steps the fake server adds to a plain spin: Harvest Pick, Ship's Wheel, Warp Ladder.

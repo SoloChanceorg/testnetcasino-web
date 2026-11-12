@@ -18,6 +18,7 @@
     welcome: "Welcome, commander! Set the thrust and press LAUNCH", twist: "ALL WINS ×3",
     jp: { major: ["#2a1260", "#160a36", "#9a6bff", "#e0c3ff", "#e0c3ff"], minor: ["#0b2a4a", "#071a30", "#2ec5ff", "#9ff0ff", "#9ff0ff"] },
     feat: { fill: "rgba(46,197,255,.08)", stroke: "rgba(46,197,255,.55)", text: "#cfe0ff", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#2a1c02" },
+    fs: { color: 0xff4fd8, fill: 0xff4fd8, fillAlpha: 0.1, bulb: 0xffe6ff },   // free spins: hyperspace, magenta frame
     reel: { strip: ["#c9bfec", "#ece7fb", "#fbfaff"], shade: "18,6,48", divider: ["#1a0b3d", "#b9a6ff", "#f3eeff", "#8a73d9"],
       inner: "rgba(8,2,30,.9)", rim: "rgba(190,170,255,.55)", symShadow: "rgba(40,20,90,.3)", fixed: 0xfff4d6 },
     lcd: { bg: "rgba(4,18,30,.92)", border: "rgba(46,197,255,.6)", text: "#9ff0ff", glow: "#2ec5ff", hot: "#ffe79a", sub: "#7fb8d6" },
@@ -459,7 +460,30 @@
     }, idx, ui);
   }
 
+  /* ═══ Free spins weather: hyperspace. Stars streak across the reel window, faster the nearer they are ═══ */
+  function featureFx(k, layer) {
+    var PIXI = k.PIXI, RX = k.RX, RY = k.RY, RW = k.RW, RH = k.RH, ps = [];
+    var STREAK = k.texOf(64, 4, function (g) { g.fillStyle = k.hgrad(g, 0, 64, ["rgba(255,255,255,0)", "rgba(230,251,255,.9)", "#ffffff"]); g.fillRect(0, 0, 64, 4); });
+    var STAR = k.texOf(8, 8, function (g) { var rg = g.createRadialGradient(4, 4, 0.5, 4, 4, 4); rg.addColorStop(0, "#ffffff"); rg.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = rg; g.fillRect(0, 0, 8, 8); });
+    var TINT = [0xffffff, 0x9ff0ff, 0xffe6ff, 0xffd166];
+    return {
+      tick: function (dt, t, on) {
+        if (on && ps.length < 40 && Math.random() < 0.6 * dt) {
+          var near = Math.random(), s = new PIXI.Sprite(near > 0.75 ? STREAK : STAR); s.anchor.set(1, 0.5);
+          s.position.set(RX + RW + 70, RY + Math.random() * RH); s.tint = TINT[Math.floor(Math.random() * TINT.length)];
+          s.scale.set(near > 0.75 ? 0.8 + near : 0.5 + near, near > 0.75 ? 0.8 : 0.5 + near); s.alpha = 0.35 + near * 0.6;
+          layer.addChild(s); ps.push({ s: s, vx: 3 + near * 11 });
+        }
+        for (var i = ps.length - 1; i >= 0; i--) {
+          var p = ps[i]; p.s.x -= p.vx * dt;
+          if (p.s.x < RX - 10) { p.s.destroy(); ps.splice(i, 1); }
+        }
+      },
+      clear: function () { ps.forEach(function (p) { p.s.destroy(); }); ps = []; }
+    };
+  }
+
   window.TNC_PixiMachine.skin("cosmic", {
-    theme: theme, cabinet: cabinet, collector: collector, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
+    theme: theme, cabinet: cabinet, collector: collector, featureFx: featureFx, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
   });
 })();

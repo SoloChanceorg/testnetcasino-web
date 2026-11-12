@@ -19,6 +19,7 @@
     welcome: "Welcome to the orchard! Pick a price tag and press SPIN", twist: "STICKY WILDS",
     jp: { major: ["#5a2a0a", "#2e1504", "#ff9f43", "#ffd6a8", "#ffe6c8"], minor: ["#1f4a14", "#10260a", "#7ddc5a", "#c8ffb0", "#dcffd0"] },
     feat: { fill: "rgba(43,22,6,.55)", stroke: "rgba(255,214,102,.6)", text: "#fff1d6", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#3b2109" },
+    fs: { color: 0xff6fa3, fill: 0xffb3c6, fillAlpha: 0.14, bulb: 0xfff1c4 },   // free spins: blossom pink frame, warm bulbs
     reel: { strip: ["#e2d2ae", "#f4ead2", "#fffaf0"], shade: "70,36,8", divider: ["#2b1606", "#b07a40", "#f3e2b8", "#7a4a22"],
       inner: "rgba(40,18,4,.9)", rim: "rgba(255,214,140,.6)", symShadow: "rgba(90,45,10,.3)", fixed: 0xfff4d6 },
     lcd: { text: "#f6f3e8", glow: "rgba(255,255,255,.45)", hot: "#c8ffb0", sub: "#ffd166", font: "Poppins, sans-serif",
@@ -539,7 +540,29 @@
     await k.sleep(k.R(700));
   }
 
+  /* ═══ Free spins weather: blossom petals and small leaves drift down across the reel window ═══ */
+  function featureFx(k, layer) {
+    var PIXI = k.PIXI, RX = k.RX, RY = k.RY, RW = k.RW, RH = k.RH, ps = [];
+    function petal(c0, c1) { return k.texOf(14, 14, function (g) { g.fillStyle = k.grad(g, 0, 14, [c0, c1]); g.beginPath(); g.moveTo(7, 0); g.bezierCurveTo(14, 2, 14, 11, 7, 14); g.bezierCurveTo(0, 11, 0, 2, 7, 0); g.fill(); }); }
+    var TEX = [petal("#ffb3c6", "#ff5c8a"), petal("#ff8fb0", "#e8406f"), petal("#ffe0a8", "#ff9f43"), petal("#ffd6e8", "#ff6fa3"),
+      k.texOf(16, 10, function (g) { g.beginPath(); g.moveTo(1, 5); g.quadraticCurveTo(8, -3, 15, 5); g.quadraticCurveTo(8, 13, 1, 5); g.fillStyle = k.hgrad(g, 0, 16, ["#a5e86f", "#5db43c"]); g.fill(); })];
+    return {
+      tick: function (dt, t, on) {
+        if (on && ps.length < 30 && Math.random() < 0.3 * dt) {
+          var s = new PIXI.Sprite(TEX[Math.floor(Math.random() * TEX.length)]); s.anchor.set(0.5);
+          s.position.set(RX + Math.random() * RW, RY - 12); s.alpha = 0.8 + Math.random() * 0.2; s.scale.set(1 + Math.random() * 0.8); s.rotation = Math.random() * 6.3;
+          layer.addChild(s); ps.push({ s: s, vy: 0.5 + Math.random() * 0.7, ph: Math.random() * 6.3, vr: (Math.random() - 0.5) * 0.05, sw: 0.5 + Math.random() * 0.9 });
+        }
+        for (var i = ps.length - 1; i >= 0; i--) {
+          var p = ps[i]; p.s.y += p.vy * dt; p.s.x += Math.sin(t * 1.6 + p.ph) * p.sw * dt; p.s.rotation += p.vr * dt;
+          if (p.s.y > RY + RH + 12) { p.s.destroy(); ps.splice(i, 1); }
+        }
+      },
+      clear: function () { ps.forEach(function (p) { p.s.destroy(); }); ps = []; }
+    };
+  }
+
   window.TNC_PixiMachine.skin("orchard", {
-    theme: theme, cabinet: cabinet, collector: collector, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
+    theme: theme, cabinet: cabinet, collector: collector, featureFx: featureFx, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot
   });
 })();

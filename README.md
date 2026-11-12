@@ -364,6 +364,12 @@ start (no WebGL), the page says so with a "Try again" button.
 - **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
+- **Free spins mode**: while a feature runs (free spins, Harvest Festival, Hyperdrive) everything plays 1.2× faster (every
+  wait and move goes through one timing helper, and the reels turn faster), the reel window is framed in the feature's own
+  colour (blossom pink in the orchard, sea green under water, magenta in space) with chase lights running round it, a
+  translucent wash tints the window, and the skin's weather drifts through it: petals and leaves falling in the orchard,
+  bubbles rising with shafts of light in the deep sea, stars streaking past in hyperspace. It fades in and out with the
+  feature. A skin sets `fs` in its theme and `featureFx(kit, layer)` for the weather.
 - The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
   bit on MEGA and TOP PRIZE wins, and when the collector fills; the canvas also shakes. Shorter with reduced motion.
 - **Sound** (`assets/js/audio.js`) is synthesized with the Web Audio API, no files: one pack per game (marimba and birdsong
@@ -524,7 +530,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261112d`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261112e`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

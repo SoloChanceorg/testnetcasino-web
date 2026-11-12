@@ -21,6 +21,7 @@
     welcome: "Welcome aboard, diver! Turn the dial and press DIVE", twist: "RISING TIDE",
     jp: { major: ["#3a1a4a", "#1c0a26", "#c86bff", "#e8c8ff", "#f0dcff"], minor: ["#06323f", "#031c24", "#2ec5ff", "#a8ecff", "#c8f4ff"] },
     feat: { fill: "rgba(2,24,36,.6)", stroke: "rgba(212,169,74,.65)", text: "#d8f3ff", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#2a1c02" },
+    fs: { color: 0x3dd9a4, fill: 0x2ec5ff, fillAlpha: 0.13, bulb: 0xcffff0 },   // free spins: the rising tide, sea-green frame
     reel: { strip: ["#b5d9e3", "#e0f3f7", "#f7fdff"], shade: "4,30,48", divider: ["#2a1d05", "#b8902f", "#fff1c4", "#7a5a14"],
       inner: "rgba(2,14,26,.9)", rim: "rgba(255,225,150,.6)", symShadow: "rgba(0,40,60,.3)", fixed: 0xeafcff },
     lcd: { text: "#7dffd8", glow: "#18c9a0", hot: "#ffe79a", sub: "#7fc4b8",
@@ -572,7 +573,35 @@
     }());
   }
 
+  /* ═══ Free spins weather: the rising tide. Bubbles rise through the reel window and shafts of light sweep across it ═══ */
+  function featureFx(k, layer) {
+    var PIXI = k.PIXI, RX = k.RX, RY = k.RY, RW = k.RW, RH = k.RH, ps = [];
+    var BUB = k.texOf(20, 20, function (g) {
+      g.beginPath(); g.arc(10, 10, 8.5, 0, Math.PI * 2); g.strokeStyle = "rgba(230,251,255,.85)"; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = "rgba(255,255,255,.14)"; g.fill(); g.fillStyle = "rgba(255,255,255,.8)"; g.beginPath(); g.ellipse(7, 6.5, 2.4, 1.4, -0.7, 0, Math.PI * 2); g.fill();
+    });
+    var rays = [0, 1].map(function (i) {
+      var s = k.paint(90, RH + 80, function (g, w, h) { g.fillStyle = k.hgrad(g, 0, w, ["rgba(159,240,255,0)", "rgba(159,240,255,.22)", "rgba(159,240,255,0)"]); g.fillRect(0, 0, w, h); });
+      s.anchor.set(0.5); s.rotation = 0.35; s.position.set(RX + RW * (0.3 + i * 0.45), RY + RH / 2); s.alpha = 0.9; layer.addChild(s); return { s: s, x0: s.x, ph: i * 2.1 };
+    });
+    return {
+      tick: function (dt, t, on) {
+        rays.forEach(function (r) { r.s.x = r.x0 + Math.sin(t * 0.35 + r.ph) * 110; r.s.alpha = 0.6 + Math.sin(t * 0.9 + r.ph) * 0.35; r.s.visible = true; });
+        if (on && ps.length < 34 && Math.random() < 0.35 * dt) {
+          var s = new PIXI.Sprite(BUB); s.anchor.set(0.5); var sc = 0.3 + Math.random() * 0.8;
+          s.position.set(RX + Math.random() * RW, RY + RH + 12); s.scale.set(sc); s.alpha = 0.5 + Math.random() * 0.4;
+          layer.addChild(s); ps.push({ s: s, vy: 0.6 + sc * 1.1, ph: Math.random() * 6.3, sw: 0.3 + Math.random() * 0.6 });
+        }
+        for (var i = ps.length - 1; i >= 0; i--) {
+          var p = ps[i]; p.s.y -= p.vy * dt; p.s.x += Math.sin(t * 3 + p.ph) * p.sw * dt;
+          if (p.s.y < RY - 12) { p.s.destroy(); ps.splice(i, 1); }
+        }
+      },
+      clear: function () { ps.forEach(function (p) { p.s.destroy(); }); ps = []; rays.forEach(function (r) { r.s.visible = false; }); }
+    };
+  }
+
   window.TNC_PixiMachine.skin("deepsea", {
-    theme: theme, cabinet: cabinet, collector: collector, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot, holdAndWin: holdAndWin
+    theme: theme, cabinet: cabinet, collector: collector, featureFx: featureFx, base: base, surface: surface, deck: deck, bonus: bonus, jackpot: jackpot, holdAndWin: holdAndWin
   });
 })();
