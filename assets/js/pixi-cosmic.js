@@ -57,43 +57,177 @@
     })).position.set(k.RX - 12, k.RY - 12);
   }
 
-  /* ═══ The collector: the Fuel Tank ═══ */
+  /* ═══ The collector: the Fuel Tank. When fuel cells land, fuel pours into them on the reels, then streams
+     out of each cell over to the tank's inlet and pours down into the tank: the level rises with a splash
+     and bubbles. Full: the tank blazes and the thruster under it lights; when the Hyperdrive is over the
+     fuel drains away. ═══ */
   function collector(k, tank) {
-    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK;
+    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK, PIXI = k.PIXI, L = k.L;
+    var cx = TW / 2, TIN = { x: 26, y: 66, w: TW - 52, h: TH - 92 }, INLET_Y = TIN.y - 30;
+    var glowBack = k.paint(TW + 80, TH + 80, function (g, w, h) {
+      var rg = g.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w / 2); rg.addColorStop(0, "rgba(159,240,255,.7)"); rg.addColorStop(0.5, "rgba(46,197,255,.3)"); rg.addColorStop(1, "rgba(46,197,255,0)");
+      g.fillStyle = rg; g.fillRect(0, 0, w, h);
+    });
+    glowBack.anchor.set(0.5); glowBack.position.set(cx, TH / 2); glowBack.alpha = 0; tank.addChild(glowBack);
     var tankGlass = k.paint(TW, TH, function (g, w, h) {
       g.shadowColor = T.neon; g.shadowBlur = 16; rr(g, 4, 4, w - 8, h - 8, 10); g.fillStyle = "rgba(10,6,30,.92)"; g.fill();
       g.shadowBlur = 0; g.lineWidth = 2.5; g.strokeStyle = T.neon; g.stroke();
     });
     tank.addChild(tankGlass);
     var tankName = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 13, fill: "#9ff0ff", letterSpacing: 1.5 }); tankName.position.set(TW / 2, 22); tank.addChild(tankName);
-    var TIN = { x: 28, y: 44, w: TW - 56, h: TH - 62 };
-    tank.addChild(k.paint(TIN.w + 8, TIN.h + 8, function (g, w, h) {
-      rr(g, 3, 3, w - 6, h - 6, 18); g.fillStyle = "rgba(0,0,0,.55)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.8)"; g.stroke();
-    })).position.set(TIN.x - 4, TIN.y - 4);
-    var fuel = new PIXI.Graphics(); tank.addChild(fuel);
-    var fuelMask = new PIXI.Graphics().roundRect(TIN.x, TIN.y, TIN.w, TIN.h, 15).fill(0xffffff); tank.addChild(fuelMask); fuel.mask = fuelMask;
-    var marks = new PIXI.Graphics();
-    for (var mk = 1; mk < 10; mk++) marks.moveTo(TIN.x + 4, TIN.y + TIN.h * mk / 10).lineTo(TIN.x + 14, TIN.y + TIN.h * mk / 10);
-    marks.stroke({ width: 1.5, color: 0x9ff0ff, alpha: 0.5 }); tank.addChild(marks);
-    var tankIcon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "⛽", 40)); tankIcon.anchor.set(0.5); tankIcon.position.set(TW / 2, TIN.y + 24); tankIcon.alpha = 0.9; tank.addChild(tankIcon);
+    // The tank itself: metal caps above and below the glass, the inlet pipe on top, the thruster nozzle underneath
+    tank.addChild(k.paint(TW, TH, function (g) {
+      function cap(y) { rr(g, TIN.x - 7, y, TIN.w + 14, 20, 8); g.fillStyle = k.grad(g, y, y + 20, ["#9b92c4", "#4a3f7a", "#241a48"]); g.fill(); g.lineWidth = 1.5; g.strokeStyle = "rgba(46,197,255,.6)"; g.stroke(); }
+      cap(TIN.y - 14); cap(TIN.y + TIN.h - 6);
+      rr(g, cx - 8, INLET_Y, 16, 20, 3); g.fillStyle = k.hgrad(g, cx - 8, cx + 8, ["#2a2050", "#b9a6ff", "#2a2050"]); g.fill(); g.lineWidth = 1.5; g.strokeStyle = "rgba(46,197,255,.6)"; g.stroke();
+      g.beginPath(); g.moveTo(cx - 15, INLET_Y - 3); g.lineTo(cx + 15, INLET_Y - 3); g.lineTo(cx + 9, INLET_Y + 5); g.lineTo(cx - 9, INLET_Y + 5); g.closePath();   // the flared mouth
+      g.fillStyle = k.grad(g, INLET_Y - 3, INLET_Y + 5, ["#cfc4ff", "#5a4a9a"]); g.fill(); g.stroke();
+      g.fillStyle = "#06101c"; g.beginPath(); g.ellipse(cx, INLET_Y - 3, 13, 3.5, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "rgba(159,240,255,.7)"; g.lineWidth = 1; g.beginPath(); g.ellipse(cx, INLET_Y - 3, 13, 3.5, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(cx - 11, TIN.y + TIN.h + 12); g.lineTo(cx + 11, TIN.y + TIN.h + 12); g.lineTo(cx + 17, TH - 6); g.lineTo(cx - 17, TH - 6); g.closePath();   // the nozzle
+      g.fillStyle = k.hgrad(g, cx - 17, cx + 17, ["#241a48", "#6a5aa8", "#241a48"]); g.fill(); g.lineWidth = 1.5; g.strokeStyle = "rgba(46,197,255,.6)"; g.stroke();
+      rr(g, TIN.x - 4, TIN.y - 4, TIN.w + 8, TIN.h + 8, 18); g.fillStyle = "rgba(0,0,0,.6)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.8)"; g.stroke();   // the glass
+    }));
+    var glassC = new PIXI.Container(); tank.addChild(glassC);
+    var glassMask = new PIXI.Graphics().roundRect(TIN.x, TIN.y, TIN.w, TIN.h, 15).fill(0xffffff); tank.addChild(glassMask); glassC.mask = glassMask;
+    var fuel = new PIXI.Graphics(), bubbleG = new PIXI.Graphics(), inner = new PIXI.Graphics(); glassC.addChild(fuel, bubbleG, inner);
+    tank.addChild(k.paint(TW, TH, function (g) {                                               // the glass: a highlight, the gauge marks, E and F
+      g.fillStyle = "rgba(255,255,255,.1)"; rr(g, TIN.x + 7, TIN.y + 10, 9, TIN.h - 20, 5); g.fill();
+      g.strokeStyle = "rgba(159,240,255,.5)"; g.lineWidth = 1.5;
+      for (var mk = 0; mk <= 10; mk++) { var y = TIN.y + TIN.h * mk / 10, len = mk % 5 ? 6 : 12; g.beginPath(); g.moveTo(TIN.x + TIN.w - 4 - len, y); g.lineTo(TIN.x + TIN.w - 4, y); g.stroke(); }
+      g.font = "700 11px " + k.SIGN.split(",")[0]; g.textAlign = "right"; g.fillStyle = "rgba(159,240,255,.75)";
+      g.fillText("F", TIN.x + TIN.w - 17, TIN.y + 12); g.fillText("E", TIN.x + TIN.w - 17, TIN.y + TIN.h - 4);
+    }));
+    var flame = new PIXI.Graphics(); tank.addChild(flame);
     var tankFull = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#000", width: 3 } });
     tankFull.position.set(TW / 2, TIN.y + TIN.h / 2); tankFull.visible = false; tank.addChild(tankFull);
-    var wave = 0;
+    var SPARK = k.texOf(14, 14, function (g) { g.fillStyle = "#fff3c0"; g.beginPath(); g.moveTo(7, 0); g.lineTo(8.6, 5.4); g.lineTo(14, 7); g.lineTo(8.6, 8.6); g.lineTo(7, 14); g.lineTo(5.4, 8.6); g.lineTo(0, 7); g.lineTo(5.4, 5.4); g.closePath(); g.fill(); });
+    // The streams from the reels to the inlet are drawn over the machine
+    var fxG = new PIXI.Graphics(); L.fx.addChild(fxG);
+    var streams = [], cellsFx = [], bubbles = [];
+    var t = 0, disp = 0, pourT = 0, shakeT = 0, glowKick = 0, flameOn = 0;
+    function bez(q, u) {
+      var v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+      return { x: a * q[0] + b * q[2] + c * q[4] + d * q[6], y: a * q[1] + b * q[3] + c * q[5] + d * q[7] };
+    }
+    function liquid(g, x, top, w, bot, amp, phase, color, alpha) {   // a body of fuel with a wavy surface
+      g.moveTo(x, bot);
+      for (var i = 0; i <= w; i += 4) g.lineTo(x + i, top + Math.sin(phase + i / 9) * amp + Math.sin(phase * 1.7 + i / 5) * amp * 0.4);
+      g.lineTo(x + w, bot).closePath().fill({ color: color, alpha: alpha });
+    }
     k.app.ticker.add(function (tk) {
-      wave += tk.deltaMS / 400;
-      var lvl = TANK.level, top = TIN.y + TIN.h * (1 - lvl);
+      var dt = Math.min(50, tk.deltaMS) / 16.67; t += tk.deltaMS / 1000;
+      var lvl = TANK.level, isFull = TANK.full;
+      disp = lvl >= disp ? lvl : disp + (lvl - disp) * Math.min(1, 0.07 * dt);   // it drains on its own time
+      pourT -= tk.deltaMS; shakeT -= tk.deltaMS; glowKick *= Math.pow(0.94, dt);
+      tank.x = k.TX + (shakeT > 0 ? (Math.random() - 0.5) * 5 * Math.min(1, shakeT / 300) : 0);
+      glowBack.alpha = Math.min(1, glowKick + (isFull ? 0.45 + Math.sin(t * 6) * 0.25 : 0));
+      var pouring = pourT > 0, top = TIN.y + TIN.h * (1 - disp), bot = TIN.y + TIN.h, phase = t * 2.4;
       fuel.clear();
-      if (lvl <= 0) return;
-      fuel.moveTo(TIN.x, TIN.y + TIN.h);
-      for (var x = 0; x <= TIN.w; x += 4) fuel.lineTo(TIN.x + x, top + Math.sin(wave + x / 9) * 2.5);
-      fuel.lineTo(TIN.x + TIN.w, TIN.y + TIN.h).closePath().fill({ color: 0x2ec5ff, alpha: 0.9 });
-      fuel.rect(TIN.x, top + 6, TIN.w, 3).fill({ color: 0x9ff0ff, alpha: 0.6 });
-      if (TANK.full) tankFull.scale.set(1 + Math.sin(wave * 3) * 0.06);
+      if (disp > 0) {
+        var body = isFull ? 0x5fd8ff : 0x1aa3e8;
+        liquid(fuel, TIN.x, top, TIN.w, bot, pouring ? 3.5 : 2, phase, body, 0.92);
+        liquid(fuel, TIN.x, top + 7, TIN.w, bot, pouring ? 3 : 1.5, phase + 1.3, 0x9ff0ff, 0.35);
+        fuel.rect(TIN.x, bot - 44, TIN.w, 44).fill({ color: 0x031a2e, alpha: 0.35 });
+        if (isFull) fuel.rect(TIN.x, TIN.y, TIN.w, TIN.h).fill({ color: 0xffffff, alpha: 0.1 + Math.sin(t * 6) * 0.08 });
+      }
+      inner.clear();
+      if (pouring) {   // the pour inside the tank, from the inlet to the surface, and the splash where it lands
+        var ww = 7 + Math.sin(t * 23) * 1.5, end = Math.min(top + 3, bot);
+        inner.rect(cx - ww / 2 - 3, TIN.y - 2, ww + 6, end - TIN.y + 2).fill({ color: 0x2ec5ff, alpha: 0.3 });
+        inner.rect(cx - ww / 2, TIN.y - 2, ww, end - TIN.y + 2).fill({ color: 0x5fd8ff, alpha: 0.95 });
+        inner.rect(cx - 1, TIN.y - 2, 2, end - TIN.y + 2).fill({ color: 0xe6fbff, alpha: 0.8 });
+        inner.ellipse(cx, top + 2, 12 + Math.sin(t * 17) * 3, 4).stroke({ width: 2, color: 0xcff6ff, alpha: 0.7 });
+        if (Math.random() < 0.6 * dt) bubbles.push({ x: cx + (Math.random() - 0.5) * 26, y: top + 4 + Math.random() * 20, r: 1.5 + Math.random() * 2.5, vy: -(0.5 + Math.random() * 0.8), life: 0 });
+        if (Math.random() < 0.5 * dt) k.emit(1, k.TX + cx + (Math.random() - 0.5) * 20, k.TY + top, { tex: SPARK, tint: 0x9ff0ff, power: 2.5, cone: 2.2, g: 0.2, life: 22, spread: 4, spreadY: 2, flip: false, scale: 0.5, spin: 0 });
+      } else if (disp > 0.04 && Math.random() < 0.03 * dt) bubbles.push({ x: TIN.x + 10 + Math.random() * (TIN.w - 20), y: bot - 6, r: 1 + Math.random() * 2, vy: -(0.3 + Math.random() * 0.4), life: 0 });
+      bubbleG.clear();
+      for (var i = bubbles.length - 1; i >= 0; i--) {
+        var b = bubbles[i]; b.y += b.vy * dt; b.x += Math.sin(t * 5 + b.r) * 0.2 * dt; b.life += dt;
+        if (b.y < top + 2 || b.life > 200) { bubbles.splice(i, 1); continue; }
+        bubbleG.circle(b.x, b.y, b.r).stroke({ width: 1, color: 0xe6fbff, alpha: 0.55 }).fill({ color: 0xffffff, alpha: 0.12 });
+      }
+      cellsFx.forEach(function (cf) {   // fuel inside a reel cell
+        var g = cf.liq, w = k.CW - 6, h = k.CH - 6, x = -w / 2, b2 = h / 2; g.clear();
+        if (cf.pouring) { var pw = 8 + Math.sin(t * 25) * 1.5; g.rect(-pw / 2, -b2, pw, h * (1 - cf.level) + 6).fill({ color: 0x5fd8ff, alpha: 0.95 }); g.rect(-1, -b2, 2, h * (1 - cf.level) + 6).fill({ color: 0xe6fbff, alpha: 0.8 }); }
+        if (cf.level > 0) {
+          var tp = b2 - h * cf.level;
+          liquid(g, x, tp, w, b2, cf.pouring || cf.draining ? 3 : 1.5, phase + cf.x / 50, 0x1aa3e8, 0.85);
+          liquid(g, x, tp + 6, w, b2, 2, phase + 1.1, 0x9ff0ff, 0.35);
+          if (cf.draining) g.ellipse(w / 2 - 14, b2 - 6, 9, 3).fill({ color: 0x5fd8ff, alpha: 0.9 });   // where it drains out, low on the right
+        }
+      });
+      fxG.clear();
+      for (var si = streams.length - 1; si >= 0; si--) {
+        var st = streams[si];
+        if (st.tail >= 1) { streams.splice(si, 1); continue; }
+        var pts = [], n = 28;
+        for (var j = 0; j <= n; j++) { var u = st.tail + (st.head - st.tail) * j / n; pts.push(bez(st.q, u)); }
+        if (pts.length < 2 || st.head <= st.tail) continue;
+        [[16, 0x2ec5ff, 0.22], [8, 0x2ec5ff, 0.95], [2.5, 0xe6fbff, 0.8]].forEach(function (w) {
+          fxG.moveTo(pts[0].x, pts[0].y); for (var p = 1; p < pts.length; p++) fxG.lineTo(pts[p].x, pts[p].y);
+          fxG.stroke({ width: w[0], color: w[1], alpha: w[2], cap: "round", join: "round" });
+        });
+        var hd = pts[pts.length - 1]; fxG.circle(hd.x, hd.y, 6 + Math.sin(t * 30) * 1.5).fill({ color: 0xe6fbff, alpha: 0.8 });
+      }
+      flameOn = isFull ? Math.min(1, flameOn + 0.08 * dt) : Math.max(0, flameOn - 0.06 * dt);
+      flame.clear();
+      if (flameOn > 0) {
+        var fy = TH - 6, fl = flameOn * (26 + Math.sin(t * 31) * 5 + Math.random() * 6);
+        [[17, fl, 0x2ec5ff, 0.6], [11, fl * 0.75, 0x9ff0ff, 0.85], [5, fl * 0.45, 0xffffff, 0.95]].forEach(function (f) {
+          flame.moveTo(cx - f[0], fy).quadraticCurveTo(cx - f[0] * 0.4, fy + f[1] * 0.7, cx + Math.sin(t * 19) * 2, fy + f[1]).quadraticCurveTo(cx + f[0] * 0.4, fy + f[1] * 0.7, cx + f[0], fy).closePath().fill({ color: f[2], alpha: f[3] * flameOn });
+        });
+        if (Math.random() < 0.35 * dt) k.emit(1, k.TX + cx, k.TY + fy + 6, { tex: SPARK, tint: 0x9ff0ff, angle: Math.PI / 2, cone: 0.9, power: 5, g: 0.08, life: 30, spread: 10, spreadY: 2, flip: true, scale: 0.6 });
+      }
+      if (isFull) tankFull.scale.set(1 + Math.sin(t * 7) * 0.06);
     });
     return {
       count: function () {},   // no numbers: the fuel level itself shows how full it is
       flash: function (on) { tankFull.visible = on; tankGlass.tint = on ? 0xffe9a8 : 0xffffff; },
-      target: function () { return { x: k.TX + TW / 2, y: k.TY + TIN.y + TIN.h * 0.5 }; }
+      target: function () { return { x: k.TX + cx, y: k.TY + TIN.y + TIN.h * 0.5 }; },
+      // Fuel pours into each fuel cell on the reels; then each cell drains along a stream to the inlet, and the tank fills.
+      collect: async function (items, o) {
+        var n = items.length, reduce = k.reduce;
+        cellsFx = o.cells.map(function (rc) {
+          var xy = k.cellXY(rc[0], rc[1]), c = new PIXI.Container(); c.position.set(xy.x, xy.y);
+          var m = new PIXI.Graphics().roundRect(-k.CW / 2 + 3, -k.CH / 2 + 3, k.CW - 6, k.CH - 6, 12).fill(0xffffff); c.addChild(m);
+          var liq = new PIXI.Graphics(); liq.mask = m; c.addChild(liq); L.fx.addChild(c);
+          return { c: c, liq: liq, level: 0, pouring: true, draining: false, x: xy.x, y: xy.y };
+        });
+        k.sfx.pour(0.7 + n * 0.15);
+        await Promise.all(cellsFx.map(function (cf, j) {
+          return k.sleep(reduce ? 0 : j * 160).then(function () { return k.animate(reduce ? 1 : 650, function (p) { cf.level = p; }, k.ease.lin); }).then(function () { cf.pouring = false; });
+        }));
+        await k.sleep(reduce ? 0 : 300);
+        var ix = k.TX + cx, iy = k.TY + INLET_Y - 4;
+        k.sfx.pour(0.8 + n * 0.35);
+        await Promise.all(cellsFx.map(function (cf, j) {
+          return k.sleep(reduce ? 0 : j * 340).then(async function () {
+            var s = items[j], s0 = s && !s.destroyed ? s.scale.x : 0;
+            var x0 = cf.x + k.CW / 2 - 14, y0 = cf.y + k.CH / 2 - 9;
+            var st = { q: [x0, y0, x0 + 120, y0 - 120, ix - 40, iy - 80, ix, iy], head: 0, tail: 0 }; streams.push(st);
+            cf.draining = true; k.sfx.collectItem(n > 1 ? j / (n - 1) : 0);
+            await k.animate(reduce ? 1 : 480, function (p) { st.head = p; }, k.ease.inOut);
+            pourT = Math.max(pourT, 1100); glowKick = Math.max(glowKick, 0.5);
+            k.levelTo(o.from + (o.to - o.from) * (j + 1) / n, 850);
+            await k.animate(reduce ? 1 : 700, function (p) { st.tail = p; cf.level = 1 - p; pourT = Math.max(pourT, 450); if (s && !s.destroyed) s.scale.set(s0 * (1 - p)); }, k.ease.lin);
+            if (s && !s.destroyed) s.destroy(); cellsFx = cellsFx.filter(function (x) { return x !== cf; }); cf.c.destroy({ children: true });
+          });
+        }));
+        cellsFx = [];
+        await k.sleep(reduce ? 0 : 400);
+      },
+      // Full: the tank blazes and shakes, the thruster lights and throws sparks.
+      full: function () {
+        glowKick = 1.6; shakeT = 800;
+        k.emit(26, k.TX + cx, k.TY + TH - 2, { tex: SPARK, tint: 0x9ff0ff, angle: Math.PI / 2, cone: 1.3, power: 8, g: 0.12, life: 55, spread: 24, spreadY: 4, flip: true, scale: 1 });
+        k.emit(14, k.TX + cx, k.TY + TIN.y + 30, { tex: SPARK, power: 4, cone: 6.3, g: -0.02, life: 70, spread: 80, spreadY: 200, flip: true, scale: 1.1 });
+      },
+      // The Hyperdrive starts: the thruster roars.
+      reward: function () {
+        shakeT = 1100; glowKick = 1.2;
+        k.emit(36, k.TX + cx, k.TY + TH - 2, { tex: SPARK, tint: 0xffe79a, angle: Math.PI / 2, cone: 1.1, power: 10, g: 0.1, life: 60, spread: 24, spreadY: 4, flip: true, scale: 1 });
+      }
     };
   }
 

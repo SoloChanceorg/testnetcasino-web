@@ -111,72 +111,144 @@
     });
   }
 
-  /* ═══ The collector: the Treasure Chest (gold coins pile up in it) ═══ */
+  /* ═══ The collector: the Treasure Chest. The coins and pearls that land stack up in front of the open chest
+     into a pyramid, row by row from the rim, each one flying in from the reels and landing with a clink and
+     a glint. Full: the pyramid shimmers, a wave runs through it, pearls rise. When the treasure is taken
+     (the reward over) it all tumbles back into the chest. ═══ */
   function collector(k, tank) {
-    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK;
+    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK, PIXI = k.PIXI;
+    var cx = TW / 2, mouth = TH - 70, chestBot = TH - 20, HALF = 54;
     var panel = k.paint(TW, TH, function (g, w, h) {
       g.shadowColor = "rgba(46,197,255,.45)"; g.shadowBlur = 14; rr(g, 2, 2, w - 4, h - 4, 14); g.fillStyle = brass(g, 0, h); g.fill(); g.shadowBlur = 0;
       rr(g, 8, 36, w - 16, h - 44, 9); g.fillStyle = k.grad(g, 36, h - 8, ["#0b4a6a", "#06283c", "#031522"]); g.fill();
       g.save(); g.clip(); g.globalAlpha = 0.18; g.fillStyle = "#9ff0ff";                     // light from above
       g.beginPath(); g.moveTo(20, 36); g.lineTo(44, 36); g.lineTo(70, h); g.lineTo(30, h); g.fill();
-      g.beginPath(); g.moveTo(80, 36); g.lineTo(96, 36); g.lineTo(120, h); g.lineTo(96, h); g.fill(); g.restore();
+      g.beginPath(); g.moveTo(80, 36); g.lineTo(96, 36); g.lineTo(120, h); g.lineTo(96, h); g.fill();
+      g.globalAlpha = 0.5; g.fillStyle = "#1d3b46";                                            // the sea floor
+      g.beginPath(); g.ellipse(cx, chestBot + 6, 64, 10, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
       rr(g, 8, 36, w - 16, h - 44, 9); g.lineWidth = 1.5; g.strokeStyle = "#5a440f"; g.stroke();
     });
     tank.addChild(panel);
     var name = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 11, fill: "#2a1d05", letterSpacing: 0.5 }); name.position.set(TW / 2, 20);
     if (name.width > TW - 16) name.scale.set((TW - 16) / name.width);
     tank.addChild(name);
-    var cx = TW / 2, mouth = TH - 92, chestBot = TH - 24, pileTop = 48;
-    // The open lid, behind the coins
+    // The open lid, behind the treasure, and the dark inside of the chest
     tank.addChild(k.paint(TW, TH, function (g) {
-      g.beginPath(); g.moveTo(cx - 50, mouth); g.lineTo(cx - 42, mouth - 40); g.lineTo(cx + 42, mouth - 40); g.lineTo(cx + 50, mouth); g.closePath();
-      g.fillStyle = k.grad(g, mouth - 40, mouth, ["#5b3412", "#3b2109"]); g.fill();
+      g.beginPath(); g.moveTo(cx - HALF + 4, mouth); g.lineTo(cx - HALF + 10, mouth - 44); g.lineTo(cx + HALF - 10, mouth - 44); g.lineTo(cx + HALF - 4, mouth); g.closePath();
+      g.fillStyle = k.grad(g, mouth - 44, mouth, ["#5b3412", "#3b2109"]); g.fill();
       g.lineWidth = 4; g.strokeStyle = "#d4a94a"; g.stroke();
-      g.fillStyle = "#2b1606"; g.fillRect(cx - 44, mouth - 6, 88, 6);
+      g.fillStyle = brass(g, mouth - 30, mouth - 18); g.fillRect(cx - HALF + 8, mouth - 30, HALF * 2 - 16, 5);
+      g.fillStyle = "#140903"; g.fillRect(cx - HALF + 6, mouth - 9, HALF * 2 - 12, 9);
     }));
-    // The pile: coins from inside the chest up to the top of the panel, shown up to the level
-    var pile = k.paint(TW, TH, function (g) {
-      function coin(x, y) {
-        g.beginPath(); g.ellipse(x, y + 1.5, 9, 4, 0, 0, Math.PI * 2); g.fillStyle = "#7a5a14"; g.fill();
-        g.beginPath(); g.ellipse(x, y, 9, 4, 0, 0, Math.PI * 2); var cg = g.createLinearGradient(x - 9, y - 4, x + 9, y + 4); cg.addColorStop(0, "#fff1c4"); cg.addColorStop(0.5, "#f5c542"); cg.addColorStop(1, "#b8860b"); g.fillStyle = cg; g.fill();
-      }
-      var top = pileTop, bot = chestBot - 6, r = (function (seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; })(17);
-      for (var y = bot; y > top; y -= 4.5) {
-        var f = (y - top) / (bot - top), half = y > mouth ? 46 : 10 + 38 * Math.pow(f, 0.7);
-        for (var x = cx - half; x <= cx + half; x += 12) coin(x + (r() - 0.5) * 5, y + (r() - 0.5) * 2);
-      }
-      for (var s = 0; s < 4; s++) { var gy = pileTop + 30 + r() * (mouth - pileTop - 30), gx = cx + (r() - 0.5) * 40; g.font = "16px " + k.EMOJI; g.textAlign = "center"; g.fillText(["💎", "💍", "📿", "💎"][s], gx, gy); }
+    var glow = k.paint(200, 200, function (g) {
+      var rg = g.createRadialGradient(100, 100, 6, 100, 100, 100); rg.addColorStop(0, "rgba(255,230,150,.75)"); rg.addColorStop(0.5, "rgba(255,200,80,.25)"); rg.addColorStop(1, "rgba(255,180,40,0)");
+      g.fillStyle = rg; g.fillRect(0, 0, 200, 200);
     });
-    tank.addChild(pile);
-    var pileMask = new PIXI.Graphics(); tank.addChild(pileMask); pile.mask = pileMask;
-    // The chest's front, over the coins inside it
+    glow.anchor.set(0.5); glow.position.set(cx, mouth - 60); glow.alpha = 0; tank.addChild(glow);
+    var heap = new PIXI.Container(); tank.addChild(heap);
+    // What lands: a gold coin, a pearl (white, rose or blue) or a gem
+    var COINTEX = k.texOf(18, 14, function (g) {
+      g.beginPath(); g.ellipse(9, 9, 8, 4.5, 0, 0, Math.PI * 2); g.fillStyle = "#7a5a14"; g.fill();
+      g.beginPath(); g.ellipse(9, 6.5, 8, 4.5, 0, 0, Math.PI * 2); var cg = g.createLinearGradient(1, 2, 17, 11); cg.addColorStop(0, "#fff1c4"); cg.addColorStop(0.5, "#f5c542"); cg.addColorStop(1, "#b8860b"); g.fillStyle = cg; g.fill();
+      g.beginPath(); g.ellipse(9, 6.5, 5, 2.6, 0, 0, Math.PI * 2); g.strokeStyle = "rgba(120,80,10,.5)"; g.lineWidth = 1; g.stroke();
+    });
+    function pearlTex(c0, c1, c2) {
+      return k.texOf(14, 14, function (g) {
+        var rg = g.createRadialGradient(5, 4.5, 1, 7, 7, 6.5); rg.addColorStop(0, "#ffffff"); rg.addColorStop(0.35, c0); rg.addColorStop(0.8, c1); rg.addColorStop(1, c2);
+        g.beginPath(); g.arc(7, 7, 6.3, 0, Math.PI * 2); g.fillStyle = rg; g.fill();
+        g.fillStyle = "rgba(255,255,255,.85)"; g.beginPath(); g.ellipse(5, 4.2, 1.8, 1.1, -0.6, 0, Math.PI * 2); g.fill();
+      });
+    }
+    var PEARL = [pearlTex("#fbf7f2", "#e2d6d8", "#a89aa6"), pearlTex("#fff0f4", "#f0c9d8", "#b9899e"), pearlTex("#eef7ff", "#c9dcf2", "#8aa4c4")];
+    function gemTex(c0, c1) {
+      return k.texOf(14, 14, function (g) {
+        g.beginPath(); g.moveTo(7, 1); g.lineTo(13, 6); g.lineTo(7, 13); g.lineTo(1, 6); g.closePath(); g.fillStyle = k.grad(g, 1, 13, [c0, c1]); g.fill();
+        g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.moveTo(7, 1); g.lineTo(10, 5); g.lineTo(4, 5); g.closePath(); g.fill();
+      });
+    }
+    var GEM = [gemTex("#ff8fa3", "#b0102a"), gemTex("#9dffb0", "#0d8a3a"), gemTex("#9ff0ff", "#1a5fb0")];
+    var SPARK = k.texOf(14, 14, function (g) { g.fillStyle = "#fff8d0"; g.beginPath(); g.moveTo(7, 0); g.lineTo(8.6, 5.4); g.lineTo(14, 7); g.lineTo(8.6, 8.6); g.lineTo(7, 14); g.lineTo(5.4, 8.6); g.lineTo(0, 7); g.lineTo(5.4, 5.4); g.closePath(); g.fill(); });
+    // The pyramid's slots, row by row from the rim, each row filled from its middle outwards
+    var r = (function (seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; })(23);
+    var items = [];
+    for (var row = 0; row < 18; row++) {
+      var wN = 9 - Math.floor(row / 2), y = mouth - 6 - row * 10.5, xs = [];
+      for (var i = 0; i < wN; i++) xs.push(cx + (i - (wN - 1) / 2) * 12 + (r() - 0.5) * 2.5);
+      xs.sort(function (a, b) { return Math.abs(a - cx) - Math.abs(b - cx); });
+      xs.forEach(function (x) {
+        var q = r(), kind = q < 0.3 ? "pearl" : q < 0.37 ? "gem" : "coin";
+        var s = new PIXI.Sprite(kind === "pearl" ? PEARL[Math.floor(r() * 3)] : kind === "gem" ? GEM[Math.floor(r() * 3)] : COINTEX);
+        s.anchor.set(0.5, 0.6); s.position.set(x, y + (kind === "coin" ? 0 : -1)); s.visible = false; if (kind === "coin") s.rotation = (r() - 0.5) * 0.3;
+        heap.addChild(s);
+        items.push({ s: s, x0: x, y0: s.y, row: row, kind: kind, cur: 0, v: 0, ph: r() * 6.3, drop: null, rot: s.rotation });
+      });
+    }
+    var N = items.length;
+    // The chest's front, over the treasure inside it (what tumbles back in disappears behind it)
     tank.addChild(k.paint(TW, TH, function (g) {
-      rr(g, cx - 50, mouth, 100, chestBot - mouth, 6); g.fillStyle = k.grad(g, mouth, chestBot, ["#7a4a22", "#4a2a10"]); g.fill();
+      rr(g, cx - HALF, mouth, HALF * 2, chestBot - mouth, 6); g.fillStyle = k.grad(g, mouth, chestBot, ["#7a4a22", "#4a2a10"]); g.fill();
       g.lineWidth = 3; g.strokeStyle = "#d4a94a"; g.stroke();
       g.fillStyle = brass(g, mouth, chestBot);
-      g.fillRect(cx - 50, mouth + (chestBot - mouth) * 0.42, 100, 6); g.fillRect(cx - 34, mouth, 6, chestBot - mouth); g.fillRect(cx + 28, mouth, 6, chestBot - mouth);
+      g.fillRect(cx - HALF, mouth + (chestBot - mouth) * 0.45, HALF * 2, 6); g.fillRect(cx - HALF + 16, mouth, 6, chestBot - mouth); g.fillRect(cx + HALF - 22, mouth, 6, chestBot - mouth);
       rr(g, cx - 9, mouth + 10, 18, 22, 4); g.fillStyle = brass(g, mouth + 10, mouth + 32); g.fill();          // the lock
       g.beginPath(); g.arc(cx, mouth + 19, 3, 0, Math.PI * 2); g.fillStyle = "#2b1606"; g.fill(); g.fillRect(cx - 1.2, mouth + 19, 2.4, 7);
-      g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, chestBot + 4, 56, 6, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, chestBot + 4, 60, 6, 0, 0, Math.PI * 2); g.fill();
     }));
     var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#2a1d05", width: 4 } });
-    full.position.set(TW / 2, 80); full.visible = false; tank.addChild(full);
-    var wave = 0, shown = -1;
+    full.position.set(TW / 2, mouth + 26); full.visible = false; tank.addChild(full);
+
+    var t = 0, glowKick = 0, waveT = -10;
+    function spring(o, target, kick) { o.v += (target - o.cur) * kick; o.v *= 0.66; o.cur += o.v; }
     k.app.ticker.add(function (tk) {
-      wave += tk.deltaMS / 400;
-      var lvl = TANK.level;
-      if (Math.abs(lvl - shown) > 0.0005) {
-        shown = lvl;
-        // the first tenth fills the chest, the rest heaps up above its rim
-        var bot = chestBot, top = lvl <= 0 ? bot + 4 : lvl < 0.1 ? bot - (bot - mouth) * lvl / 0.1 : mouth - (mouth - pileTop + 4) * (lvl - 0.1) / 0.9;
-        pileMask.clear().rect(0, top, TW, bot - top + 2).fill(0xffffff);
+      var dt = Math.min(50, tk.deltaMS) / 16.67; t += tk.deltaMS / 1000;
+      var lvl = TANK.level, isFull = TANK.full, count = Math.min(N, Math.floor(lvl * N + 0.5)), now = performance.now();
+      glowKick *= Math.pow(0.93, dt);
+      glow.alpha = Math.min(1, glowKick + (isFull ? 0.55 + Math.sin(t * 5) * 0.25 : lvl * 0.25));
+      glow.scale.set(0.8 + lvl * 0.4 + (isFull ? Math.sin(t * 5) * 0.08 : 0));
+      if (isFull) { waveT += dt * 0.22; if (waveT > 14) waveT = -3; }
+      for (var i = 0; i < N; i++) {
+        var o = items[i], on = i < count, s = o.s;
+        if (o.drop) {   // tumbling back into the chest
+          if (now < o.drop.at) continue;
+          o.drop.vy += 0.45 * dt; s.y += o.drop.vy * dt; s.x += o.drop.vx * dt; s.rotation += o.drop.vx * 0.1 * dt;
+          if (s.y > chestBot - 4) { o.drop = null; o.cur = 0; o.v = 0; s.visible = false; s.position.set(o.x0, o.y0); s.rotation = o.rot; s.scale.set(0); }
+          continue;
+        }
+        if (!on && o.cur > 0.3) { o.drop = { vy: -1.5 - Math.random() * 1.5, vx: (Math.random() - 0.5) * 1.6, at: now + (k.reduce ? 0 : (N - i) * 9) }; continue; }
+        if (!on && o.cur < 0.01) { s.visible = false; continue; }
+        spring(o, on ? 1 : 0, 0.24); s.visible = o.cur > 0.01;
+        s.scale.set(Math.max(0, o.cur));
+        var lift = isFull ? Math.max(0, Math.sin(waveT - o.row * 0.45)) * 5 : 0;
+        s.y = o.y0 - lift - (o.kind === "pearl" && isFull ? Math.sin(t * 4 + o.ph) * 0.8 : 0);
+        s.x = o.x0;
       }
-      if (TANK.full) { full.scale.set(1 + Math.sin(wave * 3) * 0.06); pile.tint = Math.sin(wave * 4) > 0 ? 0xffffff : 0xfff3c0; }
+      if (isFull) {
+        full.scale.set(1 + Math.sin(t * 7) * 0.06);
+        if (Math.random() < 0.25 * dt) { var g0 = items[Math.floor(Math.random() * count)]; if (g0 && g0.s.visible) k.emit(1, k.TX + g0.s.x, k.TY + g0.s.y - 3, { tex: SPARK, power: 0.4, cone: 6.3, g: -0.005, life: 28, spread: 2, spreadY: 2, flip: true, scale: 0.9, spin: 0 }); }
+      }
     });
+    function slotAt(level) { var o = items[Math.max(0, Math.min(N - 1, Math.floor(level * N)))]; return { x: k.TX + o.x0, y: k.TY + o.y0 }; }
     return {
-      count: function () {},   // no numbers: the pile itself shows how full it is
-      flash: function (on) { full.visible = on; panel.tint = on ? 0xfff0c0 : 0xffffff; if (!on) pile.tint = 0xffffff; },
-      target: function () { return { x: k.TX + cx, y: k.TY + mouth - 10 }; }
+      count: function () {},   // no numbers: the pyramid itself shows how full it is
+      flash: function (on) { full.visible = on; panel.tint = on ? 0xfff0c0 : 0xffffff; },
+      target: function () { return { x: k.TX + cx, y: k.TY + mouth - 40 }; },
+      // Each coin symbol flies to the next free place on the pyramid; it lands with a clink and a glint, and the heap grows.
+      collect: function (items0, o) {
+        var n = items0.length;
+        return k.flyTo(items0, function (j) { return slotAt(o.from + (o.to - o.from) * (j + 0.5) / n); }, function (j, x, y) {
+          glowKick = 0.8;
+          k.emit(6, x, y, { tex: SPARK, power: 2.2, cone: 6.3, g: -0.01, life: 36, spread: 8, spreadY: 6, flip: true, scale: 0.8, spin: 0 });
+          k.sfx.collectItem(n > 1 ? j / (n - 1) : 0);
+          k.levelTo(o.from + (o.to - o.from) * (j + 1) / n, 520);
+        }, { arc: 100, shrink: 0.55, turns: 4 });
+      },
+      // Full: the chest blazes, a wave runs up the pyramid (while it stays full), pearls and glints rise from the treasure.
+      full: function () {
+        glowKick = 1.6; waveT = -1; var x = k.TX + cx, y = k.TY + mouth - 50;
+        k.emit(14, x, y, { tex: PEARL, power: 2.2, cone: 1.6, g: -0.04, life: 150, spread: 80, spreadY: 100, flip: false, spin: 0, scale: 1.1 });
+        k.emit(22, x, y, { tex: SPARK, power: 3, cone: 6.3, g: -0.01, life: 70, spread: 100, spreadY: 160, flip: true, scale: 1.2 });
+      }
     };
   }
 

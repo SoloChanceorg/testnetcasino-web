@@ -229,6 +229,9 @@
       bonusStart: function () { this.bigWin(); },
       reveal: function (v) { tone(880 + Math.min(v, 25) * 40, 0, 0.18, "triangle", 0.12); },
       collect: function () { tone(400, 0, 0.3, "triangle", 0.1, 200); },
+      collectItem: function (p) { clink(0, p, 0.05); },
+      collectFull: function () { bellRun([1047, 1319, 1568, 2093], 0, 0.08, 0.07); },
+      pour: function () {},
       wheelTick: function () { noise(0, 0.02, 0.3, 2500); },
       wheelStop: function () { this.win(); },
       ladderUp: function (lv) { tone(300 + lv * 120, 0, 0.25, "square", 0.06, 600 + lv * 160); },
@@ -260,6 +263,9 @@
       bonusStart: function () { arp([523, 659, 784, 1047, 784, 1047, 1319], 0, 0.11, function (f, t) { pluck(f, t, 0.12); }); chord([523, 784, 1047], 0.8, 1.2, "triangle", 0.08); drum(0.8, 0.4); },
       reveal: function (v) { tone(400, 0, 0.06, "sine", 0.12, 900); marimba(PENTA[Math.min(Math.round(Math.log2(v + 1) * 2), PENTA.length - 1)] * 1.0, 0.05, 0.14); },
       collect: function () { tone(320, 0, 0.18, "sine", 0.12, 160); tone(240, 0.16, 0.3, "sine", 0.1, 120); },
+      // a leaf settling on the tree: a rustle and a rising note; the full tree: wind through the leaves and a harp
+      collectItem: function (p) { noise(0, 0.08, 0.22, 2600, "bandpass", 900); marimba(PENTA[Math.min(PENTA.length - 1, 3 + Math.round(p * 5))], 0.02, 0.09); },
+      collectFull: function () { noise(0, 0.9, 0.18, 1800, "bandpass", 600); [0, 0.09, 0.18, 0.3, 0.42, 0.6].forEach(function (t, i) { harp(PENTA[(i * 2) % PENTA.length] * 2, t, 0.06); }); },
       wheelTick: function () { noise(0, 0.02, 0.2, 1800); }, wheelStop: function () { this.win(); },
       ladderUp: function (lv) { marimba(PENTA[Math.min(lv + 2, PENTA.length - 1)], 0, 0.12); }, ladderFail: function () { this.collect(); }
     },
@@ -294,6 +300,9 @@
       bonusStart: function () { [0, 0.5, 1.0].forEach(function (t) { tone(880, t, 1.2, "sine", 0.1); tone(1340, t, 0.8, "sine", 0.04); }); },
       reveal: function () { bubble(0, 600, 0.06); },
       collect: function () { this.noWin(); },
+      // a coin landing on the pile, a pearl's plink; the full chest: a cascade of coins and a harp
+      collectItem: function (p) { clink(0, p, 0.06); tone(1600 + p * 900, 0.03, 0.12, "sine", 0.04); },
+      collectFull: function () { for (var k = 0; k < 14; k++) clink(k * 0.045, k / 14, 0.045); harp(1047, 0.3, 0.08); harp(1568, 0.5, 0.07); harp(2093, 0.7, 0.06); },
       wheelTick: function () { noise(0, 0.03, 0.35, 900); tone(500, 0, 0.03, "triangle", 0.04); },
       wheelStop: function () { tone(880, 0, 1.4, "sine", 0.12); tone(1340, 0, 1.0, "sine", 0.05); },
       ladderUp: function (lv) { bubble(0, 400 + lv * 80, 0.06); }, ladderFail: function () { this.noWin(); }
@@ -328,6 +337,10 @@
       bonusStart: function () { noise(0, 1.2, 0.2, 200, "bandpass", 6000); tone(60, 0, 1.2, "sawtooth", 0.08, 1200, 2400); chord([220, 330, 440], 1.1, 1.0, "sawtooth", 0.04, 2000); },
       reveal: function () { zap(0, 2600, 900, 0.05); },
       collect: function () { this.noWin(); },
+      // a cell draining with a glug, fuel pouring for `dur` seconds; the full tank: the engine lights
+      collectItem: function (p) { tone(200 + p * 80, 0, 0.14, "sine", 0.09, 90); bubble(0.06, 500 + p * 300, 0.05); },
+      pour: function (dur) { noise(0, dur, 0.06, 700, "bandpass", 420); for (var k = 0; k < dur * 9; k++) bubble(Math.random() * dur, 320 + Math.random() * 500, 0.025); },
+      collectFull: function () { noise(0, 1.4, 0.25, 90, "lowpass", 40); riser(0.9, 0.07); tone(55, 0.1, 1.3, "sawtooth", 0.1, 28, 400); zap(0.9, 3000, 600, 0.05); zap(1.05, 3400, 700, 0.05); },
       wheelTick: function () { tone(1800, 0, 0.02, "square", 0.03); }, wheelStop: function () { this.win(); },
       ladderUp: function (lv) { noise(0, 0.35, 0.18, 300 + lv * 200, "bandpass", 2000 + lv * 500); tone(220 * Math.pow(2, lv / 4), 0, 0.35, "sawtooth", 0.06, 440 * Math.pow(2, lv / 4), 3000); },
       ladderFail: function () { tone(900, 0, 1.0, "sawtooth", 0.08, 50, 1600); noise(0, 0.8, 0.2, 2000, "lowpass", 100); }
@@ -404,6 +417,9 @@
     bonusStart: function () { call("bonusStart"); },
     reveal: function (v) { call("reveal", [v]); },
     collect: function () { call("collect"); },
+    collectItem: function (p) { call("collectItem", [p]); },
+    collectFull: function () { call("collectFull"); },
+    pour: function (dur) { call("pour", [dur]); },
     wheelTick: function () { call("wheelTick"); },
     wheelStop: function () { call("wheelStop"); },
     ladderUp: function (lv) { call("ladderUp", [lv]); },

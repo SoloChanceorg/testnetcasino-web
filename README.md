@@ -270,11 +270,20 @@ Treasure Chest (109 coins), ⛽ the Fuel Tank (940 fuel cells). Every paid spin 
 on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every game's `collector { filled, size, cycle }`.
 
 - **Games**: the collector has its own screen right of the reels, about 1.5 reels wide (`.reel-bay` grid, 5 : 1.45), under
-  the reels as a strip on phones (600 px and less). It never shows numbers ("filled / size"): only the fill. The Apple Tree's crown and the Treasure Chest fill
-  with leaves and coins: a pile of 15 spots (a pyramid of rows 5, 4, 3, 2, 1, or on phones 8 + 7), `floor(filled / size of
-  15)` shown, so it is complete only when full. The Fuel Tank fills like a tank. When someone else fills it (its `cycle`
-  goes up) it says "FULL!" and starts again empty.
-- **Full** (`full: true`): the meter glows "FULL!", a banner announces the reward, and the reward is played at `bet` (the
+  the reels as a strip on phones (600 px and less). It never shows numbers ("filled / size"): only the fill, as a scene
+  that the level drives. The **Apple Tree** starts bare and dry (brown ground, a few dead leaves); leaves bud all over the
+  branches as it fills, in no particular order, the grass greens and the sun comes out, and on the last stretch apples grow
+  and ripen from green to red. Each leaf symbol flies to the branch where the next leaf buds and lands in a puff of leaves.
+  The **Treasure Chest** stacks what lands into a pyramid of gold coins, pearls and gems in front of the open chest, row by
+  row from the rim; each coin symbol flies to the next free place and lands with a clink and a glint. The **Fuel Tank**:
+  fuel pours into each fuel cell on the reels, then streams out of the cell over to the tank's inlet and pours down into the
+  tank, which fills with a splash and bubbles. When the level falls (the reward over, or the poll says a new cycle) the
+  tree sheds its leaves, the treasure tumbles back into the chest, the fuel drains. When someone else fills it (its `cycle`
+  goes up) it shows "FULL!" and starts again empty.
+- **Full** (`full: true`): the collector plays its own show instead of a coin spray: a gust through the apple tree with
+  leaves and petals flying, the sun raying; the pyramid shimmering with a wave running up it and pearls rising; the tank
+  blazing and shaking with the thruster under it lit. A banner announces the reward, and when the Harvest Festival starts
+  the apples drop from the tree one by one; when the Hyperdrive starts the thruster roars. The reward is played at `bet` (the
   spin's bet capped at the cycle's average): 🍒 **Harvest Festival** and 🚀 **Hyperdrive** start with
   `{ type: "rewardStart", bet, spins }`, then free spins (`spin` steps, the Hyperdrive with a wild locked at reel 3, row 2
   and the multiplier rising every spin) and a `freeSpinsEnd`; 🐚 **Treasure Hold & Win** is one `holdAndWin` step
@@ -344,10 +353,13 @@ start (no WebGL), the page says so with a "Try again" button.
   held and expanding wilds, multiplier badges, banners, coin and emoji particles, the display, the stage for bonus games, a
   prize wheel and a pick game, the collector's level, the console in perspective, full screen and pointer mapping. It plays
   the server's `steps[]` exactly as before.
-- **A skin** draws the game's own machine and plays its own shows: Fruit Orchard (the stand, the Apple Tree turning green,
-  price tags, Harvest Pick baskets, the golden apples), Deep Sea (the hull, the Treasure Chest filling with coins, the BET
-  DIAL, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic Voyage (the cockpit, the Fuel Tank, the
-  THRUST lever, the Warp Ladder, the Star Map Wheel).
+- **A skin** draws the game's own machine and plays its own shows: Fruit Orchard (the stand, the Apple Tree budding,
+  greening and fruiting, price tags, Harvest Pick baskets, the golden apples), Deep Sea (the hull, the Treasure Chest's
+  pyramid of coins and pearls, the BET DIAL, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic
+  Voyage (the cockpit, the Fuel Tank with fuel pouring from the reels, the THRUST lever, the Warp Ladder, the Star Map
+  Wheel). A skin's collector returns `collect(items, o)` (its own way of taking the symbols in, moving the level through
+  `k.levelTo`), `full()` and `reward()` next to `count`, `flash` and `target`; the engine flies the symbols to `target` and
+  sprays coins when a skin has none of these.
 - Static art is painted with Canvas 2D into textures (gradients, glows, wood grain, rivets) and moved by PixiJS.
 - **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
@@ -358,7 +370,10 @@ start (no WebGL), the page says so with a "Try again" button.
   for the orchard, muffled bass, bubbles and whale calls under the sea, synth arps and lasers in space) over a shared casino
   layer: a thunk as each reel stops, a riser and heartbeat in anticipation, a coin clink for every tick of the win meter and
   a bell when it lands, bell runs on BIG wins, a brass fanfare with bells on MEGA wins and the alarm bell on top of the cabinet
-  for jackpots. Everything runs through a compressor so the busiest moments stay punchy without clipping. Mute is remembered.
+  for jackpots. The collectors have their own: a rustle and a rising note as a leaf settles, a clink and a plink as a coin
+  or pearl lands on the pile, a glug and the pour of fuel; and when one fills, wind through the leaves and a harp, a cascade
+  of coins, or the engine lighting. Everything runs through a compressor so the busiest moments stay punchy without
+  clipping. Mute is remembered.
 - Outside the canvas, in HTML: sound, the fairness link, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
   Screen readers get the display text through a live region.
 - For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
@@ -509,7 +524,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261112c`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261112d`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

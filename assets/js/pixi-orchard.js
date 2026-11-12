@@ -122,71 +122,209 @@
     })).position.set(k.RX - 12, k.RY - 12);
   }
 
-  /* ═══ The collector: the Apple Tree (its leaves fill in from the bottom of the crown up) ═══ */
+  /* ═══ The collector: the Apple Tree. Bare and dry when empty: brown ground, a few dead leaves. As it fills,
+     leaves bud all over the branches (in no particular order), the grass greens and the sun comes out; on the
+     last stretch apples grow and ripen from green to red. Full: wind in the leaves, a shower of leaves and
+     petals; when the Harvest Festival starts the apples drop to the grass. ═══ */
   function collector(k, tank) {
-    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK;
+    var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK, PIXI = k.PIXI;
+    var SKY = { x: 9, y: 40, w: TW - 18, h: TH - 50 };
+    var cx = TW / 2, groundY = SKY.y + SKY.h - 36;
     var panel = k.paint(TW, TH, function (g, w, h) {
       g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 12; g.shadowOffsetY = 4; rr(g, 2, 2, w - 4, h - 4, 12);
       g.fillStyle = k.grad(g, 0, h, ["#6e421c", "#4a2a10"]); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      rr(g, 9, 40, w - 18, h - 50, 8); g.fillStyle = k.grad(g, 40, h - 10, ["#8fd3ff", "#d8f1ff", "#e8f7d0"]); g.fill();
-      g.lineWidth = 2; g.strokeStyle = "#ffd166"; g.stroke();
+      rr(g, SKY.x, SKY.y, SKY.w, SKY.h, 8); g.fillStyle = k.grad(g, SKY.y, SKY.y + SKY.h, ["#6fb9ff", "#b8e2ff", "#e6f4ff"]); g.fill();
+      g.save(); g.clip();
+      g.fillStyle = "rgba(255,255,255,.55)";                                                        // a few clouds
+      [[26, 70, 16], [40, 66, 11], [92, 104, 13], [104, 108, 9]].forEach(function (c) { g.beginPath(); g.ellipse(c[0], c[1], c[2], c[2] * 0.55, 0, 0, Math.PI * 2); g.fill(); });
+      g.fillStyle = k.grad(g, groundY - 8, SKY.y + SKY.h, ["#b08a4a", "#8a6232", "#5c3f1c"]);     // dry ground
+      g.beginPath(); g.moveTo(SKY.x, groundY + 4); g.quadraticCurveTo(cx, groundY - 14, SKY.x + SKY.w, groundY + 2); g.lineTo(SKY.x + SKY.w, SKY.y + SKY.h); g.lineTo(SKY.x, SKY.y + SKY.h); g.closePath(); g.fill();
+      g.strokeStyle = "rgba(120,80,30,.55)"; g.lineWidth = 1.2;                                   // dry tufts
+      var r0 = seeded(3);
+      for (var i = 0; i < 26; i++) { var tx = SKY.x + 6 + r0() * (SKY.w - 12), ty = groundY + 2 + r0() * 22; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + (r0() - 0.5) * 6, ty - 5 - r0() * 5); g.stroke(); }
+      g.restore();
+      rr(g, SKY.x, SKY.y, SKY.w, SKY.h, 8); g.lineWidth = 2; g.strokeStyle = "#ffd166"; g.stroke();
       g.lineWidth = 1.5; g.strokeStyle = "rgba(255,230,180,.35)"; rr(g, 2.5, 2.5, w - 5, h - 5, 12); g.stroke();
     });
     tank.addChild(panel);
     var name = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 13, fill: "#ffd166", letterSpacing: 1.5 }); name.position.set(TW / 2, 22); tank.addChild(name);
-    var SKY = { x: 9, y: 40, w: TW - 18, h: TH - 50 };
-    // The tree: grass, trunk, then the crown (bare outline under, full green over, revealed by the level)
-    var cx = TW / 2, crownTop = SKY.y + 14, crownBot = SKY.y + SKY.h * 0.66, trunkBot = SKY.y + SKY.h - 10;
-    var blobs = [[0, 0.30, 0.36], [-0.27, 0.45, 0.27], [0.27, 0.45, 0.27], [-0.17, 0.18, 0.25], [0.17, 0.18, 0.25], [0, 0.60, 0.30], [-0.3, 0.68, 0.2], [0.3, 0.68, 0.2]];
-    // The crown's own top and bottom: the level fills it from its lowest leaf to its highest.
-    var CH0 = crownBot - crownTop, CW0 = SKY.w * 0.92, cMin = Infinity, cMax = -Infinity;
-    blobs.forEach(function (b) { var y = crownTop + b[1] * CH0, r = b[2] * CW0 * 0.62; cMin = Math.min(cMin, y - r); cMax = Math.max(cMax, y + r); });
-    function crown(g, fill) {
-      var ch = crownBot - crownTop, cw = SKY.w * 0.92;
-      blobs.forEach(function (b) { g.beginPath(); g.arc(cx + b[0] * cw, crownTop + b[1] * ch, b[2] * cw * 0.62, 0, Math.PI * 2); fill(g, b); });
-    }
-    tank.addChild(k.paint(TW, TH, function (g, w, h) {
-      g.save(); rr(g, SKY.x, SKY.y, SKY.w, SKY.h, 8); g.clip();
-      g.fillStyle = "#6fbf4a"; g.beginPath(); g.ellipse(cx, trunkBot + 18, SKY.w * 0.75, 26, 0, 0, Math.PI * 2); g.fill();   // grass
-      g.fillStyle = "#5aa83a"; g.beginPath(); g.ellipse(cx - 30, trunkBot + 22, 40, 18, 0, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.moveTo(cx - 10, trunkBot); g.lineTo(cx - 6, crownBot - 30); g.lineTo(cx - 22, crownBot - 52); g.lineTo(cx - 16, crownBot - 56);   // trunk and two branches
-      g.lineTo(cx - 1, crownBot - 36); g.lineTo(cx + 14, crownBot - 60); g.lineTo(cx + 20, crownBot - 56); g.lineTo(cx + 6, crownBot - 30); g.lineTo(cx + 10, trunkBot); g.closePath();
-      g.fillStyle = k.hgrad(g, cx - 12, cx + 12, ["#4a2a10", "#7a4a22", "#3b2109"]); g.fill();
-      crown(g, function (g) { g.fillStyle = "rgba(255,255,255,.35)"; g.fill(); g.lineWidth = 1.5; g.setLineDash([4, 4]); g.strokeStyle = "rgba(60,120,40,.55)"; g.stroke(); g.setLineDash([]); });
-      g.restore();
-    }));
-    var leaves = k.paint(TW, TH, function (g) {
-      crown(g, function (g, b) {
-        var rg = g.createRadialGradient(cx + b[0] * SKY.w - 8, crownTop + b[1] * (crownBot - crownTop) - 10, 2, cx + b[0] * SKY.w, crownTop + b[1] * (crownBot - crownTop), b[2] * SKY.w * 0.7);
-        rg.addColorStop(0, "#9be36a"); rg.addColorStop(0.6, "#4fae35"); rg.addColorStop(1, "#2f7d22"); g.fillStyle = rg; g.fill();
-      });
-      var r = seeded(5); g.fillStyle = "rgba(220,255,180,.5)";                                  // leaf highlights
-      for (var i = 0; i < 40; i++) { var a = r() * Math.PI * 2, d = r() * (crownBot - crownTop) * 0.45; g.beginPath(); g.ellipse(cx + Math.cos(a) * d, (crownTop + crownBot) / 2 + Math.sin(a) * d * 0.8, 4, 2, a, 0, Math.PI * 2); g.fill(); }
+    var scene = new PIXI.Container(); tank.addChild(scene);
+    var sceneMask = new PIXI.Graphics().roundRect(SKY.x, SKY.y, SKY.w, SKY.h, 8).fill(0xffffff); tank.addChild(sceneMask); scene.mask = sceneMask;
+
+    // The sun, behind everything: dim through the haze when the tree is dry, bright and raying when it is green
+    var rays = k.paint(150, 150, function (g) {
+      g.translate(75, 75); g.fillStyle = "rgba(255,236,150,.5)";
+      for (var i = 0; i < 12; i++) { g.rotate(Math.PI / 6); g.beginPath(); g.moveTo(0, 0); g.lineTo(-7, -75); g.lineTo(7, -75); g.closePath(); g.fill(); }
     });
-    tank.addChild(leaves);
-    var leafMask = new PIXI.Graphics(); tank.addChild(leafMask); leaves.mask = leafMask;
-    // Apples on a full tree
-    var apples = [[-0.22, 0.35], [0.2, 0.3], [0, 0.55], [-0.28, 0.62], [0.28, 0.6], [0.05, 0.18]].map(function (p) {
-      var s = new PIXI.Sprite(k.emojiTex("🍎", 30)); s.anchor.set(0.5); s.position.set(cx + p[0] * SKY.w, crownTop + p[1] * (crownBot - crownTop)); s.visible = false; tank.addChild(s); return s;
+    rays.anchor.set(0.5); rays.position.set(SKY.x + SKY.w - 24, SKY.y + 26); rays.alpha = 0; scene.addChild(rays);
+    var sun = k.paint(70, 70, function (g) {
+      var rg = g.createRadialGradient(35, 35, 4, 35, 35, 35); rg.addColorStop(0, "#fff9d6"); rg.addColorStop(0.42, "#ffe066"); rg.addColorStop(0.5, "rgba(255,210,80,.5)"); rg.addColorStop(1, "rgba(255,200,60,0)");
+      g.fillStyle = rg; g.fillRect(0, 0, 70, 70);
     });
-    var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ff9f43", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#4a2a10", width: 4 } });
-    full.position.set(TW / 2, crownBot + 30); full.visible = false; tank.addChild(full);
-    var wave = 0, shown = -1;
-    k.app.ticker.add(function (tk) {
-      wave += tk.deltaMS / 400;
-      var lvl = TANK.level;
-      if (Math.abs(lvl - shown) > 0.0005) {
-        shown = lvl;
-        var top = cMax - (cMax - cMin) * lvl;
-        leafMask.clear().rect(0, top, TW, cMax + 4 - top).fill(0xffffff);
+    sun.anchor.set(0.5); sun.position.copyFrom(rays.position); scene.addChild(sun);
+    var haze = k.paint(SKY.w, SKY.h, function (g, w, h) { g.fillStyle = k.grad(g, 0, h, ["rgba(236,222,190,.9)", "rgba(226,214,180,.6)", "rgba(200,180,140,.3)"]); g.fillRect(0, 0, w, h); });
+    haze.position.set(SKY.x, SKY.y); scene.addChild(haze);
+
+    // Green grass over the dry ground (fades in with the level)
+    var grass = k.paint(SKY.w, 60, function (g, w, h) {
+      g.fillStyle = k.grad(g, 0, h, ["#8fd65f", "#5aa83a", "#3d8a2a"]);
+      g.beginPath(); g.moveTo(0, 12); g.quadraticCurveTo(w / 2, -6, w, 10); g.lineTo(w, h); g.lineTo(0, h); g.closePath(); g.fill();
+      var r0 = seeded(9); g.strokeStyle = "rgba(220,255,170,.7)"; g.lineWidth = 1.3;
+      for (var i = 0; i < 40; i++) { var tx = 4 + r0() * (w - 8), ty = 8 + r0() * 30; g.beginPath(); g.moveTo(tx, ty + 4); g.quadraticCurveTo(tx + 2, ty - 2, tx + (r0() - 0.5) * 8, ty - 8 - r0() * 6); g.stroke(); }
+      g.fillStyle = "#fff4a8"; for (var j = 0; j < 7; j++) { g.beginPath(); g.arc(8 + r0() * (w - 16), 14 + r0() * 24, 2, 0, Math.PI * 2); g.fill(); }   // daisies
+    });
+    grass.position.set(SKY.x, groundY - 8); grass.alpha = 0; scene.addChild(grass);
+
+    // The tree: a trunk that branches (seeded, so it is the same tree every visit); the leaves bud at the branch ends
+    var nodes = [], r = seeded(11);
+    var wood = k.paint(TW, TH, function (g) {
+      g.lineCap = "round"; g.lineJoin = "round";
+      function branch(x, y, ang, len, wid, depth) {
+        var x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+        g.lineWidth = wid; g.strokeStyle = "#5a3414"; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+        g.lineWidth = Math.max(1, wid * 0.38); g.strokeStyle = "rgba(170,110,60,.55)"; g.beginPath(); g.moveTo(x - wid * 0.2, y); g.lineTo(x2 - wid * 0.2, y2); g.stroke();
+        if (depth > 0) nodes.push({ x: x2, y: y2, d: depth });
+        if (depth === 0) { nodes.push({ x: x2, y: y2, d: 0 }); return; }
+        var n = depth >= 3 ? 3 : 2;
+        for (var i = 0; i < n; i++) {
+          var a = ang + (i - (n - 1) / 2) * (0.5 + r() * 0.2) + (r() - 0.5) * 0.25;
+          a = Math.max(-Math.PI + 0.25, Math.min(-0.25, a));
+          branch(x2, y2, a, len * (0.64 + r() * 0.14), wid * 0.6, depth - 1);
+        }
       }
-      apples.forEach(function (s, i) { s.visible = TANK.full; if (TANK.full) s.scale.set(1 + Math.sin(wave * 3 + i) * 0.08); });
-      if (TANK.full) full.scale.set(1 + Math.sin(wave * 3) * 0.06);
+      branch(cx, groundY + 6, -Math.PI / 2 + 0.03, 64, 14, 4);
+      g.fillStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(cx, groundY + 8, 26, 5, 0, 0, Math.PI * 2); g.fill();   // the trunk's shadow
     });
+    scene.addChild(wood);
+    nodes = nodes.filter(function (p) { return p.y > SKY.y + 6 && p.x > SKY.x + 4 && p.x < SKY.x + SKY.w - 4; });
+    var crown = new PIXI.Container(); crown.position.set(cx, groundY + 6); scene.addChild(crown);   // pivots at the foot of the trunk
+    function local(p) { return { x: p.x - cx, y: p.y - groundY - 6 }; }
+    // The canopy behind the leaves: a soft green cloud around the branch ends, solid when the tree is full
+    var canopy = k.paint(TW, TH, function (g) {
+      nodes.forEach(function (p) {
+        if (p.d > 2) return;
+        var rad = p.d === 0 ? 15 : 20, rg = g.createRadialGradient(p.x - 4, p.y - 4, 2, p.x, p.y, rad);
+        rg.addColorStop(0, "rgba(120,200,90,.95)"); rg.addColorStop(0.7, "rgba(70,160,55,.8)"); rg.addColorStop(1, "rgba(40,120,40,0)");
+        g.fillStyle = rg; g.beginPath(); g.arc(p.x, p.y, rad, 0, Math.PI * 2); g.fill();
+      });
+    });
+    canopy.position.set(-cx, -groundY - 6); canopy.alpha = 0; crown.addChild(canopy);
+    // Leaf textures, three greens and a dead brown
+    function leafTex(c0, c1) {
+      return k.texOf(20, 12, function (g) {
+        g.beginPath(); g.moveTo(1, 6); g.quadraticCurveTo(10, -4, 19, 6); g.quadraticCurveTo(10, 16, 1, 6); g.closePath();
+        g.fillStyle = k.hgrad(g, 0, 20, [c0, c1]); g.fill();
+        g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(2, 6); g.lineTo(18, 6); g.stroke();
+      });
+    }
+    var LEAF = [leafTex("#a5e86f", "#5db43c"), leafTex("#7fd14f", "#3f9a2c"), leafTex("#c5f08a", "#6fbf4a"), leafTex("#5aa83a", "#2f7d22")], DEAD = leafTex("#c9a05a", "#8a6232");
+    // The leaves: one or two at every branch end, in a shuffled order; the level says how many have budded
+    var leaves = [], order = [];
+    nodes.forEach(function (p) { var n = p.d === 0 ? 3 : p.d === 1 ? 2 : 1; for (var i = 0; i < n; i++) order.push({ x: p.x + (r() - 0.5) * 14, y: p.y + (r() - 0.5) * 12, d: p.d }); });
+    for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)), tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
+    order.forEach(function (p, i) {
+      var s = new PIXI.Sprite(LEAF[i % LEAF.length]); s.anchor.set(0.15, 0.5); var q = local(p); s.position.set(q.x, q.y);
+      s.rotation = -Math.PI / 2 + (r() - 0.5) * 2.6; s.visible = false; crown.addChild(s);
+      leaves.push({ s: s, base: 0.8 + r() * 0.45, rot: s.rotation, ph: r() * 6.3, cur: 0, v: 0, at: (i + 0.5) / order.length });
+    });
+    var N = leaves.length;
+    // Dead leaves, hanging on while the tree is dry
+    var dead = [];
+    nodes.filter(function (p, i) { return p.d <= 1 && i % 3 === 0; }).slice(0, 14).forEach(function (p, i) {
+      var s = new PIXI.Sprite(DEAD); s.anchor.set(0.15, 0.5); var q = local(p); s.position.set(q.x + (r() - 0.5) * 10, q.y + 2);
+      s.rotation = Math.PI / 2 + (r() - 0.5) * 0.9; crown.addChild(s);
+      dead.push({ s: s, base: 0.7 + r() * 0.3, rot: s.rotation, ph: r() * 6.3, cur: 1, v: 0 });
+    });
+    // Apples, on the last stretch: a green one grows, then reddens
+    function appleTex(c) {
+      return k.texOf(26, 30, function (g) {
+        g.strokeStyle = "#5a3414"; g.lineWidth = 2; g.beginPath(); g.moveTo(13, 9); g.quadraticCurveTo(14, 4, 17, 2); g.stroke();
+        g.fillStyle = "#6fbf4a"; g.beginPath(); g.ellipse(18, 6, 5, 2.5, -0.6, 0, Math.PI * 2); g.fill();
+        var rg = g.createRadialGradient(9, 13, 2, 13, 18, 12); rg.addColorStop(0, c[0]); rg.addColorStop(0.5, c[1]); rg.addColorStop(1, c[2]);
+        g.fillStyle = rg; g.beginPath(); g.moveTo(13, 9); g.bezierCurveTo(2, 4, 0, 24, 11, 28); g.lineTo(15, 28); g.bezierCurveTo(26, 24, 24, 4, 13, 9); g.fill();
+        g.fillStyle = "rgba(255,255,255,.45)"; g.beginPath(); g.ellipse(8, 14, 3, 1.6, -0.7, 0, Math.PI * 2); g.fill();
+      });
+    }
+    var RED = appleTex(["#ffb3b3", "#e8333f", "#7a0d17"]), GREEN = appleTex(["#e4ffb0", "#8fd65f", "#3d8a2a"]);
+    var apples = [], spots = nodes.filter(function (p) { return p.d <= 1; }).sort(function () { return r() - 0.5; });
+    spots.forEach(function (p) {
+      if (apples.length >= 7) return;
+      if (apples.some(function (a) { return Math.abs(a.hx - p.x) < 17 && Math.abs(a.hy - p.y) < 17; })) return;
+      var c = new PIXI.Container(), q = local({ x: p.x, y: p.y + 8 }); c.position.set(q.x, q.y);
+      var g0 = new PIXI.Sprite(GREEN), r0 = new PIXI.Sprite(RED); g0.anchor.set(0.5, 0.15); r0.anchor.set(0.5, 0.15); r0.alpha = 0; c.addChild(g0, r0); c.scale.set(0); crown.addChild(c);
+      apples.push({ c: c, red: r0, hx: p.x, hy: p.y, x0: q.x, y0: q.y, at: 0.52 + apples.length * 0.075, cur: 0, v: 0, ph: r() * 6.3, drop: null });
+    });
+    var SPARK = k.texOf(14, 14, function (g) { g.fillStyle = "#fff8d0"; g.beginPath(); g.moveTo(7, 0); g.lineTo(8.6, 5.4); g.lineTo(14, 7); g.lineTo(8.6, 8.6); g.lineTo(7, 14); g.lineTo(5.4, 8.6); g.lineTo(0, 7); g.lineTo(5.4, 5.4); g.closePath(); g.fill(); });
+    var PETAL = k.texOf(10, 10, function (g) { g.fillStyle = "#ffd6e8"; g.beginPath(); g.ellipse(5, 5, 5, 3, 0.6, 0, Math.PI * 2); g.fill(); });
+    var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ff9f43", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#4a2a10", width: 4 } });
+    full.position.set(TW / 2, groundY + 20); full.visible = false; tank.addChild(full);
+
+    var t = 0, gust = 0, shown = 0, harvested = false;
+    function spring(o, target, kick) { o.v += (target - o.cur) * (kick || 0.16); o.v *= 0.7; o.cur += o.v; }
+    k.app.ticker.add(function (tk) {
+      var dt = Math.min(50, tk.deltaMS) / 16.67; t += tk.deltaMS / 1000;
+      var lvl = TANK.level, isFull = TANK.full;
+      if (lvl < 0.3) harvested = false;
+      shown += (lvl - shown) * Math.min(1, 0.08 * dt);
+      gust *= Math.pow(0.95, dt);
+      var wind = Math.sin(t * 1.4) * (isFull ? 0.05 : 0.02) + Math.sin(t * 17) * 0.025 * gust;
+      crown.rotation = wind * 0.6; crown.skew.x = wind * 0.4;
+      haze.alpha = 1 - shown * 0.95; grass.alpha = Math.min(1, shown * 1.3); canopy.alpha = Math.min(1, shown * 1.1);
+      sun.alpha = 0.3 + shown * 0.7; sun.scale.set(0.8 + shown * 0.25 + (isFull ? Math.sin(t * 4) * 0.05 : 0));
+      rays.alpha = Math.max(0, (shown - 0.5) * 1.6) * (isFull ? 0.6 + Math.sin(t * 6) * 0.3 : 0.5); rays.rotation += (isFull ? 0.012 : 0.003) * dt;
+      for (var i = 0; i < N; i++) {
+        var l = leaves[i], on = l.at <= lvl;
+        if (!on && l.cur < 0.01) { l.s.visible = false; continue; }
+        spring(l, on ? 1 : 0, 0.18); l.s.visible = l.cur > 0.01;
+        l.s.scale.set(l.base * Math.max(0, l.cur)); l.s.rotation = l.rot + Math.sin(t * 2.2 + l.ph) * (0.1 + gust * 0.35) + wind;
+      }
+      dead.forEach(function (l) {
+        var on = lvl < 0.12; spring(l, on ? 1 : 0, 0.1); l.s.visible = l.cur > 0.01;
+        l.s.scale.set(l.base * Math.max(0, l.cur)); l.s.rotation = l.rot + Math.sin(t * 1.6 + l.ph) * (0.08 + gust * 0.3);
+      });
+      apples.forEach(function (a) {
+        if (a.drop) {   // the harvest: it falls, bounces on the grass, and is gathered
+          a.drop.vy += 0.55 * dt; a.c.y += a.drop.vy * dt; a.c.x += a.drop.vx * dt; a.c.rotation += a.drop.vx * 0.06 * dt;
+          var floor = -30;
+          if (a.c.y > floor && a.drop.vy > 0) { a.c.y = floor; a.drop.vy *= -0.42; a.drop.vx *= 0.7; a.drop.n++; }
+          if (a.drop.n >= 2) { a.c.alpha -= 0.05 * dt; if (a.c.alpha <= 0) { a.drop = null; a.c.alpha = 1; a.c.rotation = 0; a.c.position.set(a.x0, a.y0); a.cur = 0; a.v = 0; a.c.scale.set(0); } }
+          return;
+        }
+        var on = !harvested && lvl >= a.at;
+        spring(a, on ? 1 : 0, 0.14);
+        var ripe = isFull ? 1 : Math.max(0, Math.min(1, (lvl - a.at) / 0.12));
+        a.red.alpha = ripe; a.c.scale.set(Math.max(0, a.cur) * (0.6 + ripe * 0.4) * (isFull ? 1 + Math.sin(t * 5 + a.ph) * 0.06 : 1));
+        a.c.rotation = Math.sin(t * 2 + a.ph) * 0.08 + wind * 0.5;
+      });
+      if (isFull) full.scale.set(1 + Math.sin(t * 7) * 0.06);
+    });
+    function leafAt(level) { var i = Math.max(0, Math.min(N - 1, Math.floor(level * N))); var l = leaves[i]; return { x: k.TX + cx + l.s.x, y: k.TY + groundY + 6 + l.s.y }; }
     return {
-      count: function () {},   // no numbers: the crown itself shows how full it is
+      count: function () {},   // no numbers: the tree itself shows how full it is
       flash: function (on) { full.visible = on; panel.tint = on ? 0xfff0c0 : 0xffffff; },
-      target: function () { return { x: k.TX + cx, y: k.TY + (crownTop + crownBot) / 2 }; }
+      target: function () { return { x: k.TX + cx, y: k.TY + groundY - 110 }; },
+      // Each leaf symbol flies to the branch where the next leaf buds; it lands in a puff of leaves and the tree grows a step.
+      collect: function (items, o) {
+        var n = items.length;
+        return k.flyTo(items, function (j) { return leafAt(o.from + (o.to - o.from) * (j + 0.5) / n); }, function (j, x, y) {
+          gust = Math.min(1.6, gust + 0.8);
+          k.emit(8, x, y, { tex: LEAF, power: 3, cone: 6.3, g: 0.05, life: 45, spread: 14, spreadY: 14, scale: 0.9, spin: 0.25 });
+          k.sfx.collectItem(n > 1 ? j / (n - 1) : 0);
+          k.levelTo(o.from + (o.to - o.from) * (j + 1) / n, 650);
+        }, { arc: 90, shrink: 0.45 });
+      },
+      // Full: a gust through the crown, leaves and petals fly, the sun rays out and the apples glow.
+      full: function () {
+        gust = 2.2; var x = k.TX + cx, y = k.TY + groundY - 110;
+        k.emit(26, x, y, { tex: LEAF.concat([PETAL, PETAL]), power: 8, cone: 6.3, g: 0.1, life: 120, spread: 90, spreadY: 90, scale: 1.1, spin: 0.3 });
+        k.emit(16, x, y, { tex: SPARK, power: 3, cone: 6.3, g: -0.02, life: 90, spread: 110, spreadY: 120, flip: true, scale: 1.2 });
+      },
+      // The Harvest Festival starts: the apples drop to the grass, one after another.
+      reward: function () {
+        harvested = true; gust = 1.5;
+        apples.forEach(function (a, i) { setTimeout(function () { if (a.cur > 0.5) { a.drop = { vy: -1.5, vx: (Math.random() - 0.5) * 1.6, n: 0 }; k.sfx.collectItem(i / 7); } }, k.reduce ? 0 : 140 + i * 130); });
+        k.emit(10, k.TX + cx, k.TY + groundY - 110, { tex: LEAF, power: 5, cone: 6.3, g: 0.08, life: 90, spread: 80, spreadY: 80, spin: 0.3 });
+      }
     };
   }
 

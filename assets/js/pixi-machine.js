@@ -51,7 +51,7 @@
   var sfx = window.TNC_sfx || {};
   ["setTheme", "setMuted", "press", "spinStart", "startSpinLoop", "stopSpinLoop", "reelStop", "scatter", "anticipation",
    "lineBlip", "countTick", "noWin", "win", "bigWin", "megaWin", "jackpot", "freeSpins", "feature", "bonusStart",
-   "reveal", "collect", "wheelTick", "wheelStop", "ladderUp", "ladderFail", "tilt", "chip"].forEach(function (k) { if (!sfx[k]) sfx[k] = noop; });
+   "reveal", "collect", "collectItem", "collectFull", "pour", "wheelTick", "wheelStop", "ladderUp", "ladderFail", "tilt", "chip"].forEach(function (k) { if (!sfx[k]) sfx[k] = noop; });
   if (!sfx.isMuted) sfx.isMuted = function () { return true; };
 
   function rnd(n) { return Math.floor(Math.random() * n); }
@@ -483,13 +483,21 @@
     var TANK = { filled: 0, size: COL ? COL.size : 1, cycle: null, level: 0, full: false };
     kit.TANK = TANK;
     var tank = new PIXI.Container(); tank.position.set(TX, TY); L.cabinet.addChild(tank);
-    var col = skin.collector(kit, tank);   // { count(filled, size), flash(on), target(): {x, y} in the machine }
+    // The skin returns { count(filled, size), flash(on), target(): {x, y} in the machine } and may add
+    // collect(items, o) (its own way of taking the symbols in; it moves the level itself through k.levelTo),
+    // full() (its show when the collector fills) and reward() (when the reward starts).
+    var col = skin.collector(kit, tank);
+    var levelTween = null;
+    function levelTo(to, ms) {   // the level, 0..1, eased over ms (at once with reduced motion or no ms)
+      var from = TANK.level, mine = levelTween = {};
+      if (!ms || reduce) { TANK.level = to; return Promise.resolve(); }
+      return animate(ms, function (p) { if (levelTween === mine) TANK.level = from + (to - from) * p; });
+    }
+    kit.levelTo = levelTo;
     function paintTank(filled, size, animateIt) {
       TANK.filled = filled; TANK.size = size;
       col.count(filled, size);
-      var to = size ? Math.min(1, filled / size) : 0, from = TANK.level;
-      if (!animateIt || reduce) { TANK.level = to; return; }
-      animate(1200, function (p) { TANK.level = from + (to - from) * p; });
+      levelTo(size ? Math.min(1, filled / size) : 0, animateIt ? 1200 : 0);
     }
     function tankFlash(on) { TANK.full = on; col.flash(on); }
     if (!COL) tank.visible = false;
@@ -841,15 +849,32 @@
       if (reduce) n = Math.min(n, 12);
       opts = opts || {};
       for (var i = 0; i < n; i++) {
-        var coin = opts.emoji ? Math.random() < 0.35 : true;
-        var s = new PIXI.Sprite(coin ? coinTex : burstTex[rnd(burstTex.length)]);
-        s.anchor.set(0.5); var sc = (coin ? 0.6 + Math.random() * 0.6 : 0.5 + Math.random() * 0.5); s.scale.set(sc);
-        s.position.set(x + (Math.random() - 0.5) * (opts.spread || 60), y + (Math.random() - 0.5) * 20);
+        var coin = opts.tex ? false : opts.emoji ? Math.random() < 0.35 : true;
+        var tex = opts.tex ? (Array.isArray(opts.tex) ? opts.tex[rnd(opts.tex.length)] : opts.tex) : coin ? coinTex : burstTex[rnd(burstTex.length)];
+        var s = new PIXI.Sprite(tex);
+        s.anchor.set(0.5); var sc = (opts.scale || 1) * (coin ? 0.6 + Math.random() * 0.6 : 0.5 + Math.random() * 0.5); s.scale.set(sc);
+        s.position.set(x + (Math.random() - 0.5) * (opts.spread || 60), y + (Math.random() - 0.5) * (opts.spreadY == null ? 20 : opts.spreadY));
+        if (opts.tint != null) s.tint = opts.tint;
         L.particles.addChild(s);
-        var a = -Math.PI / 2 + (Math.random() - 0.5) * (opts.cone || 1.9), v = (opts.power || 14) * (0.55 + Math.random() * 0.6);
-        parts.push({ s: s, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vr: (Math.random() - 0.5) * 0.3, g: 0.42, life: 0, max: 150 + rnd(60), flip: coin, sc: sc });
+        var a = (opts.angle == null ? -Math.PI / 2 : opts.angle) + (Math.random() - 0.5) * (opts.cone || 1.9), v = (opts.power || 14) * (0.55 + Math.random() * 0.6);
+        parts.push({ s: s, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vr: (Math.random() - 0.5) * (opts.spin == null ? 0.3 : opts.spin), g: opts.g == null ? 0.42 : opts.g,
+          life: 0, max: (opts.life || 150) + rnd(60), flip: opts.flip == null ? coin : opts.flip, sc: sc });
       }
     }
+    // Overlay sprites (from overlayCells) fly in arcs to where `at(k)` says, one after another; `onEach(k)` as each lands.
+    function flyTo(items, at, onEach, opts) {
+      opts = opts || {};
+      return Promise.all(items.map(function (s, k) {
+        var x0 = s.x, y0 = s.y, s0 = s.scale.x, tp = at(k), tx = tp.x, ty = tp.y;
+        return sleep(reduce ? 0 : k * (opts.stagger || 110)).then(function () {
+          return animate(R(opts.ms || 700), function (p) {
+            s.x = x0 + (tx - x0) * p; s.y = y0 + (ty - y0) * p - Math.sin(p * Math.PI) * (opts.arc == null ? 120 : opts.arc);
+            s.scale.set(s0 * (1 - (opts.shrink == null ? 0.6 : opts.shrink) * p)); s.rotation = p * (opts.turns == null ? 6 : opts.turns);
+          }, ease.inOut).then(function () { s.destroy(); if (onEach) onEach(k, tx, ty); });
+        });
+      }));
+    }
+    kit.flyTo = flyTo;
     function rain(n, ms) {   // coins falling from the top over the whole machine
       var k = 0, t = setInterval(function () {
         for (var j = 0; j < 4 && k < n; j++, k++) {
@@ -1207,7 +1232,7 @@
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner(Rw.name.toUpperCase() + "!", st.spins + " SPINS" + (Rw.multiplier > 1 ? " · WINS ×" + Rw.multiplier : Rw.rise ? " · RISING ×" : ""));
       setLcd(Rw.name + ": " + st.spins + " free spins at " + fmt(playBet) + " " + SATS + "!", true); sfx.freeSpins();
-      var tp = col.target(); emit(50, tp.x, tp.y, { emoji: true });
+      if (col.reward) col.reward(); else { var tp = col.target(); emit(50, tp.x, tp.y, { emoji: true }); }
       await sleep(R(2400)); if (token === presentToken) hideBanner();
     }
     function rewardDone() {
@@ -1285,23 +1310,22 @@
       sfx.chip();
       await sleep(R(650 + st.cells.length * 140));
       var tp = col.target(), tx = tp.x, ty = tp.y;
-      await Promise.all(items.map(function (s, k) {
-        var x0 = s.x, y0 = s.y, s0 = s.scale.x;
-        return sleep(reduce ? 0 : k * 90).then(function () {
-          return animate(R(700), function (p) {
-            s.x = x0 + (tx - x0) * p; s.y = y0 + (ty - y0) * p - Math.sin(p * Math.PI) * 120; s.scale.set(s0 * (1 - 0.6 * p)); s.rotation = p * 6;
-          }, ease.inOut).then(function () { s.destroy(); emit(6, tx, ty, { power: 6, cone: 3 }); });
-        });
-      }));
+      var filled = st.full ? st.size : st.filled, to = st.size ? Math.min(1, filled / st.size) : 0;
+      if (col.collect) {   // the skin takes them in its own way and raises the level as it goes
+        await col.collect(items, { cells: st.cells, from: TANK.level, to: to, filled: filled, size: st.size, full: !!st.full });
+        TANK.filled = filled; TANK.size = st.size; col.count(filled, st.size); levelTo(to, 0);
+      } else {
+        await flyTo(items, function () { return tp; }, function (k) { emit(6, tx, ty, { power: 6, cone: 3 }); sfx.collectItem(items.length > 1 ? k / (items.length - 1) : 0); });
+        paintTank(filled, st.size, true);
+      }
       sfx.collect();
-      paintTank(st.full ? st.size : st.filled, st.size, true);
       if (!st.full) { lcdSub.text = COL.emoji + " +" + st.cells.length + " into the " + COL.name + (st.size && st.filled / st.size >= 0.9 ? " · nearly full!" : ""); return; }
       tankFlash(true);
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner(COL.name.toUpperCase() + " FULL!", COL.reward.name.toUpperCase());
       setLcd(COL.emoji + " You filled the " + COL.name + "! " + COL.reward.name + " at " + fmt(st.bet || bet) + " " + SATS + " a spin.", true);
-      sfx.freeSpins(); tilt("minor");
-      emit(50, tx, ty, { emoji: true, power: 16 });
+      sfx.collectFull(); sfx.freeSpins(); tilt("minor");
+      if (col.full) col.full(); else emit(50, tx, ty, { emoji: true, power: 16 });
       await sleep(R(2600)); if (token === presentToken) hideBanner();
     }
 
