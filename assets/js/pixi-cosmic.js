@@ -306,7 +306,15 @@
     capShine.mask = capMask; launchTop.addChildAt(capShine, launchTop.getChildIndex(launchLabel));
     var capGlow = paint(240, 240, function (g) { hexPath(g, 120, 120, LR - 2); g.fillStyle = "#ffffff"; g.fill(); });
     capGlow.anchor.set(0.5); capGlow.blendMode = "add"; capGlow.alpha = 0; launchTop.addChildAt(capGlow, 1);
-    var ring = k.keyRing(launch, { r: LR + 14, y: LDEPTH, n: 18, color: 0xff4fd8, core: "#ffd6f6", scale: 0.9 }); launch.addChildAt(ring.view, launch.getChildIndex(launchTop));
+    // The socket's neon: a trace runs round its hex rim (slow at rest, a pair racing while the reels turn);
+    // a launch sends a hex shockwave out across the console and sparks off the cap.
+    var neon = new PIXI.Graphics(); launch.addChildAt(neon, launch.getChildIndex(launchTop));
+    var shock = new PIXI.Graphics(); launch.addChildAt(shock, launch.getChildIndex(launchWell) + 1);
+    var HEXR = LR + 14, HEXV = [];
+    for (var hv = 0; hv < 6; hv++) { var ha = Math.PI / 6 + hv * Math.PI / 3; HEXV.push([Math.cos(ha) * HEXR, LDEPTH + Math.sin(ha) * HEXR]); }
+    function hexAt(p) { p = ((p % 1) + 1) % 1; var e = Math.floor(p * 6), q = p * 6 - e, a = HEXV[e], b = HEXV[(e + 1) % 6]; return [a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q]; }
+    var tracePos = 0, waves = [], sparks = [], lastFlash = 0;
+    var SPARK = k.texOf(6, 6, function (g) { g.fillStyle = "#fff"; g.beginPath(); g.arc(3, 3, 2.6, 0, Math.PI * 2); g.fill(); });
     k.app.ticker.add(function (tk) {
       var dt = Math.min(40, tk.deltaMS);
       launchTop.y = k.keySpring(LDEPTH, dt);
@@ -315,7 +323,30 @@
       launchTop.tint = off ? 0x8c8c99 : 0xffffff;
       launch.alpha = off ? 0.8 : 1;
       launchWell.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(keyT / 140) : 0.75 + Math.sin(keyT / 600) * 0.25;
-      ring.update(s); capGlow.alpha = Math.max(capGlow.alpha, s.flash * 0.6); launchLabel.scale.set(1 + s.flash * 0.08);
+      var f = s.flash;
+      capGlow.alpha = Math.max(capGlow.alpha, f * 0.8); launchLabel.scale.set(1 + f * 0.1);
+      if (f > lastFlash) { waves.push({ r: 1, a: 1 }); waves.push({ r: 0.86, a: 0.8 }); if (!reduce) for (var si = 0; si < 10; si++) { var sa = Math.random() * Math.PI * 2, sp = new PIXI.Sprite(SPARK); sp.anchor.set(0.5); sp.position.set(Math.cos(sa) * LR * 0.8, Math.sin(sa) * LR * 0.8); sp.tint = si % 2 ? 0x9ff0ff : 0xffffff; launch.addChild(sp); sparks.push({ s: sp, vx: Math.cos(sa) * 4, vy: Math.sin(sa) * 4 - 0.5, life: 1 }); } }
+      lastFlash = f;
+      for (var sj = sparks.length - 1; sj >= 0; sj--) { var sk = sparks[sj]; sk.s.x += sk.vx * dt / 16; sk.s.y += sk.vy * dt / 16; sk.vy += 0.1 * dt / 16; sk.life -= dt / 420; sk.s.alpha = Math.max(0, sk.life); sk.s.scale.set(0.5 + sk.life); if (sk.life <= 0) { sk.s.destroy(); sparks.splice(sj, 1); } }
+      shock.clear();
+      for (var wi = waves.length - 1; wi >= 0; wi--) {
+        var wv = waves[wi]; wv.r += dt * 0.0035; wv.a -= dt / 520;
+        if (wv.a <= 0) { waves.splice(wi, 1); continue; }
+        var pts = []; for (var wk = 0; wk < 6; wk++) pts.push(HEXV[wk][0] * wv.r, LDEPTH + (HEXV[wk][1] - LDEPTH) * wv.r);
+        shock.poly(pts).stroke({ width: 3, color: 0xff4fd8, alpha: wv.a * 0.9 });
+      }
+      neon.clear();
+      if (!off) {
+        tracePos += dt * (busy ? 0.0011 : 0.00022);
+        var runs = busy && !reduce ? [0, 0.5] : [0];
+        runs.forEach(function (o) {
+          var head = hexAt(tracePos + o), tail = hexAt(tracePos + o - 0.11), mid = hexAt(tracePos + o - 0.055);
+          neon.moveTo(tail[0], tail[1]).lineTo(mid[0], mid[1]).stroke({ width: 3, color: 0xff4fd8, alpha: 0.35 });
+          neon.moveTo(mid[0], mid[1]).lineTo(head[0], head[1]).stroke({ width: 3, color: 0xff8fe8, alpha: 0.85 });
+          neon.circle(head[0], head[1], 4).fill({ color: 0xffffff, alpha: 0.95 });
+        });
+        if (busy && !reduce) for (var vk = 0; vk < 6; vk++) neon.circle(HEXV[vk][0], HEXV[vk][1], 3).fill({ color: 0x9ff0ff, alpha: 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(keyT / 120 + vk)) });
+      }
       var sp = (keyT % 3600) / 3600;
       capShine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       capShine.x = -LR * 1.4 + LR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));

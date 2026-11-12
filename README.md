@@ -361,10 +361,15 @@ start (no WebGL), the page says so with a "Try again" button.
   `k.levelTo`), `full()` and `reward()` next to `count`, `flash` and `target`; the engine flies the symbols to `target` and
   sprays coins when a skin has none of these.
 - Static art is painted with Canvas 2D into textures (gradients, glows, wood grain, rivets) and moved by PixiJS.
-- **The spin key** (SPIN apple, DIVE button, LAUNCH hex) stands in a lit bezel: a ring of bulbs that breathe while the
-  key is ready, chase round it while the reels turn, all flare on a press (the cap flashes and the label pops), and go
-  dim when the key is off. Its depth is a spring toward its state (pressed, half down while the spin plays, an invitation
-  half-press now and then at rest), stepped at most 4 ms at a time: one step over a long frame made it shoot up and down.
+- **The spin key** is each machine's own. The orchard's SPIN apple: its leaf flutters in the breeze (harder while the
+  reels turn), the apple rocks as they turn, a press squashes it like a ripe one with a puff of leaves, and twelve daisies
+  round its well stay buds at rest, bloom one after another while the reels turn and all at once on a press. The DIVE
+  button: a sonar ping rings out from it now and then (fast while the reels turn), a radar sweep runs round the gap inside
+  its brass bezel while they turn, and a press lights the dome and sends a double ripple through the water. The LAUNCH
+  hex: a neon trace runs round its socket's rim (a racing pair while the reels turn, the corners pulsing), and a launch
+  sends a hex shockwave out across the console with sparks off the cap. Every key's depth is a spring toward its state
+  (pressed, half down while the spin plays, an invitation half-press now and then at rest), stepped at most 4 ms at a
+  time: one step over a long frame made it shoot up and down.
 - **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
@@ -541,7 +546,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113a`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113b`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

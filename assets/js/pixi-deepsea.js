@@ -371,7 +371,12 @@
     shine.mask = capMask; top.addChildAt(shine, top.getChildIndex(label));
     var glow = paint(240, 240, function (g) { circle(g, 120, 120, KR - 2); g.fillStyle = "#ffffff"; g.fill(); });
     glow.anchor.set(0.5); glow.blendMode = "add"; glow.alpha = 0; top.addChildAt(glow, 1);
-    var ring = k.keyRing(key, { r: KR + 13, y: DEPTH, n: 16, color: 0x9ff0ff, core: "#e8fbff", scale: 0.85 }); key.addChildAt(ring.view, key.getChildIndex(top));
+    // Sonar: a ping rings out from the button now and then at rest, fast while the reels turn; the press sends a
+    // double ripple through the water. A radar sweep runs round the gap inside the bezel while the reels turn.
+    var sonar = new PIXI.Graphics(); key.addChildAt(sonar, key.getChildIndex(well) + 1);
+    var sweep = new PIXI.Graphics(); key.addChildAt(sweep, key.getChildIndex(top));
+    var pings = [], nextPing = 0, sweepA = 0, lastFlash = 0;
+    function ping(a, r0) { pings.push({ r: r0 || KR + 2, a: a }); }
     k.app.ticker.add(function (tk) {
       var dt = Math.min(40, tk.deltaMS);
       top.y = k.keySpring(DEPTH, dt);
@@ -380,7 +385,22 @@
       top.tint = off ? 0x8c8c99 : 0xffffff;
       key.alpha = off ? 0.8 : 1;
       well.alpha = off ? 0.5 : 1;
-      ring.update(s); glow.alpha = Math.max(glow.alpha, s.flash * 0.6); label.scale.set(1 + s.flash * 0.08);
+      var f = s.flash;
+      top.scale.set(1 + f * 0.05, 1 - f * 0.07); glow.alpha = Math.max(glow.alpha, f * 0.7);   // the dome lights up and gives under the hand
+      if (f > lastFlash) { ping(1, KR + 2); ping(0.8, KR - 14); }
+      lastFlash = f;
+      if (!off && !reduce && t > nextPing) { ping(busy ? 0.7 : 0.45); nextPing = t + (busy ? 650 : 2600); }
+      sonar.clear();
+      for (var pi = pings.length - 1; pi >= 0; pi--) {
+        var pg = pings[pi]; pg.r += dt * 0.09; pg.a -= dt / 900;
+        if (pg.a <= 0) { pings.splice(pi, 1); continue; }
+        sonar.ellipse(0, DEPTH, pg.r, pg.r * 0.9).stroke({ width: 3, color: 0x9ff0ff, alpha: pg.a * 0.8 });
+      }
+      sweep.clear();
+      if (busy && !reduce) {
+        sweepA += dt * 0.006;
+        for (var sw = 0; sw < 5; sw++) { var a0 = sweepA - (sw + 1) * 0.28, a1 = sweepA - sw * 0.28; sweep.moveTo(Math.cos(a0) * (KR + 1), DEPTH + Math.sin(a0) * (KR + 1)).arc(0, DEPTH, KR + 1, a0, a1).arc(0, DEPTH, KR + 7.5, a1, a0, true).closePath().fill({ color: 0x2ec5ff, alpha: 0.75 - sw * 0.14 }); }
+      }
       var sp = (t % 3600) / 3600;
       shine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));

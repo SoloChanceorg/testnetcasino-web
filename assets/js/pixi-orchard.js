@@ -378,10 +378,14 @@
       g.fillStyle = rg; g.fill(); g.lineWidth = 4; g.strokeStyle = "#ffd6d6"; g.stroke();
       g.save(); circle(g, 120, 120, KR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(104, 74, 44, 20, -0.3, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
       g.lineCap = "round"; g.lineWidth = 6; g.strokeStyle = "#5b3412"; g.beginPath(); g.moveTo(120, 52); g.quadraticCurveTo(122, 40, 130, 32); g.stroke();   // stem
-      g.beginPath(); g.ellipse(146, 36, 17, 8, -0.5, 0, Math.PI * 2); g.fillStyle = k.grad(g, 28, 44, ["#9be36a", "#2f7d22"]); g.fill();   // leaf
-      g.lineWidth = 1.2; g.strokeStyle = "#1f5a16"; g.beginPath(); g.moveTo(132, 42); g.lineTo(160, 31); g.stroke();
     });
     cap.anchor.set(0.5); top.addChild(cap);
+    // The leaf on its own, so it can flutter: hinged at the stem's tip
+    var leaf = new PIXI.Sprite(k.texOf(44, 22, function (g) {
+      g.beginPath(); g.ellipse(22, 11, 19, 8.5, 0, 0, Math.PI * 2); g.fillStyle = k.grad(g, 2, 20, ["#9be36a", "#2f7d22"]); g.fill();
+      g.lineWidth = 1.2; g.strokeStyle = "#1f5a16"; g.beginPath(); g.moveTo(5, 11); g.lineTo(40, 11); g.stroke();
+    }));
+    leaf.anchor.set(0.06, 0.5); leaf.position.set(10, -88); leaf.rotation = -0.5; top.addChild(leaf);
     var label = txt(T.spin, { fontSize: 30, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a12", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
     label.y = -4;
     var sub = txt("", { fontSize: 12, fill: "#ffe6e6", letterSpacing: 1.5 }); sub.y = 26;
@@ -392,7 +396,20 @@
     shine.mask = capMask; top.addChildAt(shine, top.getChildIndex(label));
     var glow = paint(240, 240, function (g) { circle(g, 120, 120, KR - 2); g.fillStyle = "#ffffff"; g.fill(); });
     glow.anchor.set(0.5); glow.blendMode = "add"; glow.alpha = 0; top.addChildAt(glow, 1);
-    var ring = k.keyRing(key, { r: KR + 14, y: DEPTH, n: 18, color: 0xffd166, core: "#fff6dc", scale: 0.9 }); key.addChildAt(ring.view, key.getChildIndex(top));
+    // Daisies round the well: buds at rest, blooming one after another while the reels turn, all at once on a press
+    var DAISY = k.texOf(28, 28, function (g) {
+      for (var i = 0; i < 8; i++) { g.save(); g.translate(14, 14); g.rotate(i * Math.PI / 4); g.beginPath(); g.ellipse(8, 0, 6, 2.8, 0, 0, Math.PI * 2); g.fillStyle = "#fffaf0"; g.fill(); g.restore(); }
+      g.beginPath(); g.arc(14, 14, 4.2, 0, Math.PI * 2); g.fillStyle = "#ffcf3a"; g.fill(); g.lineWidth = 1; g.strokeStyle = "#d9960b"; g.stroke();
+    });
+    var daisies = [];
+    for (var di = 0; di < 12; di++) {
+      var da = -Math.PI / 2 + di / 12 * Math.PI * 2, ds = new PIXI.Sprite(DAISY); ds.anchor.set(0.5);
+      ds.position.set(Math.cos(da) * (KR + 15), DEPTH + Math.sin(da) * (KR + 15) * 0.94); ds.rotation = da; ds.scale.set(0.45);
+      key.addChildAt(ds, key.getChildIndex(top)); daisies.push({ s: ds, bloom: 0, i: di });
+    }
+    // Leaves that fly off when the apple is pressed
+    var LEAFLET = k.texOf(16, 9, function (g) { g.beginPath(); g.moveTo(1, 4.5); g.quadraticCurveTo(8, -3, 15, 4.5); g.quadraticCurveTo(8, 12, 1, 4.5); g.fillStyle = "#6fbf4a"; g.fill(); });
+    var puffs = [], lastFlash = 0;
     k.app.ticker.add(function (tk) {
       var dt = Math.min(40, tk.deltaMS);
       top.y = k.keySpring(DEPTH, dt);
@@ -401,7 +418,21 @@
       top.tint = off ? 0x8c8c99 : 0xffffff;
       key.alpha = off ? 0.8 : 1;
       well.alpha = off ? 0.35 : busy ? 0.9 + 0.1 * Math.sin(t / 140) : 0.75 + Math.sin(t / 600) * 0.25;
-      ring.update(s); glow.alpha = Math.max(glow.alpha, s.flash * 0.6); label.scale.set(1 + s.flash * 0.08);
+      var f = s.flash, step = Math.floor(t / 90);
+      // the press: the apple squashes like a ripe one and springs back, the leaf flicks, a puff of leaves
+      top.scale.set(1 + f * 0.09, 1 - f * 0.11); glow.alpha = Math.max(glow.alpha, f * 0.5);
+      if (f > lastFlash && !reduce) for (var pi = 0; pi < 6; pi++) { var ps = new PIXI.Sprite(LEAFLET); ps.anchor.set(0.5); ps.position.set((Math.random() - 0.5) * 60, -KR + 10); var pa = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; key.addChild(ps); puffs.push({ s: ps, vx: Math.cos(pa) * 3, vy: Math.sin(pa) * 3 - 1, life: 1 }); }
+      lastFlash = f;
+      for (var pj = puffs.length - 1; pj >= 0; pj--) { var pp = puffs[pj]; pp.s.x += pp.vx * dt / 16; pp.s.y += pp.vy * dt / 16; pp.vy += 0.12 * dt / 16; pp.s.rotation += 0.1; pp.life -= dt / 600; pp.s.alpha = Math.max(0, pp.life); if (pp.life <= 0) { pp.s.destroy(); puffs.splice(pj, 1); } }
+      // the leaf flutters in the breeze, harder while the reels turn and on the press; the apple rocks while they turn
+      leaf.rotation = -0.5 + Math.sin(t / (busy ? 90 : 420)) * (busy ? 0.22 : 0.09) - f * 0.5;
+      top.rotation = busy && !reduce ? Math.sin(t / 170) * 0.03 : 0;
+      // the daisies
+      daisies.forEach(function (d) {
+        var want = off ? 0 : f > 0 ? 1 : busy ? (reduce ? 0.8 : ((d.i - step) % 4 + 4) % 4 === 0 ? 1 : 0.12) : 0.12 + 0.12 * (0.5 + 0.5 * Math.sin(t / 900 + d.i));
+        d.bloom += (want - d.bloom) * Math.min(1, dt / 90);
+        d.s.scale.set(0.42 + d.bloom * 0.6); d.s.alpha = 0.55 + d.bloom * 0.45; d.s.rotation = -Math.PI / 2 + d.i / 12 * Math.PI * 2 + d.bloom * 0.5;
+      });
       var sp = (t % 3600) / 3600;
       shine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
