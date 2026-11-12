@@ -103,7 +103,7 @@
     var tt = 0;
     k.app.ticker.add(function (tk) {
       tt += tk.deltaMS;
-      var fast = k.busy() && k.feature(), per = fast ? 260 : 900, on = Math.floor(tt / per) % 2;
+      var fast = (k.busy() && k.feature()) || (k.hot && k.hot()), per = fast ? 200 : 900, on = Math.floor(tt / per) % 2;
       lights.forEach(function (s, i) { s.alpha = (i % 2) === on ? 1 : 0.35; });
     });
     // The title, painted on a board hanging under the awning
@@ -128,13 +128,13 @@
     var panel = k.paint(TW, TH, function (g, w, h) {
       g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 12; g.shadowOffsetY = 4; rr(g, 2, 2, w - 4, h - 4, 12);
       g.fillStyle = k.grad(g, 0, h, ["#6e421c", "#4a2a10"]); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      rr(g, 9, 40, w - 18, h - 84, 8); g.fillStyle = k.grad(g, 40, h - 44, ["#8fd3ff", "#d8f1ff", "#e8f7d0"]); g.fill();
+      rr(g, 9, 40, w - 18, h - 50, 8); g.fillStyle = k.grad(g, 40, h - 10, ["#8fd3ff", "#d8f1ff", "#e8f7d0"]); g.fill();
       g.lineWidth = 2; g.strokeStyle = "#ffd166"; g.stroke();
       g.lineWidth = 1.5; g.strokeStyle = "rgba(255,230,180,.35)"; rr(g, 2.5, 2.5, w - 5, h - 5, 12); g.stroke();
     });
     tank.addChild(panel);
     var name = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 13, fill: "#ffd166", letterSpacing: 1.5 }); name.position.set(TW / 2, 22); tank.addChild(name);
-    var SKY = { x: 9, y: 40, w: TW - 18, h: TH - 84 };
+    var SKY = { x: 9, y: 40, w: TW - 18, h: TH - 50 };
     // The tree: grass, trunk, then the crown (bare outline under, full green over, revealed by the level)
     var cx = TW / 2, crownTop = SKY.y + 14, crownBot = SKY.y + SKY.h * 0.66, trunkBot = SKY.y + SKY.h - 10;
     var blobs = [[0, 0.30, 0.36], [-0.27, 0.45, 0.27], [0.27, 0.45, 0.27], [-0.17, 0.18, 0.25], [0.17, 0.18, 0.25], [0, 0.60, 0.30], [-0.3, 0.68, 0.2], [0.3, 0.68, 0.2]];
@@ -169,7 +169,6 @@
     var apples = [[-0.22, 0.35], [0.2, 0.3], [0, 0.55], [-0.28, 0.62], [0.28, 0.6], [0.05, 0.18]].map(function (p) {
       var s = new PIXI.Sprite(k.emojiTex("🍎", 30)); s.anchor.set(0.5); s.position.set(cx + p[0] * SKY.w, crownTop + p[1] * (crownBot - crownTop)); s.visible = false; tank.addChild(s); return s;
     });
-    var icon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "🍃", 22)); icon.anchor.set(0.5); icon.position.set(24, TH - 22); tank.addChild(icon);
     var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ff9f43", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#4a2a10", width: 4 } });
     full.position.set(TW / 2, crownBot + 30); full.visible = false; tank.addChild(full);
     var wave = 0, shown = -1;

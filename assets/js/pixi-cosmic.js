@@ -66,7 +66,7 @@
     });
     tank.addChild(tankGlass);
     var tankName = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 13, fill: "#9ff0ff", letterSpacing: 1.5 }); tankName.position.set(TW / 2, 22); tank.addChild(tankName);
-    var TIN = { x: 28, y: 44, w: TW - 56, h: TH - 92 };
+    var TIN = { x: 28, y: 44, w: TW - 56, h: TH - 62 };
     tank.addChild(k.paint(TIN.w + 8, TIN.h + 8, function (g, w, h) {
       rr(g, 3, 3, w - 6, h - 6, 18); g.fillStyle = "rgba(0,0,0,.55)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.8)"; g.stroke();
     })).position.set(TIN.x - 4, TIN.y - 4);

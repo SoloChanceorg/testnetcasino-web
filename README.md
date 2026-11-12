@@ -87,7 +87,12 @@ All three are drawn with PixiJS (see Machines). The bet controls move along the 
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
 lands the remaining reels at once. That is display only: the result is already fixed by the server. After a win the machine
 waits for the win animations to finish, plus half a second, before the next spin can start.
-Big wins get BIG / MEGA / JACKPOT banners, a coin shower, themed confetti and synthesized sounds (a different pack per game).
+Every spin has the cabinet's small touches: a flash of light down each reel as it lands (and a nudge of the whole machine on
+the last), a pulsing gold frame around a reel that turns on alone in anticipation, and, between spins, a soft band of light
+that sweeps across the reels every few seconds. On a win the winning symbols pop and pulse while the rest of the grid steps
+back behind a shade, the win meter rolls up with a coin clink rising in pitch and a bell when it lands, and the Fruit
+Orchard's string lights chase. Big wins get BIG / MEGA / JACKPOT banners whose amount rolls up with the meter, a flash of
+light, a coin shower, themed confetti and the cabinet's bells and brass.
 Each machine has a full-screen button in its top-right corner: the site header, nav and paytable are hidden and the machine is sized
 to fit the screen, 10px from the edges (Esc or the button exits). It is hidden in browsers without the Fullscreen API, such as Safari on iPhone.
 The tBCH diamond (`assets/img/tbch.svg`) drifts through every venue's animated background, rains down in the win showers and
@@ -349,6 +354,11 @@ start (no WebGL), the page says so with a "Try again" button.
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
 - The canvas sits in a CSS 3D stage, so the **whole machine tilts** on a MINOR (stronger on a MAJOR, rocking on a GRAND), a
   bit on MEGA and TOP PRIZE wins, and when the collector fills; the canvas also shakes. Shorter with reduced motion.
+- **Sound** (`assets/js/audio.js`) is synthesized with the Web Audio API, no files: one pack per game (marimba and birdsong
+  for the orchard, muffled bass, bubbles and whale calls under the sea, synth arps and lasers in space) over a shared casino
+  layer: a thunk as each reel stops, a riser and heartbeat in anticipation, a coin clink for every tick of the win meter and
+  a bell when it lands, bell runs on BIG wins, a brass fanfare with bells on MEGA wins and the alarm bell on top of the cabinet
+  for jackpots. Everything runs through a compressor so the busiest moments stay punchy without clipping. Mute is remembered.
 - Outside the canvas, in HTML: sound, the fairness link, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
   Screen readers get the display text through a live region.
 - For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
@@ -499,7 +509,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261111u`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261112c`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

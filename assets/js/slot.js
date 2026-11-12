@@ -99,7 +99,7 @@
               : ' and the jackpots ' + pct(PARTS.jackpots) + '. ') : '. ') +
           'Wins are rounded to whole sats fairly (2.4 sats pays 3 sats 40% of the time), so the Return to Player rate holds at any bet. ' +
           'Rates were measured over ' + game.stats.spins + ' simulated spins. ' +
-          'Every spin is played on the server and is provably fair. Bitcoin Cash Testnet4 coins have no monetary value.</p></div>' +
+          'Every spin is played on the server and is provably fair. Testnet4 coins (tBTC and tBCH) have no monetary value.</p></div>' +
         '</details>';
     }
 

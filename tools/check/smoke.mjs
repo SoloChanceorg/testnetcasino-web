@@ -354,7 +354,7 @@ try {
     const v = SPINS[g];
     resetApi(); signIn(500000); api.spinQueue.push(v);
     await openMachine(g);
-    await ev(`window.__px = { wins: 0 }; setInterval(() => { const s = TNC_PixiState(); window.__px.wins = Math.max(window.__px.wins, s.wins); if (s.stage) TNC_PixiGo(); }, 50);
+    await ev(`window.__px = { wins: 0 }; setInterval(() => { const s = TNC_PixiState(); window.__px.wins = Math.max(window.__px.wins, s.wins); window.__px.dim = Math.max(window.__px.dim || 0, s.dimmed || 0); if (s.stage) TNC_PixiGo(); }, 50);
       TNC_PixiBet(${v.bet}); ${space}`);
     await sleep(300);
     const done = await until(`!TNC_PixiState().busy`, 60000);
@@ -363,6 +363,7 @@ try {
     if (st.bal !== api.balance) problems.push(`balance ${st.bal} != server ${api.balance}`);
     if (st.shown.replace(/\D/g, "") !== String(api.balance)) problems.push(`balance shows ${st.shown}`);
     if (v.totalWin > 0 && !st.px.wins) problems.push("no win shown on the reels");
+    if (v.totalWin > 0 && !st.px.dim) problems.push("the symbols outside the win were never shaded");
     if (!st.hist) problems.push("nothing in recent spins");
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
     resetApi(); signIn();

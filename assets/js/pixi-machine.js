@@ -363,6 +363,31 @@
     L.reels.addChild(reelMask);
     var reelsBox = new PIXI.Container(); reelsBox.mask = reelMask; L.reels.addChild(reelsBox);
     var grid = [];
+    // Attract mode: while the machine waits, a soft band of light sweeps across the reels every few seconds.
+    var sweepTex = texOf(140, RH, function (g, w, h) { var lg = g.createLinearGradient(0, 0, w, 0); lg.addColorStop(0, "rgba(255,255,255,0)"); lg.addColorStop(0.5, "rgba(255,255,255,0.28)"); lg.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = lg; g.fillRect(0, 0, w, h); });
+    var sweep = new PIXI.Sprite(sweepTex); sweep.position.set(RX - 160, RY); sweep.skew.x = -0.35; sweep.visible = false;
+    var sweepMask = new PIXI.Graphics().roundRect(RX, RY, RW, RH, REEL_R).fill(0xffffff); L.reels.addChild(sweepMask); sweep.mask = sweepMask; L.reels.addChild(sweep);
+    var sweepAt = performance.now() + 2500, sweeping = false;
+    app.ticker.add(function () {
+      if (reduce || busy || sweeping || performance.now() < sweepAt) return;
+      sweeping = true; sweep.visible = true;
+      animate(1100, function (p) { sweep.x = RX - 160 + (RW + 320) * p; }, ease.lin).then(function () { sweep.visible = false; sweeping = false; sweepAt = performance.now() + 6500 + Math.random() * 3000; });
+    });
+    // A reel landing: a flash of light down its column.
+    var impactTex = texOf(CW, RH, function (g, w, h) { var lg = g.createLinearGradient(0, 0, 0, h); lg.addColorStop(0, "rgba(255,255,255,0)"); lg.addColorStop(0.5, "rgba(255,255,255,1)"); lg.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = lg; g.fillRect(0, 0, w, h); });
+    function reelImpact(c) {
+      if (reduce) return;
+      var s = new PIXI.Sprite(impactTex); s.position.set(RX + c * (CW + GAP), RY); s.alpha = 0.5; L.fx.addChild(s);
+      animate(R(260), function (p) { s.alpha = 0.5 * (1 - p); }, ease.lin).then(function () { s.destroy(); });
+    }
+    // Anticipation: the reel still turning gets a pulsing gold frame (returns a function that removes it).
+    function anticipationGlow(c) {
+      var g = new PIXI.Graphics().roundRect(RX + c * (CW + GAP) - 4, RY - 4, CW + 8, RH + 8, 10).stroke({ width: 6, color: 0xffd166 });
+      g.filters = [new PIXI.BlurFilter({ strength: 3 })]; L.fx.addChild(g);
+      var t = 0, fn = function (tk) { t += tk.deltaMS / 140; g.alpha = 0.45 + 0.45 * Math.max(0, Math.sin(t)); };
+      app.ticker.add(fn);
+      return function () { app.ticker.remove(fn); g.destroy(); };
+    }
     function Reel(c) {
       this.c = c; this.box = new PIXI.Container(); this.box.position.set(RX + c * (CW + GAP), RY); reelsBox.addChild(this.box);
       this.sprites = []; this.mode = "idle"; this.offset = 0; this.speed = 0; this.cells = [];
@@ -411,7 +436,7 @@
       function place(shift) { items.forEach(function (s, j) { s.y = (j - 1) * CH + CH / 2 + shift; }); }
       place(startShift);
       return animate(ms, function (p) { place(startShift * (1 - p)); self.blur.strengthY = 7 * Math.max(0, 1 - p * 1.6); }, ease.back).then(function () {
-        self.blur.strengthY = 0; self.setStatic(col);
+        self.blur.strengthY = 0; self.setStatic(col); reelImpact(self.c);
       });
     };
     // Each reel: a light strip (under the symbols), drum shading over it, dividers between the reels.
@@ -508,7 +533,8 @@
     Object.assign(kit, { DW: DW, DWF: DWF, DH: DH, OX: OX, Q: Q, BASE_H: BASE_H, deck: deck });
     // The cabinet's base: the console's front edge, facing the player, with the hint printed on it
     L.panel.addChild(paint(W, BASE_H + 10, function (g) { skin.base(kit, g); })).position.set(0, Q[5] - 1);
-    var hint = txt("Press " + T.spin + " · or press Space key", { fontFamily: "Poppins, sans-serif", fontWeight: "600", fontSize: 13, fill: T.hint, letterSpacing: 0.5 });
+    var touchOnly = window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
+    var hint = txt(touchOnly ? "Tap " + T.spin + " to play" : "Press " + T.spin + " · or press Space key", { fontFamily: "Poppins, sans-serif", fontWeight: "600", fontSize: 13, fill: T.hint, letterSpacing: 0.5 });
     hint.position.set(W / 2, Q[5] - 1 + BASE_H / 2 + 1); L.panel.addChild(hint);
     // The console surface (painted flat, seen in perspective)
     deckRoot.addChild(paint(DWF, DH, function (g, w, h) { skin.surface(kit, g, w, h); }));
@@ -655,7 +681,7 @@
       if (!feature) { setFeatBar(FEATURES); return; }
       setFeatBar((feature.reward ? feature.emoji + " " + feature.name.toUpperCase() : syms[K.scatter].emoji + " FREE SPINS") + "   " + feature.left + " LEFT" +
         (feature.mult > 1 ? "   WINS ×" + feature.mult : "") + (feature.locked ? "   " + syms[K.wild].emoji + " LOCKED" : "") +
-        (feature.sticky ? "   " + syms[K.wild].emoji + " STICKY " + feature.sticky : "") + "   WON " + amt(feature.total), true);
+        (feature.sticky ? "   " + syms[K.wild].emoji + " STICKY " + feature.sticky : "") + "   WON " + fmt(feature.total) + " SATS", true);
     }
 
     /* ═══ Meters ═══ */
@@ -666,8 +692,8 @@
         animate(ms, function (p) {
           if (token != null && token !== presentToken) { if (t === balRO.v) t.text = num(balShown); return; }
           t.text = num(Math.round(from + (to - from) * p));
-          var now = performance.now(); if (tick && now - last > 55 && p < 1) { sfx.countTick(); last = now; }
-        }).then(res);
+          var now = performance.now(); if (tick && now - last > 55 && p < 1) { sfx.countTick(p); last = now; }
+        }).then(function () { if (tick && to > from && (token == null || token === presentToken)) sfx.countDone(); res(); });
       });
     }
     function credit(sats, token, ms) { if (sats <= 0) return; var from = balShown; balShown += sats; countUp(balRO.v, from, balShown, ms, token, false); }
@@ -687,11 +713,29 @@
     var pulse = 0;
     app.ticker.add(function (tk) {
       pulse += tk.deltaMS / 180;
-      hits.forEach(function (s) { if (s && !s.destroyed) s.scale.set(1 + Math.max(0, Math.sin(pulse)) * 0.08); });
+      var now = performance.now();
+      hits.forEach(function (s) {
+        if (!s || s.destroyed) return;
+        var q = s._pop ? Math.min(1, (now - s._pop) / 380) : 1;   // the pop when it joined a win
+        s.scale.set(1 + Math.max(0, Math.sin(pulse)) * 0.08 + Math.sin(q * Math.PI) * 0.3);
+      });
     });
+    // The symbols outside the win step back behind a shade, so the win stands out (drawn over the reels: the
+    // reels' blur filter would swallow the sprites' own alpha).
+    var dimG = new PIXI.Graphics(); L.lines.addChildAt(dimG, 0);
+    var dimCount = 0;
+    function dimOthers(on) {
+      dimG.clear(); dimCount = 0;
+      if (!on) return;
+      reels.forEach(function (r, c) { r.cells.forEach(function (s, row) {
+        if (s.destroyed || hits.indexOf(s) !== -1) return;
+        var p = cellXY(c, row); dimG.roundRect(p.x - CW / 2 + 2, p.y - CH / 2 + 2, CW - 4, CH - 4, 8).fill({ color: 0x06080f, alpha: 0.5 }); dimCount++;
+      }); });
+    }
     function clearWins() {
-      hits.forEach(function (s) { if (s && !s.destroyed) s.scale.set(1); });
+      hits.forEach(function (s) { if (s && !s.destroyed) { s.scale.set(1); s._pop = 0; } });
       hits = []; lineG.clear(); lineGlow.clear(); hitFrames.clear();
+      dimOthers(false);
     }
     function linePoints(li) {
       var pts = PAYLINES[li].map(function (r, c) { var p = cellXY(c, r); return [p.x, p.y]; });
@@ -722,7 +766,7 @@
         (it.w.cells || []).forEach(function (rc) {
           var s = reels[rc[0]].cells[rc[1]];
           if (s && hits.indexOf(s) === -1) {
-            hits.push(s);
+            hits.push(s); if (!reduce) s._pop = performance.now();
             var p = cellXY(rc[0], rc[1]);
             hitFrames.roundRect(p.x - CW / 2 + 4, p.y - CH / 2 + 4, CW - 8, CH - 8, 10).stroke({ width: 4, color: 0xffd166 });
           }
@@ -738,6 +782,7 @@
         }, reduce ? 0 : k * 220);
       });
       drawLines(drawn);
+      if (hits.length) dimOthers(true);
     }
 
     /* ═══ Overlays on the cells (fixed wilds, multipliers, jackpot and collect symbols) ═══ */
@@ -852,6 +897,8 @@
       bannerTitle.scale.set(1); bannerAmt.scale.set(1);
       var tw = PIXI.CanvasTextMetrics.measureText(title, bannerTitle.style).width, w = Math.max(420, Math.min(700, tw + 80));
       if (tw > w - 50) bannerTitle.scale.set((w - 50) / tw);
+      var aw = amount ? PIXI.CanvasTextMetrics.measureText(amount, bannerAmt.style).width : 0;
+      if (aw > w - 50) bannerAmt.scale.set((w - 50) / aw);
       bannerBack.clear().roundRect(-w / 2, -110, w, 220, 26).fill({ color: T.bannerBg, alpha: 0.82 }).stroke({ width: 4, color: 0xffd166 });
       banner.visible = true; banner.alpha = 1; banner.scale.set(0.2);
       animate(R(500), function (p) { banner.scale.set(0.2 + 0.8 * p); }, ease.back);
@@ -875,7 +922,7 @@
       })).position.set(30, 150);
       var t = txt(titleText, { fontSize: 44, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 16, distance: 0, alpha: 1 } }); t.position.set(W / 2, 214);
       if (t.width > 640) t.scale.set(640 / t.width);
-      var s = txt(subText || "", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 18, fill: ST.sub, wordWrap: true, wordWrapWidth: 620, align: "center" }); s.position.set(W / 2, 262);
+      var s = txt(subText || "", { fontFamily: '"Courier New", monospace', fontWeight: "700", fontSize: 18, fill: ST.sub, wordWrap: true, wordWrapWidth: 660, align: "center" }); s.position.set(W / 2, 262);
       stage.addChild(t, s);
       animate(R(350), function (p) { stage.alpha = p; });
       return { sub: s, root: stage };
@@ -983,6 +1030,10 @@
     };
 
     /* ═══ Celebration of an amount ═══ */
+    // A flash of light over the whole machine (big wins), and `hot` for the skins' lights while a win plays.
+    var flashG = new PIXI.Graphics().rect(0, 0, W, H).fill(0xffffff); flashG.alpha = 0; L.banner.addChildAt(flashG, 0);
+    function flash(a) { if (reduce) return; flashG.alpha = a; animate(R(420), function (p) { flashG.alpha = a * (1 - p); }, ease.lin); }
+    var hot = false; kit.hot = function () { return hot; };
     var TIERS = { none: 0, win: 700, big: 1400, mega: 2200, jackpot: 3200 };
     var WAIT = { none: 700, win: 1100, big: 2300, mega: 2900, jackpot: 4300 };
     var SETTLE_MS = 500;
@@ -992,6 +1043,9 @@
       credit(total, token, R(TIERS[tier]));
       if (tier === "win" || tier === "none") { if (total > 0) { sfx.win(); emit(8 + Math.min(20, Math.round(total / playBet)), RX + RW / 2, RY + RH, { power: 11 }); } return; }
       showBanner(title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "TOP PRIZE!" }[tier], amt(total));
+      if (!reduce) animate(R(TIERS[tier]), function (p) { if (token === presentToken) bannerAmt.text = amt(Math.round(total * p)); });
+      flash(tier === "big" ? 0.35 : 0.6);
+      hot = true; setTimeout(function () { hot = false; }, { big: 2200, mega: 2800, jackpot: 4200 }[tier]);
       ({ big: sfx.bigWin, mega: sfx.megaWin, jackpot: sfx.jackpot }[tier]).call(sfx);
       emit({ big: 40, mega: 80, jackpot: 120 }[tier], RX + RW / 2, RY + RH + 20, { emoji: true, power: 18, spread: 300 });
       if (tier !== "big") { shake(R(900), 14); tilt("big"); }
@@ -1015,15 +1069,17 @@
     async function stopAll(target) {
       var seen = 0, landings = [];
       for (var i = 0; i < REELS; i++) {
+        var unglow = null;
         if (seen >= 2 && i >= 2 && !stopReq) {
           sfx.anticipation(R(1300) / 1000);
           var r0 = reels[i]; animate(R(1300), function (p) { r0.speed = 2.6 + 1.6 * p; }, ease.lin);
+          unglow = anticipationGlow(i);
           await stoppable(R(1300));
         } else if (i > 0) await (stopReq ? sleep(R(70)) : stoppable(R(420)));
         var n = target[i].filter(function (k) { return k === K.scatter; }).length;
-        landings.push(reels[i].land(target[i], stopReq ? R(200) : R(560)).then((function (idx, cnt, has) {
-          return function () { landLog.push(performance.now()); sfx.reelStop(idx); if (has) sfx.scatter(cnt); };
-        }(i, seen + n, n > 0))));
+        landings.push(reels[i].land(target[i], stopReq ? R(200) : R(560)).then((function (idx, cnt, has, off) {
+          return function () { landLog.push(performance.now()); sfx.reelStop(idx); if (has) sfx.scatter(cnt); if (off) off(); if (idx === REELS - 1 && !stopReq) shake(R(160), 3); };
+        }(i, seen + n, n > 0, unglow))));
         seen += n;
       }
       reelsTurning = false; stopReq = false; updateControls();
@@ -1239,7 +1295,7 @@
       }));
       sfx.collect();
       paintTank(st.full ? st.size : st.filled, st.size, true);
-      if (!st.full) { lcdSub.text = COL.emoji + " +" + st.cells.length + " · " + COL.name + " " + fmt(st.filled) + " / " + fmt(st.size); return; }
+      if (!st.full) { lcdSub.text = COL.emoji + " +" + st.cells.length + " into the " + COL.name + (st.size && st.filled / st.size >= 0.9 ? " · nearly full!" : ""); return; }
       tankFlash(true);
       var token = ++presentToken; hideBanner(); clearWins();
       showBanner(COL.name.toUpperCase() + " FULL!", COL.reward.name.toUpperCase());
@@ -1378,7 +1434,7 @@
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,
         banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, wins: wins.length, landed: landLog.slice(), turning: reelsTurning,
-        jpShown: jpShown, colShown: colShown, wheel: kit.wheelStopped == null ? null : kit.wheelStopped, picks: kit.picksShown || 0, pearls: kit.pearlsShown || 0, keySub: keySub,
+        jpShown: jpShown, colShown: colShown, dimmed: dimCount, wheel: kit.wheelStopped == null ? null : kit.wheelStopped, picks: kit.picksShown || 0, pearls: kit.pearlsShown || 0, keySub: keySub,
         bounds: (function () { var b = world.getLocalBounds(); return [Math.round(b.minX), Math.round(b.minY), Math.round(b.maxX), Math.round(b.maxY)]; })() };
     };
     window.TNC_PixiGo = function () { if (kit._stageGo) { kit._stageGo(); return true; } return false; };

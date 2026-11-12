@@ -35,7 +35,11 @@
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       ctx = new AC();
-      master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+      // Mastering: a compressor keeps the big moments (many layers at once) punchy without clipping.
+      var comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -16; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.14;
+      comp.connect(ctx.destination);
+      master = ctx.createGain(); master.gain.value = 0.6; master.connect(comp);
       out = ctx.createGain(); out.connect(master);
       var verb = ctx.createConvolver();
       verb.buffer = impulse(ctx, theme === "deepsea" ? 3.2 : theme === "cosmic" ? 2.6 : 1.8, 3);
@@ -93,6 +97,36 @@
   function zap(start, f0, f1, vol) { tone(f0, start, 0.14, "square", vol || 0.05, f1, 3500); }
   function arp(notes, start, step, fn) { notes.forEach(function (n, i) { fn(n, start + i * step); }); }
   function rnd(a) { return a[Math.floor(Math.random() * a.length)]; }
+  // Casino instruments, shared by every pack: the bell of a slot cabinet, a brass fanfare, a coin clink, a reel's thunk.
+  function bell(f, start, vol, dur) {
+    vol = vol || 0.12; dur = dur || 0.9;
+    tone(f, start, dur, "sine", vol); tone(f * 2.76, start, dur * 0.35, "sine", vol * 0.35); tone(f * 5.4, start, dur * 0.12, "sine", vol * 0.18);
+    tone(f * 0.5, start, dur * 0.5, "triangle", vol * 0.25, null, 1200);
+  }
+  function brass(fs, start, dur, vol) {
+    var c = ac(); if (!c) return;
+    var t = c.currentTime + start, vib = c.createOscillator(), vg = c.createGain();
+    vib.frequency.value = 5.5; vg.gain.value = 3; vib.connect(vg); vib.start(t); vib.stop(t + dur + 0.1);
+    fs.forEach(function (f) {
+      [-6, 6].forEach(function (cents) {
+        var o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+        o.type = "sawtooth"; o.frequency.value = f * Math.pow(2, cents / 1200); vg.connect(o.detune);
+        lp.type = "lowpass"; lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(3200, t + Math.min(0.5, dur * 0.4)); lp.frequency.exponentialRampToValueAtTime(900, t + dur);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime((vol || 0.05) / 2, t + 0.09); g.gain.setValueAtTime((vol || 0.05) / 2, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(lp); lp.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+      });
+    });
+  }
+  function clink(start, p, vol) {   // a coin on the tray; p (0..1) raises its pitch
+    var f = 2600 * Math.pow(2, (p || 0) * 0.9);
+    noise(start, 0.02, (vol || 0.16) * 1.2, 7000, "bandpass"); tone(f, start, 0.08, "sine", vol || 0.05); tone(f * 1.5, start, 0.05, "sine", (vol || 0.05) * 0.4);
+  }
+  function thunk(start, i) {         // a reel's stop: a soft click, then the body of the cabinet
+    noise(start, 0.006, 0.5, 4200, "bandpass"); noise(start, 0.05, 0.3, 240, "lowpass");
+    tone(130 - i * 9, start, 0.16, "sine", 0.26, 48);
+  }
+  function bellRun(notes, start, step, vol) { notes.forEach(function (f, i) { bell(f, start + i * step, vol || 0.08, 0.6); }); }
+  function riser(dur, vol) { noise(0, dur, vol || 0.05, 320, "bandpass", 4200); }
 
   /* ---------- Ambience ---------- */
   function noiseLoop(lpHz, vol, brown) {
@@ -327,7 +361,7 @@
     },
     stopSpinLoop: stopSpinLoop,
     reelStop: function (i) {
-      call("reelStop", [i]);
+      call("reelStop", [i]); thunk(0, i);
       loop.active = Math.max(0, loop.active - 1);
       if (!loop.active) stopSpinLoop();
     },
@@ -346,14 +380,25 @@
         o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
       }
       for (var k = 0; k < dur / 0.35; k++) drum(k * 0.35, 0.22);   // heartbeat
+      riser(dur, 0.045);
     },
     lineBlip: function (k) { call("lineBlip", [k]); },
-    countTick: function () { tone(1700 + Math.random() * 300, 0, 0.03, theme === "deepsea" ? "sine" : "square", 0.022); },
+    // The win meter rolling up: coins on the tray, rising in pitch with the count; a bell when it lands.
+    countTick: function (p) { clink(0, p || 0, 0.04); },
+    countDone: function () { bell(2093, 0, 0.1, 0.8); bell(2637, 0.02, 0.05, 0.6); },
     noWin: function () { call("noWin"); },
     win: function () { call("win"); },
-    bigWin: function () { call("bigWin"); },
-    megaWin: function () { call("megaWin"); },
-    jackpot: function () { call("megaWin"); call("jackpotExtra"); },
+    bigWin: function () { call("bigWin"); bellRun([1047, 1319, 1568, 2093, 2637], 0.05, 0.09, 0.07); },
+    megaWin: function () {
+      call("megaWin"); brass([262, 330, 392, 523], 0.1, 1.8, 0.05);
+      bellRun([1047, 1319, 1568, 2093, 2637, 3136], 0.3, 0.08, 0.07); bellRun([1568, 2093, 2637, 3136], 1.0, 0.1, 0.06);
+    },
+    jackpot: function () {
+      call("megaWin"); call("jackpotExtra");
+      for (var k = 0; k < 14; k++) bell(k % 2 ? 2637 : 2093, 0.1 + k * 0.11, 0.09, 0.4);   // the alarm bell on top of the cabinet
+      brass([262, 330, 392, 523], 0.2, 2.6, 0.06); brass([349, 440, 523, 698], 2.9, 2.4, 0.06);
+      bellRun([1047, 1319, 1568, 2093, 2637, 3136, 4186], 1.7, 0.07, 0.07);
+    },
     freeSpins: function () { call("bigWin"); call("scatter", [5]); },
     feature: function () { call("feature"); },
     bonusStart: function () { call("bonusStart"); },

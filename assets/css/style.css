@@ -475,7 +475,7 @@ body[data-page="lobby"] #casino-bg { opacity: .35; }
 .history li:last-child { border-bottom: 0; }
 .h-line { font-family: var(--emoji); letter-spacing: .05em; flex: 1; min-width: 0; }
 .h-kind { color: var(--muted); font-size: .76rem; }
-.h-amt { font-family: var(--sign); font-size: .82rem; color: var(--muted); min-width: 5em; text-align: right; }
+.h-amt { font-family: var(--mono); font-weight: 700; font-size: .82rem; color: var(--muted); min-width: 5em; text-align: right; white-space: nowrap; }
 .history .is-win .h-amt { color: var(--lcd-green); }
 .history .is-big .h-amt { color: var(--gold-light); text-shadow: 0 0 8px rgba(245,197,66,.8); }
 .history-empty { color: var(--muted); }

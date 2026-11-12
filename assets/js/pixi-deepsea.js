@@ -116,18 +116,17 @@
     var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK;
     var panel = k.paint(TW, TH, function (g, w, h) {
       g.shadowColor = "rgba(46,197,255,.45)"; g.shadowBlur = 14; rr(g, 2, 2, w - 4, h - 4, 14); g.fillStyle = brass(g, 0, h); g.fill(); g.shadowBlur = 0;
-      rr(g, 8, 36, w - 16, h - 78, 9); g.fillStyle = k.grad(g, 36, h - 42, ["#0b4a6a", "#06283c", "#031522"]); g.fill();
+      rr(g, 8, 36, w - 16, h - 44, 9); g.fillStyle = k.grad(g, 36, h - 8, ["#0b4a6a", "#06283c", "#031522"]); g.fill();
       g.save(); g.clip(); g.globalAlpha = 0.18; g.fillStyle = "#9ff0ff";                     // light from above
       g.beginPath(); g.moveTo(20, 36); g.lineTo(44, 36); g.lineTo(70, h); g.lineTo(30, h); g.fill();
       g.beginPath(); g.moveTo(80, 36); g.lineTo(96, 36); g.lineTo(120, h); g.lineTo(96, h); g.fill(); g.restore();
-      rr(g, 8, 36, w - 16, h - 78, 9); g.lineWidth = 1.5; g.strokeStyle = "#5a440f"; g.stroke();
-      rr(g, 8, h - 36, w - 16, 26, 7); g.fillStyle = "#03181e"; g.fill();
+      rr(g, 8, 36, w - 16, h - 44, 9); g.lineWidth = 1.5; g.strokeStyle = "#5a440f"; g.stroke();
     });
     tank.addChild(panel);
     var name = k.txt(COL ? COL.name.toUpperCase() : "", { fontSize: 11, fill: "#2a1d05", letterSpacing: 0.5 }); name.position.set(TW / 2, 20);
     if (name.width > TW - 16) name.scale.set((TW - 16) / name.width);
     tank.addChild(name);
-    var cx = TW / 2, mouth = TH - 120, chestBot = TH - 52, pileTop = 48;
+    var cx = TW / 2, mouth = TH - 92, chestBot = TH - 24, pileTop = 48;
     // The open lid, behind the coins
     tank.addChild(k.paint(TW, TH, function (g) {
       g.beginPath(); g.moveTo(cx - 50, mouth); g.lineTo(cx - 42, mouth - 40); g.lineTo(cx + 42, mouth - 40); g.lineTo(cx + 50, mouth); g.closePath();
@@ -160,7 +159,6 @@
       g.beginPath(); g.arc(cx, mouth + 19, 3, 0, Math.PI * 2); g.fillStyle = "#2b1606"; g.fill(); g.fillRect(cx - 1.2, mouth + 19, 2.4, 7);
       g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, chestBot + 4, 56, 6, 0, 0, Math.PI * 2); g.fill();
     }));
-    var icon = new PIXI.Sprite(k.emojiTex(COL ? COL.emoji : "🪙", 20)); icon.anchor.set(0.5); icon.position.set(22, TH - 23); tank.addChild(icon);
     var full = k.txt("FULL!", { fontSize: 26, fill: "#ffe79a", dropShadow: { color: "#ffb300", blur: 12, distance: 0, alpha: 1 }, stroke: { color: "#2a1d05", width: 4 } });
     full.position.set(TW / 2, 80); full.visible = false; tank.addChild(full);
     var wave = 0, shown = -1;
@@ -443,7 +441,7 @@
   /* ═══ The Treasure Hold & Win: pearls lock on a 5 × 3 board; a new pearl resets the respins ═══ */
   function holdAndWin(k, st, b) {
     var Rw = k.COL.reward, W = k.W, REELS = k.REELS, ROWS = k.ROWS;
-    var ui = k.openStage("🪙 " + Rw.name.toUpperCase(), "The pearls lock in place. New pearls reset the respins to " + Rw.respins + ".");
+    var ui = k.openStage("🪙 " + Rw.name.toUpperCase(), "Pearls lock in place. A new pearl resets the respins.");
     var stage = ui.root, left = Rw.respins, sum = 0;
     var info1 = k.txt("RESPINS " + left, { fontSize: 22, fill: "#ffe79a" }); info1.position.set(W / 2 - 150, 330);
     var info2 = k.txt("BET " + k.fmt(b) + " " + k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 18, fill: "#9ff0ff" }); info2.position.set(W / 2 + 150, 330);
