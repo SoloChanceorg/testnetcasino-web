@@ -427,6 +427,20 @@
       return kk;
     }
     var betDown = smallKey("▼", 16), betUp = smallKey("▲", 124);
+    // Drag the lever: it follows the hand along the slot, clicking into each detent (the bet changes there), and
+    // settles on the nearest one when let go.
+    function leverAt(fi) { thrKnob.y = 214 - fi * 20; thrKnob._fi = fi; drawLever(fi); slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y; }
+    var dragging = false;
+    k.deckDrag(556 + SLX - 46, 12 + 18, 92, 214, {
+      start: function () { dragging = true; },
+      move: function (d) {
+        if (!dragging) return;
+        var fi = Math.max(0, Math.min(LADDER.length - 1, (214 - (d.y - 12)) / 20)), i = Math.round(fi);
+        leverAt(fi);
+        if (i !== thrKnob._i) k.setBet(LADDER[i]);
+      },
+      end: function () { dragging = false; if (thrKnob._i != null) k.setBet(LADDER[thrKnob._i]); }
+    });
     k.deckHit(556 - 2, 12 + 254, 40, 34, betDown, function () { betDown._sink(); k.stepBet(-1); });
     k.deckHit(556 + 106, 12 + 254, 40, 34, betUp, function () { betUp._sink(); k.stepBet(1); });
 
@@ -434,11 +448,12 @@
       win: win, bal: bal, key: launch,
       setBet: function (bet, i) {
         thrMarks.forEach(function (m, j) { m.style.fill = j === i ? "#ffffff" : "#8f86b8"; });
+        if (dragging) { thrKnob._i = i; betVal.text = String(bet); return; }
         k.animate(k.R(220), (function (from, fromI) { return function (p) {
           thrKnob.y = from + (214 - i * 20 - from) * p; drawLever(fromI + (i - fromI) * p);
           slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y;
-        }; })(thrKnob.y || 214, thrKnob._i == null ? i : thrKnob._i));
-        thrKnob._i = i;
+        }; })(thrKnob.y || 214, thrKnob._fi != null ? thrKnob._fi : thrKnob._i == null ? i : thrKnob._i));
+        thrKnob._i = i; thrKnob._fi = null;
         betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
       },
       update: function (s) {
@@ -446,7 +461,7 @@
         [betUp, betDown].forEach(function (b) { k.setOff(b, s.busy); });
         thrMarks.forEach(function (m) { m.alpha = s.busy ? 0.55 : 1; });
       },
-      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270] }; }
+      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 3 * 20], dragTo: [556 + SLX, 12 + 214 - 8 * 20] }; }   // the lever at 10, the detent for 500
     };
   }
 

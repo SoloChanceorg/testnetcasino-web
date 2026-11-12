@@ -375,6 +375,11 @@ start (no WebGL), the page says so with a "Try again" button.
   sends a hex shockwave out across the console with sparks off the cap. Every key's depth is a spring toward its state
   (pressed, half down while the spin plays, an invitation half-press now and then at rest), stepped at most 4 ms at a
   time: one step over a long frame made it shoot up and down.
+- **Drag the bet control**: the THRUST lever follows the hand up and down its slot, clicking into each detent (the bet
+  changes there, with the chip sound) and settling on the nearest when let go; the BET DIAL turns under the hand from 1
+  round to 1,000 and clicks onto the nearest stop. Taps on the marks and the step keys still work; a drag swallows the
+  tap at its end. The engine maps the pointer back to the flat deck through the console's homography wherever it goes on
+  the screen while the button is held (`kit.deckDrag(x, y, w, h, { start, move, end })`).
 - **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
@@ -551,7 +556,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113d`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113e`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

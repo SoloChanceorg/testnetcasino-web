@@ -630,6 +630,8 @@
     // Hit areas on the flat deck (the mesh maps taps back to them)
     var deckHits = [];
     kit.deckHit = function (x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); };
+    var deckDrags = [];   // drag zones: { x, y, w, h, on: { start, move, end } } (see the console's pointer handling)
+    kit.deckDrag = function (x, y, w, h, on) { deckDrags.push({ x: x, y: y, w: w, h: h, on: on }); };
     // The spin key's depth: a spring toward its target (pressed: all the way; while the spin plays: half;
     // idle: a half press now and then, an invitation; off: up). The skin draws the key at that depth.
     var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0, keyPressAt = -1e9;
@@ -683,9 +685,38 @@
       }
       return null;
     }
+    // Drag zones on the flat deck (a lever, a dial): the pointer's deck point goes to the zone's start / move / end
+    // while the button is held, wherever the pointer wanders on the screen. A drag swallows the tap at its end.
+    var drag = null;
+    function dragAt(e) {
+      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
+      for (var i = 0; i < deckDrags.length; i++) { var z = deckDrags[i]; if (d.x >= z.x && d.x <= z.x + z.w && d.y >= z.y && d.y <= z.y + z.h) return { zone: z, d: d }; }
+      return null;
+    }
     deckMesh.eventMode = "static";
-    deckMesh.on("pointertap", function (e) { var h = hitAt(e); if (h) h.fn(); });
-    deckMesh.on("pointermove", function (e) { deckMesh.cursor = hitAt(e) ? "pointer" : "default"; });
+    deckMesh.on("pointerdown", function (e) {
+      if (busy) return;
+      var z = dragAt(e); if (!z) return;
+      drag = { zone: z.zone, x0: e.global.x, y0: e.global.y, moved: false };
+      if (z.zone.on.start) z.zone.on.start(z.d);
+    });
+    deckMesh.on("globalpointermove", function (e) {
+      if (!drag) return;
+      if (Math.abs(e.global.x - drag.x0) + Math.abs(e.global.y - drag.y0) > 4) drag.moved = true;
+      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
+      if (drag.zone.on.move) drag.zone.on.move(d);
+    });
+    function endDrag(e) {
+      if (!drag) return;
+      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y), z = drag;
+      drag = null;
+      if (z.zone.on.end) z.zone.on.end(d);
+      if (z.moved) swallowTap = true;
+    }
+    var swallowTap = false;
+    deckMesh.on("pointerup", endDrag); deckMesh.on("pointerupoutside", endDrag);
+    deckMesh.on("pointertap", function (e) { if (swallowTap) { swallowTap = false; return; } var h = hitAt(e); if (h) h.fn(); });
+    deckMesh.on("pointermove", function (e) { deckMesh.cursor = drag ? "grabbing" : hitAt(e) ? "pointer" : dragAt(e) && !busy ? "grab" : "default"; });
     // For tests: the panel point where a deck control is drawn (flat deck -> panel).
     function deckPoint(x, y) { return quadPoint(Q, (x + OX) / DWF, y / DH); }
 
@@ -1545,7 +1576,8 @@
     // For tests: what the machine is doing, and a way to press the stage's button (or Auto) at once.
     window.TNC_PixiState = function () {
       var pts = ctl.points();
-      return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]), keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
+      return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]),
+        dragFrom: pts.dragFrom ? deckPoint(pts.dragFrom[0], pts.dragFrom[1]) : null, dragTo: pts.dragTo ? deckPoint(pts.dragTo[0], pts.dragTo[1]) : null, keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,
         banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, wins: wins.length, landed: landLog.slice(), turning: reelsTurning,

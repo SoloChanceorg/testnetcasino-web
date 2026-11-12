@@ -337,6 +337,21 @@
       return kk;
     }
     var down = stepKey("◀", 34), up = stepKey("▶", 210);
+    // Drag the dial: the knob turns under the hand, from 1 round to 1,000, the bet changing at each stop, and
+    // clicks onto the nearest stop when let go.
+    var turning = false, stopI = null;
+    k.deckDrag(DX - LR - 14, DY - LR - 14, (LR + 14) * 2, (LR + 14) * 2, {
+      start: function () { turning = true; },
+      move: function (d) {
+        if (!turning) return;
+        var a = Math.atan2(d.x - DX, -(d.y - DY)) * 180 / Math.PI;   // 0 = up, clockwise
+        a = Math.max(-135, Math.min(135, a));
+        var fi = (a + 135) / 30, i = Math.round(fi);
+        knob.rotation = a * Math.PI / 180;
+        if (i !== stopI) k.setBet(LADDER[i]);
+      },
+      end: function () { turning = false; if (stopI != null) { knob._a = knob.rotation; k.setBet(LADDER[stopI]); } }
+    });
     var dlabel = txt(T.bet, { fontSize: 13, fill: "#ffd98a", letterSpacing: 2 }); dlabel.position.set(DX, 268); deck.addChild(dlabel);
     k.deckHit(8, 250, 54, 40, down, function () { down._sink(); k.stepBet(-1); });
     k.deckHit(184, 250, 54, 40, up, function () { up._sink(); k.stepBet(1); });
@@ -411,9 +426,11 @@
       win: win, bal: bal, key: key,
       setBet: function (bet, i) {
         labels.forEach(function (l, j) { l.style.fill = j === i ? "#ffe79a" : "#8fb8c8"; l.scale.set(j === i ? 1.15 : 1); });
+        stopI = i;
         var to = ang(i), from = knob._a == null ? to : knob._a;
-        k.animate(k.R(260), function (p) { knob.rotation = from + (to - from) * p; }, k.ease.back);
         knob._a = to;
+        if (turning) { betVal.text = String(bet); betVal.scale.set(betVal.width > 52 ? 52 / betVal.width * betVal.scale.x : 1); return; }   // under the hand: no snap yet
+        k.animate(k.R(260), function (p) { knob.rotation = from + (to - from) * p; }, k.ease.back);
         betVal.text = String(bet);
         betVal.scale.set(betVal.width > 52 ? 52 / betVal.width * betVal.scale.x : 1);
       },
@@ -422,7 +439,7 @@
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
         labels.forEach(function (l) { l.alpha = s.busy ? 0.55 : 1; });
       },
-      points: function () { return { spin: [KX, KY], betUp: [210, 268] }; }
+      points: function () { return { spin: [KX, KY], betUp: [210, 268], dragFrom: [DX, DY - 80], dragTo: [DX + 87, DY + 23] }; }   // dragTo: the stop for 500 (105° round from the top)
     };
   }
 
