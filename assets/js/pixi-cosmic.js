@@ -58,10 +58,10 @@
     })).position.set(k.RX - 12, k.RY - 12);
   }
 
-  /* ═══ The collector: the Fuel Tank. When fuel cells land, fuel pours into them on the reels, then streams
-     out of each cell over to the tank's inlet and pours down into the tank: the level rises with a splash
-     and bubbles. Full: the tank blazes and the thruster under it lights; when the Hyperdrive is over the
-     fuel drains away. ═══ */
+  /* ═══ The collector: the Fuel Tank. A fuel cell lands on the reels already full of fuel (no badge: the
+     cell itself is the fuel), sloshing as the reel stops; at the collect step each cell drains along a stream
+     over to the tank's inlet and pours down into the tank: the level rises with a splash and bubbles. Full:
+     the tank blazes and the thruster under it lights; when the Hyperdrive is over the fuel drains away. ═══ */
   function collector(k, tank) {
     var TW = k.TW, TH = k.TH, rr = k.rr, COL = k.COL, TANK = k.TANK, PIXI = k.PIXI, L = k.L;
     var cx = TW / 2, TIN = { x: 26, y: 66, w: TW - 52, h: TH - 92 }, INLET_Y = TIN.y - 30;
@@ -106,6 +106,15 @@
     // The streams from the reels to the inlet are drawn over the machine
     var fxG = new PIXI.Graphics(); L.fx.addChild(fxG);
     var streams = [], cellsFx = [], bubbles = [];
+    // A full fuel cell on a reel cell (once per cell); `slosh` makes the surface heave, as when the reel has just stopped
+    function fuelCell(rc, slosh) {
+      if (cellsFx.some(function (cf) { return cf.rc[0] === rc[0] && cf.rc[1] === rc[1]; })) return;
+      var xy = k.cellXY(rc[0], rc[1]), c = new PIXI.Container(); c.position.set(xy.x, xy.y);
+      var m = new PIXI.Graphics().roundRect(-k.CW / 2 + 3, -k.CH / 2 + 3, k.CW - 6, k.CH - 6, 12).fill(0xffffff); c.addChild(m);
+      var liq = new PIXI.Graphics(); liq.mask = m; c.addChild(liq); L.fx.addChild(c);
+      cellsFx.push({ c: c, liq: liq, rc: rc, level: 1, draining: false, slosh: slosh && !k.reduce ? 1 : 0, x: xy.x, y: xy.y });
+      if (slosh) k.sfx.collectItem(0.5);
+    }
     var t = 0, disp = 0, pourT = 0, shakeT = 0, glowKick = 0, flameOn = 0;
     function bez(q, u) {
       var v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
@@ -150,11 +159,13 @@
       }
       cellsFx.forEach(function (cf) {   // fuel inside a reel cell
         var g = cf.liq, w = k.CW - 6, h = k.CH - 6, x = -w / 2, b2 = h / 2; g.clear();
-        if (cf.pouring) { var pw = 8 + Math.sin(t * 25) * 1.5; g.rect(-pw / 2, -b2, pw, h * (1 - cf.level) + 6).fill({ color: 0x5fd8ff, alpha: 0.95 }); g.rect(-1, -b2, 2, h * (1 - cf.level) + 6).fill({ color: 0xe6fbff, alpha: 0.8 }); }
+        cf.slosh *= Math.pow(0.97, dt);
         if (cf.level > 0) {
-          var tp = b2 - h * cf.level;
-          liquid(g, x, tp, w, b2, cf.pouring || cf.draining ? 3 : 1.5, phase + cf.x / 50, 0x1aa3e8, 0.85);
-          liquid(g, x, tp + 6, w, b2, 2, phase + 1.1, 0x9ff0ff, 0.35);
+          var tp = b2 - h * cf.level, amp = (cf.draining ? 3 : 1.5) + cf.slosh * 7;
+          liquid(g, x, tp, w, b2, amp, phase + cf.x / 50, 0x1aa3e8, 0.92);
+          liquid(g, x, tp + 6, w, b2, amp * 0.7, phase + 1.1, 0x9ff0ff, 0.35);
+          g.roundRect(x, -b2, w, h, 12).stroke({ width: 2.5, color: 0x9ff0ff, alpha: 0.5 + 0.35 * (0.5 + 0.5 * Math.sin(t * 5 + cf.x / 30)) });   // the cell's rim, lit
+          if (cf.level >= 0.98) for (var bi = 0; bi < 3; bi++) g.circle(x + 14 + bi * 28 + Math.sin(t * 2 + bi) * 4, b2 - 12 - ((t * 18 + bi * 23) % 60), 2).stroke({ width: 1, color: 0xe6fbff, alpha: 0.5 });
           if (cf.draining) g.ellipse(w / 2 - 14, b2 - 6, 9, 3).fill({ color: 0x5fd8ff, alpha: 0.9 });   // where it drains out, low on the right
         }
       });
@@ -186,23 +197,18 @@
       count: function () {},   // no numbers: the fuel level itself shows how full it is
       flash: function (on) { tankFull.visible = on; tankGlass.tint = on ? 0xffe9a8 : 0xffffff; },
       target: function () { return { x: k.TX + cx, y: k.TY + TIN.y + TIN.h * 0.5 }; },
-      // Fuel pours into each fuel cell on the reels; then each cell drains along a stream to the inlet, and the tank fills.
+      badge: false,   // no ⛽ on the cell: the cell itself is the fuel
+      // A reel lands: its fuel cells are already full, and slosh with the stop.
+      land: function (cells) { cells.forEach(function (rc) { fuelCell(rc, true); }); },
+      // The collect step: each cell (full since it landed) drains along a stream to the inlet, and the tank fills.
       collect: async function (items, o) {
-        var n = items.length, reduce = k.reduce;
-        cellsFx = o.cells.map(function (rc) {
-          var xy = k.cellXY(rc[0], rc[1]), c = new PIXI.Container(); c.position.set(xy.x, xy.y);
-          var m = new PIXI.Graphics().roundRect(-k.CW / 2 + 3, -k.CH / 2 + 3, k.CW - 6, k.CH - 6, 12).fill(0xffffff); c.addChild(m);
-          var liq = new PIXI.Graphics(); liq.mask = m; c.addChild(liq); L.fx.addChild(c);
-          return { c: c, liq: liq, level: 0, pouring: true, draining: false, x: xy.x, y: xy.y };
-        });
-        k.sfx.pour(0.7 + n * 0.15);
-        await Promise.all(cellsFx.map(function (cf, j) {
-          return k.sleep(reduce ? 0 : j * 160).then(function () { return k.animate(reduce ? 1 : 650, function (p) { cf.level = p; }, k.ease.lin); }).then(function () { cf.pouring = false; });
-        }));
-        await k.sleep(reduce ? 0 : 300);
+        var n = o.cells.length, reduce = k.reduce;
+        o.cells.forEach(function (rc) { fuelCell(rc, false); });   // any not shown at the landing (a grid that changed since)
+        cellsFx = cellsFx.filter(function (cf) { return o.cells.some(function (rc) { return rc[0] === cf.rc[0] && rc[1] === cf.rc[1]; }); });
+        await k.sleep(reduce ? 0 : 250);
         var ix = k.TX + cx, iy = k.TY + INLET_Y - 4;
         k.sfx.pour(0.8 + n * 0.35);
-        await Promise.all(cellsFx.map(function (cf, j) {
+        await Promise.all(cellsFx.slice().map(function (cf, j) {
           return k.sleep(reduce ? 0 : j * 340).then(async function () {
             var s = items[j], s0 = s && !s.destroyed ? s.scale.x : 0;
             var x0 = cf.x + k.CW / 2 - 14, y0 = cf.y + k.CH / 2 - 9;

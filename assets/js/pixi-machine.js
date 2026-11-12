@@ -1171,7 +1171,11 @@
         } else if (i > 0) await (stopReq ? sleep(R(70)) : stoppable(R(420)));
         var n = target[i].filter(function (k) { return k === K.scatter; }).length;
         landings.push(reels[i].land(target[i], stopReq ? R(200) : R(560)).then((function (idx, cnt, has, off) {
-          return function () { landLog.push(performance.now()); sfx.reelStop(idx); if (has) sfx.scatter(cnt); if (off) off(); if (idx === REELS - 1 && !stopReq) shake(R(160), 3); };
+          return function () {
+            landLog.push(performance.now()); sfx.reelStop(idx); if (has) sfx.scatter(cnt); if (off) off(); if (idx === REELS - 1 && !stopReq) shake(R(160), 3);
+            // a skin may show the collect symbols as the reel lands (the Fuel Tank: the cells land full of fuel)
+            if (pendingCollect && col.land) { var mine = pendingCollect.filter(function (rc) { return rc[0] === idx; }); if (mine.length) col.land(mine); }
+          };
         }(i, seen + n, n > 0, unglow))));
         seen += n;
       }
@@ -1372,11 +1376,11 @@
     async function playCollect(st) {
       if (!COL || !st.cells || !st.cells.length) { if (st.filled != null) paintTank(st.filled, st.size, true); return; }
       if (backToFirstGrid()) await sleep(R(400));
-      var tex = emojiTex(COL.emoji, 64, T.collectGlow);
-      var items = overlayCells(st.cells, tex, 52, 140, true);
+      pendingCollect = null;
+      var items = col.badge === false ? [] : overlayCells(st.cells, emojiTex(COL.emoji, 64, T.collectGlow), 52, 140, true);
       colShown = Math.max(colShown, st.cells.length);
       sfx.chip();
-      await sleep(R(650 + st.cells.length * 140));
+      await sleep(R(items.length ? 650 + st.cells.length * 140 : 350));
       var tp = col.target(), tx = tp.x, ty = tp.y;
       var filled = st.full ? st.size : st.filled, to = st.size ? Math.min(1, filled / st.size) : 0;
       if (col.collect) {   // the skin takes them in its own way and raises the level as it goes
@@ -1398,8 +1402,11 @@
     }
 
     /* ═══ Steps ═══ */
+    var pendingCollect = null;   // the collect step's cells while its spin plays (for col.land)
     async function playSteps(steps) {
       var wait = 0, first = true;
+      var cst = steps.filter(function (x) { return x.type === "collect"; })[0];
+      pendingCollect = cst && cst.cells && cst.cells.length && steps[0] && steps[0].type === "spin" ? cst.cells : null;
       for (var i = 0; i < steps.length; i++) {
         var st = steps[i];
         if (st.type === "spin") {

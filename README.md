@@ -276,8 +276,9 @@ on a jackpot cell) and flies them into the meter. `GET /jackpots` gives every ga
   and ripen from green to red. Each leaf symbol flies to the branch where the next leaf buds and lands in a puff of leaves.
   The **Treasure Chest** stacks what lands into a pyramid of gold coins, pearls and gems in front of the open chest, row by
   row from the rim; each coin symbol flies to the next free place and lands with a clink and a glint. The **Fuel Tank**:
-  fuel pours into each fuel cell on the reels, then streams out of the cell over to the tank's inlet and pours down into the
-  tank, which fills with a splash and bubbles. When the level falls (the reward over, or the poll says a new cycle) the
+  a fuel cell lands on the reels already full of fuel (no ⛽ badge: the cell itself is the fuel, with a lit rim, sloshing
+  as the reel stops), and at the collect step each cell drains along a stream over to the tank's inlet and pours down
+  into the tank, which fills with a splash and bubbles. When the level falls (the reward over, or the poll says a new cycle) the
   tree sheds its leaves, the treasure tumbles back into the chest, the fuel drains. When someone else fills it (its `cycle`
   goes up) it shows "FULL!" and starts again empty.
 - **Full** (`full: true`): the collector plays its own show instead of a coin spray: a gust through the apple tree with
@@ -358,8 +359,9 @@ start (no WebGL), the page says so with a "Try again" button.
   pyramid of coins and pearls, the BET DIAL, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic
   Voyage (the cockpit, the Fuel Tank with fuel pouring from the reels, the THRUST lever, the Warp Ladder, the Star Map
   Wheel). A skin's collector returns `collect(items, o)` (its own way of taking the symbols in, moving the level through
-  `k.levelTo`), `full()` and `reward()` next to `count`, `flash` and `target`; the engine flies the symbols to `target` and
-  sprays coins when a skin has none of these.
+  `k.levelTo`), `full()`, `reward()`, `land(cells)` (called as each reel lands with the coming collect step's cells on it)
+  and `badge: false` (no symbol drawn on the cells) next to `count`, `flash` and `target`; the engine flies the symbols to
+  `target` and sprays coins when a skin has none of these.
 - Static art is painted with Canvas 2D into textures (gradients, glows, wood grain, rivets) and moved by PixiJS.
 - **The spin key** is each machine's own. The orchard's SPIN apple: its leaf flutters in the breeze (harder while the
   reels turn), the apple rocks as they turn, a press squashes it like a ripe one with a puff of leaves, and twelve daisies
@@ -546,7 +548,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113b`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113c`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools
