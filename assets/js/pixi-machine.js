@@ -207,10 +207,13 @@
       if (!fsElement()) stageEl.scrollIntoView({ block: "nearest" });
     }
     if (!(docEl.requestFullscreen || docEl.webkitRequestFullscreen)) fsBtn.hidden = true;   // e.g. iPhone Safari
-    fsBtn.addEventListener("click", function () {
+    fsBtn.addEventListener("click", function (e) {
       var p = fsElement() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
         : (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl, { navigationUI: "hide" });
       if (p && p.catch) p.catch(function () {});
+      // A pointer click leaves the button focused, and the next Space would press it again instead of
+      // spinning: drop the focus (a keyboard press, detail 0, keeps it so Tab users stay where they were).
+      if (e.detail > 0) fsBtn.blur();
     });
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
@@ -1486,7 +1489,7 @@
       e.preventDefault(); press();
     });
     function renderSound() { var m = sfx.isMuted(); soundBtn.textContent = m ? "🔇 Sound off" : "🔊 Sound on"; soundBtn.setAttribute("aria-pressed", m ? "false" : "true"); }
-    soundBtn.addEventListener("click", function () { sfx.setMuted(!sfx.isMuted()); renderSound(); if (!sfx.isMuted()) sfx.win(); });
+    soundBtn.addEventListener("click", function (e) { sfx.setMuted(!sfx.isMuted()); renderSound(); if (!sfx.isMuted()) sfx.win(); if (e.detail > 0) soundBtn.blur(); });
     if (Auth) {
       Auth.onChange(function () { authKnown = true; if (!busy) { syncBalance(); updateControls(); showReady(); } });
       (Auth.ready || Promise.resolve()).then(function () { authKnown = true; if (!busy) { syncBalance(); updateControls(); showReady(); } });

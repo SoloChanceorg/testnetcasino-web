@@ -381,6 +381,9 @@ start (no WebGL), the page says so with a "Try again" button.
   of coins, or the engine lighting. Everything runs through a compressor so the busiest moments stay punchy without
   clipping. Mute is remembered.
 - Outside the canvas, in HTML: sound, the fairness link, the paytable and rules (`TNC_Slot.paytableSection`) and Recent spins.
+- **Full screen** button, top right of the cabinet, in each cabinet's material (a wooden plaque with a gold rim, a round
+  brass button, a neon key). A pointer click drops its focus afterwards, so the next Space spins instead of pressing the
+  button again; a keyboard press keeps the focus where it was. The sound button does the same.
   Screen readers get the display text through a live region.
 - For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
   `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine every jackpot reading.
@@ -530,7 +533,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261112e`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261112f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

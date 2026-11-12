@@ -1270,6 +1270,14 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 .px-fs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .px-fs:hover { background: rgba(46,197,255,.2); }
+.px-fs:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* The button in each cabinet's own material: a wooden plaque with a gold rim in the orchard, brass under the sea,
+   neon in space (the default above) */
+.px-orchard .px-fs { border: 1.5px solid rgba(255,209,102,.8); background: linear-gradient(#6e421c, #3b2109); color: #ffd166; box-shadow: 0 2px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,230,180,.25); border-radius: 9px; }
+.px-orchard .px-fs:hover { background: linear-gradient(#8a5527, #4a2a10); color: #fff1c4; }
+.px-deepsea .px-fs { border: 1.5px solid #5a440f; background: linear-gradient(#f5de8a, #d4a94a 55%, #a3761a); color: #2a1d05; box-shadow: 0 0 10px rgba(46,197,255,.45), inset 0 1px 0 rgba(255,246,220,.6); border-radius: 50%; }
+.px-deepsea .px-fs:hover { background: linear-gradient(#fff1c4, #e2b85a 55%, #b8860b); }
+.px-cosmic .px-fs { border-color: rgba(154,107,255,.8); box-shadow: 0 0 12px rgba(154,107,255,.55); }
 body.is-fullscreen .px-stage { max-width: none; margin: 0; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
 body.is-fullscreen .px-machine { width: auto; }
 @media (max-width: 600px) { .px-fs { width: 30px; height: 30px; border-radius: 8px; } .px-fs svg { width: 17px; height: 17px; } }
