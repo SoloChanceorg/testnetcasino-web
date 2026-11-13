@@ -439,8 +439,9 @@
     });
     k.deckHit(KX - KR, KY - KR - 20, KR * 2, KR * 2 + DEPTH + 20, key, function () { k.press(); });
 
-    // Price tags: the bet ladder on ten paper tags hanging from two rows of nails.
-    var BX = 500, TGW = 34, TGH = 50, TGAP = 5;
+    // Price tags: the bet ladder on paper tags hanging from two rows of nails (six a row for tBCH's twelve stops,
+    // five for tBTC's nine); the slate under them shows the line bet and opens the entry box for any number.
+    var BX = 500, PER_ROW = Math.ceil(LADDER.length / 2), TGW = PER_ROW > 5 ? 29 : 34, TGH = 50, TGAP = PER_ROW > 5 ? 4 : 5;
     var head = txt(T.bet, { fontSize: 14, fill: "#ffd166", letterSpacing: 2, dropShadow: { color: "#2b1606", blur: 0, distance: 2, angle: Math.PI / 2, alpha: 1 } });
     head.position.set(BX + 95, 16); deck.addChild(head);
     function tagTex(active) {
@@ -457,12 +458,12 @@
     var TAG = tagTex(false), TAG_ON = tagTex(true);
     var nails = new PIXI.Graphics();
     var tags = LADDER.map(function (v, i) {
-      var row = Math.floor(i / 5), col = i % 5, x = BX + col * (TGW + TGAP), y = 36 + row * 82;
-      if (col === 0) nails.roundRect(BX - 4, y - 3, 5 * (TGW + TGAP) + 3, 5, 2).fill({ color: 0x3b2109, alpha: 0.65 });
+      var row = Math.floor(i / PER_ROW), col = i % PER_ROW, x = BX + col * (TGW + TGAP), y = 36 + row * 82;
+      if (col === 0) nails.roundRect(BX - 4, y - 3, PER_ROW * (TGW + TGAP) + 3, 5, 2).fill({ color: 0x3b2109, alpha: 0.65 });
       nails.circle(x + TGW / 2, y, 2.6).fill(0xd9c08a);
       var t = new PIXI.Container(); t.position.set(x + TGW / 2, y); t.pivot.set(TGW / 2 + 3, 0);
       var s = new PIXI.Sprite(TAG); t.addChild(s);
-      var l = txt(String(v), { fontFamily: k.MONO, fontWeight: "800", fontSize: v >= 1000 ? 11 : 13, fill: "#7a0d17" }); l.position.set(TGW / 2 + 3, 10 + TGH / 2 + 5); t.addChild(l);
+      var l = txt(String(v), { fontFamily: k.MONO, fontWeight: "800", fontSize: v >= 1000 ? (TGW < 34 ? 10 : 11) : v >= 100 && TGW < 34 ? 12 : 13, fill: "#7a0d17" }); l.position.set(TGW / 2 + 3, 10 + TGH / 2 + 5); t.addChild(l);
       t.rotation = (i % 2 ? 1 : -1) * 0.06;
       deck.addChild(t);
       k.deckHit(x - 2, y - 4, TGW + 4, TGH + 14, null, function () { k.setBet(v); });
@@ -472,9 +473,10 @@
     // The − / + stepper around a chalk slate with the bet
     var SY = 252;
     var cap2 = txt((k.HAS_LINES ? "LINE BET · " : "YOUR BET · ") + k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 12, fill: "#e9d6b0", letterSpacing: 0.5 }); cap2.position.set(BX + 95, SY - 40); deck.addChild(cap2);
-    var slate = k.recess(92, 44, 8); slate.position.set(BX + 95 - 50, SY - 26); deck.addChild(slate);
+    var slate = k.recess(100, 44, 8); slate.position.set(BX + 95 - 54, SY - 26); deck.addChild(slate);
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 21, fill: "#f6f3e8", dropShadow: { color: "rgba(255,255,255,.35)", blur: 6, distance: 0, alpha: 1 } });
     betVal.position.set(BX + 95, SY - 2); deck.addChild(betVal);
+    k.betEntry(BX + 95 - 54, SY - 26, 100, 44);   // a tap on the slate: type any line bet
     function crateKey(label, x) {
       var kk = new PIXI.Container(); kk.position.set(x, SY);
       var art = k.keyArt(40, 34, 7, 7, ["#c98a4b", "#8a5527"], ["#5b3412", "#3b2109"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
@@ -497,14 +499,14 @@
           t.s.texture = on ? TAG_ON : TAG;
           k.animate(k.R(200), (function (t, on, r0) { return function (p) { t.c.rotation = r0 + ((on ? 0 : t.rest) - r0) * p; t.c.scale.set(on ? 1 + 0.08 * p : 1); }; })(t, on, t.c.rotation));
         });
-        betVal.text = String(bet);
+        betVal.text = k.fmt(bet); betVal.scale.set(betVal.width > 92 ? 92 / betVal.width * betVal.scale.x : 1);
       },
       update: function (s) {
         sub.text = s.sub;
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
         tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : t.v > s.maxBet ? 0.3 : 1; });   // tags above the max for these lines hang faded
       },
-      points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY] }; }
+      points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY], betEntry: [BX + 95, SY - 4] }; }
     };
   }
 

@@ -15,8 +15,9 @@ game, balance and account. There is no demo or guest mode: playing requires sign
   a balance, bonus, jackpots, leaderboards and withdrawals per coin. See **Coins** below.
 - Balance: kept on the server per account and coin, and shared by all games. New accounts get **1,000 tBTC sats** and
   **10,000 tBCH sats**, plus a daily bonus of **100 tBTC sats** and **1,000 tBCH sats** (each claimed on its own; resets at 00:00 UTC).
-- Bets (backend decision D47): **5, 10 or 20 lines** at a **bet per line** (whole sats); a spin costs line bet × lines, **5 to 100 tBTC
-  sats** or **5 to 1,000 tBCH sats**. Every game has an RTP of **101%** at every line count with everything included (it is a faucet, so it pays
+- Bets (backend decisions D47 and D48): **5, 10 or 20 lines** at a **bet per line** (whole sats); a spin costs line bet × lines, **5 to
+  2,000 tBTC sats** or **5 to 20,000 tBCH sats** (the max line bet is the coin's max over the lines: tBCH 4,000 / 2,000 / 1,000 and
+  tBTC 400 / 200 / 100 at 5 / 10 / 20 lines). Every game has an RTP of **101%** at every line count with everything included (it is a faucet, so it pays
   back more than it takes; backend decision D45): the reels, free spins and bonus games 80.74%, the collector's reward
   3.36%, the jackpots' share of every bet 8.4% and the jackpot head starts 8.5%.
 - Jackpots: a Minor and a Major per game and a shared Grand, won inside the game (backend decision D43).
@@ -27,8 +28,8 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 
 All games are 5 reels × 3 rows with 20 paylines, of which the player plays the first **5, 10 or 20** (game config version 6, D47:
 5 = the middle, top and bottom rows and the two V shapes; 10 = those of version 5; 20 = all) at a **line bet** of whole sats. A spin
-costs line bet × lines (the **total bet**): the line bet runs from 1 to the coin's max bet / lines (tBCH 200 / 100 / 50 at 5 / 10 / 20
-lines, tBTC 20 / 10 / 5). Line wins are multiples of the line bet; the scatter, the bonus prizes and the Hold & Win values are
+costs line bet × lines (the **total bet**): the line bet runs from 1 to the coin's max bet / lines (D48: tBCH 4,000 / 2,000 / 1,000 at 5 /
+10 / 20 lines, tBTC 400 / 200 / 100; a spin costs at most 20,000 tBCH sats or 2,000 tBTC sats). Line wins are multiples of the line bet; the scatter, the bonus prizes and the Hold & Win values are
 multiples of the total bet; every win is × the line count's own `payScales[lines]`. Everything that counts a bet (the jackpot chance
 and meters, the collector, the leaderboards) counts the total. More lines win more often (hit rates from about 23% at 5 lines to 46%
 at 20, `statsByLines` in the config); fewer lines pay more per line bet; the RTP is 101% at every line count.
@@ -86,13 +87,15 @@ nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, hol
 
 | | Cabinet | Display | Spin | Bet |
 |---|---|---|---|---|
-| 🍒 Fruit Orchard | Wooden fruit stand: striped awning with string lights, board walls, a wooden counter | Chalkboard | Round red apple **SPIN** key | Ten hanging **price tags**, crate − / + around a chalk slate |
-| 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Rotary **BET DIAL** (a ridged brass knob; tap a number), ◀ ▶ keys |
-| 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
+| 🍒 Fruit Orchard | Wooden fruit stand: striped awning with string lights, board walls, a wooden counter | Chalkboard | Round red apple **SPIN** key | Hanging **price tags** (two rows), crate − / + around a chalk slate (tap it to type a bet) |
+| 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Rotary **BET DIAL** (a ridged brass knob; tap a number, or the glass cap to type one), ◀ ▶ keys |
+| 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys round a readout (tap it to type a bet) |
 
-All three are drawn with PixiJS (see Machines). The bet controls set the **line bet** along a ladder of ten stops (tBCH 1, 2, 3, 5, 10,
-20, 30, 50, 100, 200; tBTC 1, 2, 3, 4, 5, 6, 8, 10, 15, 20); the stops above the max for the lines chosen are dark, and changing the
-lines lowers a line bet above the new max. Under every spin key a row of three keys chooses the **lines** (5 / 10 / 20, remembered
+All three are drawn with PixiJS (see Machines). The bet controls set the **line bet** along a ladder of stops (D48: tBCH 1, 2, 5, 10,
+20, 50, 100, 200, 500, 1,000, 2,000, 4,000; tBTC 1, 2, 5, 10, 20, 50, 100, 200, 400); the stops above the max for the lines chosen
+are dark, and changing the lines lowers a line bet above the new max. Any whole number of sats can be typed as well: a tap on the
+bet readout, or the **✏️ Line bet** button under the machine, opens an entry box over the machine with the range for the lines
+chosen and a **MAX** key; a number above the max comes down to it and the display says so. Under every spin key a row of three keys chooses the **lines** (5 / 10 / 20, remembered
 for all games in `localStorage`); the display reads "Line bet 5 × 20 lines = 100 tBCH sats" and the spin key's BET is the total.
 Space spins on every machine.
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
@@ -133,8 +136,8 @@ wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in
 - **Header**: the selected coin's balance beside the coin switch (both coins in its tooltip) and its daily bonus pill; the
   account chip only names the account. The lobby's daily bonus card has a line and a Claim button per coin.
 - **Faucet bar**: both faucets and both player totals side by side (`coins` in `GET /faucet`).
-- **Slots**: the line-bet ladder follows the coin (tBTC 1 ... 20, tBCH 1 ... 200; every skin draws ten stops; the max line bet is
-  the coin's max bet / lines), and the machine shows the coin's jackpots and collectors.
+- **Slots**: the line-bet ladder follows the coin (tBTC 1 ... 400 on nine stops, tBCH 1 ... 4,000 on twelve; every skin draws however
+  many stops the ladder has; the max line bet is the coin's max bet / lines), and the machine shows the coin's jackpots and collectors.
 - **Roulette**: one table for both coins. Your chips are in the selected coin, with its chip values (tBTC 1 to 100, tBCH 1 to
   1,000) and limits (`limits` in the `table` message). Every chip carries a small diamond in its coin's colour; the players
   list, the round and the results show each player's amounts per coin; `settled` updates the balance of its coin.
@@ -396,13 +399,19 @@ start (no WebGL), the page says so with a "Try again" button.
   key sits lit and pressed in. Numbered tabs in each line's colour sit on both sides of the reel window at the row where the
   line enters and leaves (stacked when several share a row): the active lines' tabs are lit, the others dimmed, and a winning
   line's tabs grow while its win shows. Changing the lines draws the active paylines across the window for a moment, lowers a
-  line bet above the new max, and puts "20 lines · Line bet 50 × 20 lines = 1,000 tBCH sats a spin" on the display. The
+  line bet above the new max, and puts "20 lines · Line bet 1,000 × 20 lines = 20,000 tBCH sats a spin" on the display. The
   machine keeps `playBet` (the total) and `playLines` from the server's response for the spin and its reward.
 - **Drag the bet control**: the THRUST lever follows the hand up and down its slot, clicking into each detent (the bet
   changes there, with the chip sound) and settling on the nearest when let go; the BET DIAL turns under the hand from 1
-  round to 1,000 and clicks onto the nearest stop. Taps on the marks and the step keys still work; a drag swallows the
+  round to 4,000 and clicks onto the nearest stop. Taps on the marks and the step keys still work; a drag swallows the
   tap at its end. The engine maps the pointer back to the flat deck through the console's homography wherever it goes on
   the screen while the button is held (`kit.deckDrag(x, y, w, h, { start, move, end })`).
+- **Bet entry** (D48): a tap on the console's bet readout (the orchard's chalk slate, the dial's glass cap, the readout
+  between the THRUST keys; `kit.betEntry(x, y, w, h)` registers the zone) or the **✏️ Line bet** button under the machine
+  opens an HTML entry box over the machine (`#px-entry`, inside `.px-stage`): the line bet in sats, the range for the lines
+  chosen ("1 to 2,000 at 10 lines. A spin costs line bet × 10: up to 20,000 tBCH sats."), a **MAX** key, SET and Cancel;
+  Escape closes it, a tap elsewhere too. A number above the max comes down to it and the display says so ("The line bet
+  is at most 2,000 tBCH sats at 10 lines. Line bet 2,000 × 10 lines = 20,000 tBCH sats."). Space in the box does not spin.
 - **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
@@ -431,7 +440,8 @@ start (no WebGL), the page says so with a "Try again" button.
   brass button, a neon key). A pointer click drops its focus afterwards, so the next Space spins instead of pressing the
   button again; a keyboard press keeps the focus where it was. The sound button does the same.
   Screen readers get the display text through a live region.
-- For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the line bet,
+- For the smoke test: `window.TNC_PixiState()` reports what the machine shows (among it `ladder`, `maxBet`, `maxLineBet`,
+  `betEntryAt` and the entry box's `entry`, `entryHint`, `entryMax`), `TNC_PixiBet(n)` sets the line bet,
   `TNC_PixiLines(n)` the lines, `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine
   every jackpot reading.
 
@@ -585,7 +595,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113f`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113g`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

@@ -376,22 +376,23 @@
     });
     k.deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { k.press(); });
 
-    // THRUST: the bet ladder 1 ... 1,000 as an aircraft throttle: a T-handle on a shaft rising from a gate
-    // slot sunk into the console, a detent notch at every step; ▲ ▼ keys below. Pulled back (low thrust) the
-    // handle leans toward the player, pushed forward it stands up over the slot.
-    var SLX = 93;   // the slot's centre line
+    // THRUST: the bet ladder (1 ... 4,000 in tBCH on twelve detents, 1 ... 400 in tBTC on nine) as an aircraft
+    // throttle: a T-handle on a shaft rising from a gate slot sunk into the console, a detent notch at every step;
+    // ▲ ▼ keys below, the readout between them a tap zone for the entry box. Pulled back (low thrust) the handle
+    // leans toward the player, pushed forward it stands up over the slot.
+    var SLX = 93, N = LADDER.length - 1, STEP = 180 / N;   // the slot's centre line; the detents from y 214 up to 34, however many
     var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
     var thrHead = txt(k.HAS_LINES ? T.bet + " · PER LINE" : T.bet, { fontSize: k.HAS_LINES ? 12 : 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
     var slot = k.recess(12, 200, 6); slot.position.set(SLX - 10, 22); thr.addChild(slot);
     var slotFill = paint(6, 190, function (g) { rr(g, 0, 0, 6, 190, 3); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.9; g.fill(); });
     slotFill.position.set(SLX - 3, 31); thr.addChild(slotFill);
     var detents = new PIXI.Graphics();
-    LADDER.forEach(function (v, i) { var y = 214 - i * 20; detents.moveTo(SLX + 10, y).lineTo(SLX + 18, y).moveTo(SLX - 18, y).lineTo(SLX - 10, y); });
+    LADDER.forEach(function (v, i) { var y = 214 - i * STEP; detents.moveTo(SLX + 10, y).lineTo(SLX + 18, y).moveTo(SLX - 18, y).lineTo(SLX - 10, y); });
     detents.stroke({ width: 2, color: 0x9a86e0, alpha: 0.7 }); thr.addChild(detents);
     var thrMarks = LADDER.map(function (v, i) {
-      var y = 214 - i * 20, m = txt(String(v), { fontFamily: k.MONO, fontWeight: "700", fontSize: 13, fill: "#8f86b8" });
+      var y = 214 - i * STEP, m = txt(String(v), { fontFamily: k.MONO, fontWeight: "700", fontSize: STEP < 20 ? 12 : 13, fill: "#8f86b8" });
       m.anchor.set(1, 0.5); m.position.set(SLX - 24, y); thr.addChild(m);
-      k.deckHit(556 + 4, 12 + y - 10, 120, 20, null, function () { k.setBet(v); });
+      k.deckHit(556 + 4, 12 + y - STEP / 2, 120, STEP, null, function () { k.setBet(v); });
       return m;
     });
     // The lever: a collar in the slot, a shaft, and the T-handle (a ribbed grip with glowing end caps).
@@ -410,14 +411,15 @@
       g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, 8.5); g.lineTo(46, 8.5); g.stroke();   // highlight
     });
     grip.anchor.set(0.5, 0.47); thrKnob.addChild(grip);
-    function drawLever(i) {   // i: 0 (1 tSat, pulled back) .. 9 (1000, pushed forward)
-      var reach = 24 - 14 * (i / (LADDER.length - 1));   // how far the handle leans toward the player
+    function drawLever(i) {   // i: 0 (1 sat, pulled back) .. N (the top stop, pushed forward)
+      var reach = 24 - 14 * (i / N);   // how far the handle leans toward the player
       leverShadow.clear().roundRect(-3, 2, 6, reach + 4, 3).fill({ color: 0x000000, alpha: 0.35 });
       leverShaft.clear().roundRect(-3, 0, 6, reach, 3).fill(0xbfb3e6).roundRect(-3, 0, 2, reach, 1).fill({ color: 0xffffff, alpha: 0.6 });
-      grip.y = reach; grip.scale.y = 0.85 + 0.15 * (1 - i / (LADDER.length - 1));
+      grip.y = reach; grip.scale.y = 0.85 + 0.15 * (1 - i / N);
     }
     drawLever(3);
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(70, 270); thr.addChild(betVal);
+    k.betEntry(556 + 36, 12 + 254, 68, 34);   // a tap on the readout between the keys: type any line bet
     function smallKey(label, x) {
       var kk = new PIXI.Container(); kk.position.set(x, 270);
       var art = k.keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
@@ -429,13 +431,13 @@
     var betDown = smallKey("▼", 16), betUp = smallKey("▲", 124);
     // Drag the lever: it follows the hand along the slot, clicking into each detent (the bet changes there), and
     // settles on the nearest one when let go.
-    function leverAt(fi) { thrKnob.y = 214 - fi * 20; thrKnob._fi = fi; drawLever(fi); slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y; }
+    function leverAt(fi) { thrKnob.y = 214 - fi * STEP; thrKnob._fi = fi; drawLever(fi); slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y; }
     var dragging = false;
     k.deckDrag(556 + SLX - 46, 12 + 18, 92, 214, {
       start: function () { dragging = true; },
       move: function (d) {
         if (!dragging) return;
-        var fi = Math.max(0, Math.min(LADDER.length - 1, (214 - (d.y - 12)) / 20)), i = Math.round(fi);
+        var fi = Math.max(0, Math.min(N, (214 - (d.y - 12)) / STEP)), i = Math.round(fi);
         leverAt(fi);
         if (i !== thrKnob._i) k.setBet(LADDER[i]);
       },
@@ -452,18 +454,19 @@
         thrMarks.forEach(function (m, j) { m.style.fill = j === i ? "#ffffff" : "#8f86b8"; });
         if (dragging) { thrKnob._i = i; betVal.text = String(bet); return; }
         k.animate(k.R(220), (function (from, fromI) { return function (p) {
-          thrKnob.y = from + (214 - i * 20 - from) * p; drawLever(fromI + (i - fromI) * p);
+          thrKnob.y = from + (214 - i * STEP - from) * p; drawLever(fromI + (i - fromI) * p);
           slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y;
         }; })(thrKnob.y || 214, thrKnob._fi != null ? thrKnob._fi : thrKnob._i == null ? i : thrKnob._i));
         thrKnob._i = i; thrKnob._fi = null;
         betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
+        betVal.scale.set(betVal.width > 60 ? 60 / betVal.width * betVal.scale.x : 1);
       },
       update: function (s) {
         launchSub.text = s.sub;
         [betUp, betDown].forEach(function (b) { k.setOff(b, s.busy); });
         thrMarks.forEach(function (m, j) { m.alpha = s.busy ? 0.55 : LADDER[j] > s.maxBet ? 0.3 : 1; });   // detents above the max for these lines go dark
       },
-      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 3 * 20], dragTo: [556 + SLX, 12 + 214 - 8 * 20] }; }   // the lever at 10, the detent for 500
+      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 3 * STEP], dragTo: [556 + SLX, 12 + 214 - 8 * STEP], betEntry: [556 + 70, 12 + 270] }; }   // the lever at the 4th detent, dragged to the 9th
     };
   }
 

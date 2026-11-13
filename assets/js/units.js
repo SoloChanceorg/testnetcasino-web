@@ -70,10 +70,10 @@
 
   /* ═══════════════ The coin ═══════════════ */
   var COINS = {
-    btc: { id: "btc", ticker: "tBTC", name: "Bitcoin Testnet4", maxBet: 100, maxChip: 100, maxPerRound: 1000,
+    btc: { id: "btc", ticker: "tBTC", name: "Bitcoin Testnet4", maxBet: 2000, maxChip: 100, maxPerRound: 1000,
            bonus: 100, signup: 1000, minWithdrawal: 1000, maxWithdrawal: 100000, dailyWithdrawal: 100000,
            explorer: "https://mempool.space/testnet4/", tx: "https://mempool.space/testnet4/tx/" },
-    bch: { id: "bch", ticker: "tBCH", name: "Bitcoin Cash Testnet4", maxBet: 1000, maxChip: 1000, maxPerRound: 10000,
+    bch: { id: "bch", ticker: "tBCH", name: "Bitcoin Cash Testnet4", maxBet: 20000, maxChip: 1000, maxPerRound: 10000,
            bonus: 1000, signup: 10000, minWithdrawal: 1000, maxWithdrawal: 10000000, dailyWithdrawal: 100000000,
            explorer: "https://bchexplorer.cash/testnet4/", tx: "https://bchexplorer.cash/testnet4/tx/" }
   };

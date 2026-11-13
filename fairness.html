@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
   <!-- /site:head -->
-  <link rel="stylesheet" href="assets/css/style.css?v=20261113f">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261113g">
 </head>
 <body data-page="fairness">
   <a class="skip-link" href="#main">Skip to the fairness page</a>
@@ -145,8 +145,8 @@
             <select class="auth-input" id="vf-lines"><option value="5">5 lines</option><option value="10" selected>10 lines</option><option value="20">20 lines</option></select></div>
           <div><label class="auth-label" for="vf-coin">Coin</label>
             <select class="auth-input" id="vf-coin"><option value="btc">tBTC (Bitcoin Testnet4)</option><option value="bch">tBCH (Bitcoin Cash Testnet4)</option></select></div>
-          <div><label class="auth-label" for="vf-bet">Total bet in sats (line bet × lines; tBTC 1 to 100, tBCH 1 to 1,000)</label>
-            <input class="auth-input auth-mono" id="vf-bet" type="number" inputmode="numeric" min="1" max="1000" step="1" value="10"></div>
+          <div><label class="auth-label" for="vf-bet">Total bet in sats (line bet × lines; from version 6 tBTC 1 to 2,000 and tBCH 1 to 20,000, before it 100 and 1,000)</label>
+            <input class="auth-input auth-mono" id="vf-bet" type="number" inputmode="numeric" min="1" max="20000" step="1" value="10"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-seed">Server seed (revealed, 64 hex characters)</label>
             <input class="auth-input auth-mono" id="vf-seed" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
           <div class="vf-wide"><label class="auth-label" for="vf-client">Client seed</label>
@@ -156,7 +156,7 @@
           <div><label class="auth-label" for="vf-expect">Expected win in sats (optional)</label>
             <input class="auth-input auth-mono" id="vf-expect" type="number" inputmode="numeric" min="0" step="1"></div>
           <div><label class="auth-label" for="vf-reward">Reward bet in sats (version 4, only if the spin filled the collector)</label>
-            <input class="auth-input auth-mono" id="vf-reward" type="number" inputmode="numeric" min="1" max="1000" step="1" aria-describedby="vf-reward-hint">
+            <input class="auth-input auth-mono" id="vf-reward" type="number" inputmode="numeric" min="1" max="20000" step="1" aria-describedby="vf-reward-hint">
             <p class="auth-hint" id="vf-reward-hint">The <code>bet</code> of the spin's <code>collect</code> step. Leave it empty if the spin did not fill it.</p></div>
           <div class="vf-check"><label><input type="checkbox" id="vf-nojp"> Jackpots were off for this spin (<code>"jackpots": false</code>)</label></div>
           <div class="vf-wide"><button type="submit" class="btn-red auth-wide" id="vf-submit">🔍 Replay spin</button></div>
@@ -245,14 +245,14 @@
     <!-- /site:footer -->
   </div>
 
-  <script src="assets/js/config.js?v=20261113f"></script>
-  <script src="assets/js/api.js?v=20261113f"></script>
-  <script src="assets/js/units.js?v=20261113f"></script>
-  <script src="assets/js/faucet.js?v=20261113f"></script>
-  <script src="assets/js/auth.js?v=20261113f"></script>
-  <script src="assets/js/fairness-engine.js?v=20261113f"></script>
-  <script src="assets/js/fairness.js?v=20261113f"></script>
-  <script src="assets/js/fx.js?v=20261113f"></script>
-  <script src="assets/js/music.js?v=20261113f"></script>
+  <script src="assets/js/config.js?v=20261113g"></script>
+  <script src="assets/js/api.js?v=20261113g"></script>
+  <script src="assets/js/units.js?v=20261113g"></script>
+  <script src="assets/js/faucet.js?v=20261113g"></script>
+  <script src="assets/js/auth.js?v=20261113g"></script>
+  <script src="assets/js/fairness-engine.js?v=20261113g"></script>
+  <script src="assets/js/fairness.js?v=20261113g"></script>
+  <script src="assets/js/fx.js?v=20261113g"></script>
+  <script src="assets/js/music.js?v=20261113g"></script>
 </body>
 </html>

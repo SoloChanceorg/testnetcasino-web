@@ -19,11 +19,13 @@
  *
  * Lines (D47, game config version 6): the player chooses 5, 10 or 20 lines (`engine.lines`) and a bet per
  * line; a spin costs line bet × lines (the total: the balance check, the key's BET, every "bet" shown and
- * everything the server counts). The bet control is the LINE bet on a ladder of ten stops; the stops above
- * the max for the lines chosen (the coin's max bet / lines) are off, and changing the lines lowers a line
- * bet above the new max. Numbered markers on both sides of the window show the active paylines, and a
- * change of lines previews their shapes. With a config without `engine.lines` the machine plays as before
- * (one line count, the bet the total).
+ * everything the server counts). The bet control is the LINE bet on a ladder of stops (D48: tBCH 1 to 4,000
+ * on twelve, tBTC 1 to 400 on nine); the stops above the max for the lines chosen (the coin's max bet /
+ * lines) are off, and changing the lines lowers a line bet above the new max. Any whole number of sats can
+ * be typed too: a tap on the bet readout (or the "Line bet" button under the machine) opens an entry box
+ * with a MAX key. Numbered markers on both sides of the window show the active paylines, and a change of
+ * lines previews their shapes. With a config without `engine.lines` the machine plays as before (one line
+ * count, the bet the total, the old ladder of ten).
  *
  * Static art is painted with Canvas 2D into textures (gradients, glows, rounded panels); PixiJS
  * moves it. The canvas sits in a 3D stage, so the whole machine can tilt (CSS) on MINOR and up.
@@ -45,13 +47,14 @@
   var FY = 736;                          // the fold: the cabinet's upper body above, the console below
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   var SIGN = '"Bungee", "Poppins", sans-serif', MONO = '"SF Mono", ui-monospace, Menlo, Consolas, monospace';
-  // The selected coin (D46): a spin costs at most 100 tBTC sats or 1,000 tBCH sats. Every skin draws ten stops of
-  // the bet ladder: the line bet (D47) up to the max at 5 lines (tBTC 20, tBCH 200), or the total bet with a
-  // config without lines.
+  // The selected coin (D46): a spin costs at most 2,000 tBTC sats or 20,000 tBCH sats (D48); the max line bet is that
+  // over the lines (tBCH 4,000 / 2,000 / 1,000 and tBTC 400 / 200 / 100 at 5 / 10 / 20 lines). Every skin draws the
+  // stops of the bet ladder, however many: the line bet (D47) up to the max at 5 lines, or (a config without lines)
+  // the total bet up to the old max of 100 / 1,000 on ten stops.
   var COIN = window.TNC_Coin ? window.TNC_Coin.get() : "bch";
   var TICKER = window.TNC_Coin ? window.TNC_Coin.ticker(COIN) : "tBCH", SATS = TICKER + " sats";
-  var MAX_BET = COIN === "btc" ? 100 : 1000;
-  var LINE_LADDER = COIN === "btc" ? [1, 2, 3, 4, 5, 6, 8, 10, 15, 20] : [1, 2, 3, 5, 10, 20, 30, 50, 100, 200];
+  var MAX_BET = COIN === "btc" ? 2000 : 20000, MAX_TOTAL_OLD = COIN === "btc" ? 100 : 1000;
+  var LINE_LADDER = COIN === "btc" ? [1, 2, 5, 10, 20, 50, 100, 200, 400] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000];
   var TOTAL_LADDER = COIN === "btc" ? [1, 2, 3, 5, 10, 15, 20, 30, 50, 100] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
   var LINE_COLORS = [0xffd166, 0x06d6a0, 0xef476f, 0x4cc9f0, 0xf78c6b, 0xc86bff, 0x83e377, 0xff99c8, 0xf9c74f, 0x90e0ef,
                      0xff6b6b, 0x7bdff2, 0xfdffb6, 0xcaffbf, 0xbdb2ff, 0xffc6ff, 0xffb347, 0x00f5d4, 0xf15bb5, 0xfee440];
@@ -164,9 +167,15 @@
     root.innerHTML =
       '<div class="px-stage" id="px-stage"><div class="px-machine" id="slot-machine" role="application" aria-label="' + esc(game.name) + ' slot machine. Press Space to spin and to stop the reels.">' +
         '<div class="px-canvas" id="px-canvas"><i class="px-corner c0"></i><i class="px-corner c1"></i><i class="px-corner c2"></i><i class="px-corner c3"></i></div><button type="button" class="px-fs" id="fs-toggle" aria-pressed="false"></button></div>' +
-        '<div class="px-jp-side" id="px-jp-side" hidden></div></div>' +
+        '<div class="px-jp-side" id="px-jp-side" hidden></div>' +
+        // The bet entry (D48): any whole number of sats per line, with the range for the lines chosen and a MAX key
+        '<form class="px-entry" id="px-entry" hidden aria-label="Line bet"><label class="px-entry-l" for="px-entry-in" id="px-entry-label"></label>' +
+          '<input class="auth-input auth-mono px-entry-in" id="px-entry-in" type="text" inputmode="numeric" pattern="[0-9,]*" autocomplete="off" aria-describedby="px-entry-hint">' +
+          '<p class="px-entry-hint" id="px-entry-hint"></p>' +
+          '<div class="px-entry-row"><button type="button" class="btn-ghost" id="px-entry-max"></button><button type="submit" class="btn-red" id="px-entry-set">SET</button><button type="button" class="btn-ghost" id="px-entry-cancel">Cancel</button></div></form></div>' +
       '<p class="sr-only" id="sr-live" role="status" aria-live="polite"></p>' +
-      '<section class="panel m-extras" aria-label="Sound and fairness"><div class="m-util">' +
+      '<section class="panel m-extras" aria-label="Bet, sound and fairness"><div class="m-util">' +
+        '<button type="button" class="btn-ghost" id="px-bet" aria-haspopup="dialog" aria-controls="px-entry">✏️ Line bet</button>' +
         '<button type="button" class="btn-ghost" id="px-sound">🔊 Sound</button>' +
         '<a class="btn-ghost" href="../fairness.html">⚖️ Verify spins</a></div>' +
         '</section>' +
@@ -756,6 +765,8 @@
       return linesCtl;
     };
 
+    // The bet readout's tap zone on the flat deck (D48): a tap opens the bet entry box over the machine (defined below).
+    kit.betEntry = function (x, y, w, h) { kit.deckHit(x, y, w, h, null, function () { openEntry(null); }); };
     // The skin's controls: { win, bal (readouts), key (the spin key's view), setBet(lineBet, index), update(s), points() }
     var ctl = null;
     ctl = skin.deck(kit, deck);
@@ -817,10 +828,10 @@
     /* ═══ State ═══ */
     var busy = false, feature = null, presentToken = 0, settle = 0;
     var reelsTurning = false, stopReq = false, stopWake = null;
-    // The bet control is the LINE bet (D47): whole sats from 1 to the coin's max bet / lines (tBCH 200 / 100 / 50 at 5 /
-    // 10 / 20 lines, tBTC 20 / 10 / 5). `bet` is always the total, line bet × lines. Without lines in the config the
-    // control is the total bet itself (lines = every payline, the line bet the total).
-    function maxLineBet() { return HAS_LINES ? Math.max(1, Math.floor(MAX_BET / lines)) : MAX_BET; }
+    // The bet control is the LINE bet (D47): whole sats from 1 to the coin's max bet / lines (D48: tBCH 4,000 / 2,000 /
+    // 1,000 at 5 / 10 / 20 lines, tBTC 400 / 200 / 100). `bet` is always the total, line bet × lines. Without lines in
+    // the config the control is the total bet itself (lines = every payline, the line bet the total, the old max).
+    function maxLineBet() { return HAS_LINES ? Math.max(1, Math.floor(MAX_BET / lines)) : MAX_TOTAL_OLD; }
     function clampBet(v) { return Math.max(1, Math.min(maxLineBet(), Math.round(isFinite(v) ? v : 1))); }
     function ladderIndex(v) { var b = 0; for (var i = 1; i < LADDER.length; i++) if (Math.abs(Math.log(LADDER[i] / v)) < Math.abs(Math.log(LADDER[b] / v))) b = i; return b; }
     var BET_KEY = (HAS_LINES ? "tnc.lineBet." : "tnc.bet.") + COIN + "." + id;
@@ -854,6 +865,52 @@
       else { for (i = LADDER.length - 1; i >= 0; i--) if (LADDER[i] < lineBet) { next = LADDER[i]; break; } }
       if (next !== lineBet) { sfx.chip(); setBet(next); setLcd(stakeText() + ". Press " + T.spin + "!"); }
     }
+    // Free entry (D48): the entry box over the machine takes any whole number of sats per line (the total with a config
+    // without lines), from 1 to the max for the lines chosen; a number above the max comes down to it and the display
+    // says so. Opened by a tap on the console's bet readout (kit.betEntry) or the "Line bet" button under the machine.
+    var entryEl = document.getElementById("px-entry"), entryIn = document.getElementById("px-entry-in"), entryBtn = document.getElementById("px-bet");
+    var entryLabel = document.getElementById("px-entry-label"), entryHint = document.getElementById("px-entry-hint"), entryMax = document.getElementById("px-entry-max");
+    var entryOpener = null;
+    function entryOpen() { return !entryEl.hidden; }
+    function renderEntry() {
+      var max = maxLineBet();
+      entryLabel.textContent = (HAS_LINES ? "LINE BET · " : "BET · ") + SATS;
+      entryHint.textContent = HAS_LINES ? "1 to " + fmt(max) + " at " + lines + " lines. A spin costs line bet × " + lines + ": up to " + fmt(MAX_BET) + " " + SATS + "."
+                                        : "1 to " + fmt(max) + " " + SATS + " a spin.";
+      entryMax.textContent = "MAX " + fmt(max);
+    }
+    function openEntry(opener) {
+      if (busy || entryOpen()) return;
+      entryOpener = opener || null;
+      renderEntry();
+      entryIn.value = String(lineBet);
+      entryEl.hidden = false; entryBtn.setAttribute("aria-expanded", "true");
+      try { entryIn.focus(); entryIn.select(); } catch (e) {}
+    }
+    function closeEntry(back) {
+      if (!entryOpen()) return;
+      entryEl.hidden = true; entryBtn.setAttribute("aria-expanded", "false");
+      if (back && entryOpener && entryOpener.focus) { try { entryOpener.focus(); } catch (e) {} }
+      entryOpener = null;
+    }
+    function applyEntry() {
+      if (busy) { closeEntry(true); return; }
+      var v = parseInt(String(entryIn.value).replace(/[^0-9]/g, ""), 10);
+      if (!(v >= 1)) { entryIn.value = String(lineBet); try { entryIn.select(); } catch (e) {} return; }
+      var max = maxLineBet(), over = v > max, was = lineBet;
+      setBet(v);
+      if (lineBet !== was) sfx.chip();
+      setLcd(over ? (HAS_LINES ? "The line bet is at most " + fmt(max) + " " + SATS + " at " + lines + " lines. " : "The bet is at most " + fmt(max) + " " + SATS + ". ") + stakeText() + "."
+                  : stakeText() + ". Press " + T.spin + "!", over);
+      closeEntry(true);
+    }
+    entryEl.addEventListener("submit", function (e) { e.preventDefault(); applyEntry(); });
+    entryMax.addEventListener("click", function () { entryIn.value = String(maxLineBet()); applyEntry(); });
+    document.getElementById("px-entry-cancel").addEventListener("click", function () { closeEntry(true); });
+    entryEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); closeEntry(true); } });
+    entryBtn.addEventListener("click", function (e) { if (entryOpen()) closeEntry(true); else openEntry(e.detail > 0 ? null : entryBtn); });
+    document.addEventListener("pointerdown", function (e) { if (entryOpen() && !entryEl.contains(e.target) && e.target !== entryBtn) closeEntry(false); });
+
     function cantAfford() { return signedIn() && currentBalance() < bet; }
     var authKnown = !Auth, keySub = "";
     function updateControls() {
@@ -1714,7 +1771,9 @@
       var pts = ctl.points();
       return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]),
         dragFrom: pts.dragFrom ? deckPoint(pts.dragFrom[0], pts.dragFrom[1]) : null, dragTo: pts.dragTo ? deckPoint(pts.dragTo[0], pts.dragTo[1]) : null, keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
+        betEntryAt: pts.betEntry ? deckPoint(pts.betEntry[0], pts.betEntry[1]) : null,
         linesAt: linesPts.map(function (p) { return deckPoint(p[0], p[1]); }), lines: lines, lineBet: lineBet, maxLineBet: maxLineBet(), lineOpts: LINE_OPTS.slice(),
+        ladder: LADDER.slice(), maxBet: MAX_BET, entry: entryOpen(), entryHint: entryHint.textContent, entryMax: entryMax.textContent,
         markers: markerTabs.filter(function (m) { return m.c.alpha === 1 && m.side === 0; }).length, markerTabs: markerTabs.length, lcdSub: lcdSub.text, payScale: kit.S,
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,

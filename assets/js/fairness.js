@@ -250,7 +250,7 @@
     e.preventDefault();
     var out = $("vf-result"), btn = $("vf-submit");
     var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
-    var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = vcoin === "btc" ? 100 : 1000;
+    var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = version >= 6 ? (vcoin === "btc" ? 2000 : 20000) : (vcoin === "btc" ? 100 : 1000);   // D48 raised the max with version 6
     var vlines = $("vf-lines") && version >= 6 ? parseInt($("vf-lines").value, 10) : null;   // version 6: the spin's lines; `bet` is its total
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
@@ -260,7 +260,7 @@
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The server seed must be 64 hex characters."
       : !/^[A-Za-z0-9_-]{1,64}$/.test(client) ? "The client seed must be 1 to 64 letters, digits, _ or -."
       : !(nonce >= 0) ? "The nonce must be 0 or more."
-      : !(bet >= 1 && bet <= maxBet) ? "The bet must be 1 to " + fmt(maxBet) + " " + tick(vcoin) + " sats (the total: line bet × lines)."
+      : !(bet >= 1 && bet <= maxBet) ? "The bet must be 1 to " + fmt(maxBet) + " " + tick(vcoin) + " sats at version " + version + " (the total: line bet × lines)."
       : rewardBet !== null && !(rewardBet >= 1 && rewardBet <= bet) ? "The reward bet must be 1 tSat up to the spin's bet." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
