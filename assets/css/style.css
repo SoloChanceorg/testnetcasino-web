@@ -456,6 +456,10 @@ body[data-page="lobby"] #casino-bg { opacity: .35; }
 .pt-pays b { color: var(--cream); font-weight: 700; }
 .pt-pays .nm { display: block; color: var(--gold); font-weight: 700; font-size: .72rem; }
 .pt-pays .jp { color: var(--lcd-green); font-weight: 700; }
+.pt-pays .pt-of { color: var(--muted); font-size: .68rem; }
+.pt-sats { display: block; font-family: var(--mono); font-size: .72rem; color: var(--cream); }   /* the same pays in sats at the player's stake */
+.pt-sats .pt-unit { font-family: "Inter", "Poppins", system-ui, sans-serif; color: var(--muted); }
+.pt-sub { margin: -2px 0 8px; font-size: .74rem; color: var(--muted); }
 .rules { margin: 0; padding-left: 18px; color: #dfe8e1; font-size: .84rem; line-height: 1.7; }
 .rules b { color: var(--gold-light); }
 .lines-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 10px; }
@@ -464,6 +468,7 @@ body[data-page="lobby"] #casino-bg { opacity: .35; }
 .pl-grid { display: grid; grid-template-columns: repeat(5, 8px); grid-auto-rows: 8px; gap: 2px; padding: 3px; background: #0d0306; border-radius: 4px; }
 .pl-grid i { background: #2b2b2b; border-radius: 2px; }
 .pl-grid i.on { background: var(--lc); box-shadow: 0 0 4px var(--lc); }
+.pl.is-off { opacity: .28; }   /* a payline not in play at the lines chosen */
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; }
 .facts div { background: #0b0b05; border: 2px solid #3a2a06; border-radius: 10px; padding: 8px; text-align: center; }
 .facts dt { font-size: .7rem; font-weight: 600; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
@@ -1255,6 +1260,7 @@ button.bonus-pill { font: inherit; cursor: pointer; }
 }
 /* Fairness page */
 .sp-jp { display: block; font-size: .78rem; color: #ffcf4d; white-space: nowrap; }
+.sp-lines { display: block; font-size: .72rem; color: var(--muted); white-space: nowrap; }   /* the spin's lines under its total bet */
 .mt-range { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* ── The machine (PixiJS): one canvas in a 3D stage, so the whole machine can tilt ── */

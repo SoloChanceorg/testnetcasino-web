@@ -13,9 +13,10 @@
  * loads without errors or sideways scroll (signed in on desktop, signed out on a phone), a spin
  * in each game, the full-screen fit after a spin, reels stopping one by one (and STOP), the withdrawals total, the leaderboards
  * "jump to my position", the account withdraw lock, the fairness verifier (a spin, version 2 jackpot
- * draws, version 4 jackpots and rewards, the list with Verify all) and the jackpots and collectors (D43:
+ * draws, version 4 jackpots and rewards, a version 6 spin at 20 lines, the list with Verify all) and the jackpots and collectors (D43:
  * the machines, jackpots won and collectors filled by someone else, a jackpot won in each game,
- * every collector reward, the lobby, the jackpots page with Verify, the jackpot checker).
+ * every collector reward, the lobby, the jackpots page with Verify, the jackpot checker), and the lines
+ * (D47: the selector, the line bet's max per count, the total, the paytable at the stake, a 20-line spin).
  * Exit code 0 = all passed.
  */
 import fs from "node:fs";
@@ -134,6 +135,15 @@ function handle(method, url, body) {
     case "/auth/logout": api.user = null; return [204, null];
     case "/spins":
       if (method === "POST") {
+        // Lines (D47): the request carries { lines, lineBet } (no bet), checked like the live server; a request with
+        // only `bet` is the API before D47 (10 lines). The queued vector's steps play at the request's stake.
+        const b = JSON.parse(body), coin = b.coin || "bch";
+        const lines = b.lines != null ? b.lines : 10, maxLine = Math.floor((coin === "btc" ? 100 : 1000) / lines);
+        if (![5, 10, 20].includes(lines)) return [400, { error: "invalid_lines", message: "Lines must be 5, 10 or 20." }];
+        const lineBet = b.lineBet != null ? b.lineBet : b.bet / lines, bet = b.bet != null ? b.bet : lineBet * lines;
+        if (b.lineBet != null && (!Number.isInteger(lineBet) || lineBet < 1 || lineBet > maxLine)) return [400, { error: "invalid_bet", message: `The line bet must be 1 to ${maxLine} sats at ${lines} lines.` }];
+        if (b.bet != null && b.lineBet != null && b.bet !== lineBet * lines) return [400, { error: "invalid_bet", message: "bet must equal lineBet × lines." }];
+        if (api.rejectSpin) { const e = api.rejectSpin; api.rejectSpin = null; return [400, e]; }
         const v = api.spinQueue.shift();
         if (!v) return [500, { error: "internal_error", message: "No spin queued in the test." }];
         // Played like the live server: the jackpot step gets the meter's amount (v.jackpotWin, set by the
@@ -154,9 +164,8 @@ function handle(method, url, body) {
           } else steps.push(st);
         }
         if (v.reward) { steps.push(...v.reward.steps); totalWin += v.reward.win; }
-        const coin = JSON.parse(body).coin || "bch";
-        addBal(coin, totalWin - v.bet + jackpotWin);
-        return [200, { spinId: 1, gameId: v.gameId, gameVersion: v.gameVersion, coin, bet: v.bet, nonce: v.nonce, serverSeedHash: v.serverSeedHash,
+        addBal(coin, totalWin - bet + jackpotWin);
+        return [200, { spinId: 1, gameId: v.gameId, gameVersion: v.gameVersion, coin, bet, lines, lineBet, nonce: v.nonce, serverSeedHash: v.serverSeedHash,
           clientSeed: v.clientSeed, steps, totalWin, jackpotWin, balance: bal(coin) }];
       }
       return [200, { items: api.history, nextCursor: null }];
@@ -529,6 +538,46 @@ try {
     }
     check("bonus games on the machines: Harvest Pick, Ship's Wheel, Warp Ladder (the server's outcome, the balance settled)", !problems.length, problems.join("; "));
   }
+
+  /* ═══ 4d. Lines (D47): 5 / 10 / 20 at a line bet; the max line bet per count; the total everywhere; the paylines and the
+     paytable follow; a 20-line spin's request and win; the server's word on a wrong stake ═══ */
+  for (const g of GAMES) {
+    const problems = [], cfg = CFG[g], v = SPINS["lines-" + g];   // a version 6 spin at 20 lines with a win on a line past the tenth
+    resetApi(); signIn(500000); api.spinQueue.push(v);
+    await openMachine(g);
+    const s = await ev(`(() => { const S = TNC_PixiState; TNC_PixiLines(10); TNC_PixiBet(100); const a = S(); TNC_PixiLines(20); const b = S(); TNC_PixiLines(5); TNC_PixiBet(1000); const c = S();
+      return { opts: a.lineOpts, tabs: a.markerTabs, a: [a.lines, a.lineBet, a.bet, a.maxLineBet, a.markers, a.keySub], b: [b.lines, b.lineBet, b.bet, b.maxLineBet, b.markers, b.lcdSub],
+        c: [c.lines, c.lineBet, c.bet, c.maxLineBet, c.markers], stored: localStorage.getItem("tnc.lines"), scale: c.payScale, keys: c.linesAt.length }; })()`);
+    if (JSON.stringify(s.opts) !== "[5,10,20]" || s.tabs !== 40 || s.keys !== 3) problems.push("selector: " + JSON.stringify({ opts: s.opts, tabs: s.tabs, keys: s.keys }));
+    if (JSON.stringify(s.a) !== JSON.stringify([10, 100, 1000, 100, 10, "BET 1,000"])) problems.push("10 lines: " + JSON.stringify(s.a));
+    if (JSON.stringify(s.b) !== JSON.stringify([20, 50, 1000, 50, 20, "Line bet 50 × 20 lines = 1,000 tBCH sats"])) problems.push("20 lines (the line bet lowered to its max): " + JSON.stringify(s.b));
+    if (JSON.stringify(s.c) !== JSON.stringify([5, 200, 1000, 200, 5]) || s.stored !== "5" || s.scale !== cfg.payScales["5"]) problems.push("5 lines: " + JSON.stringify([s.c, s.stored, s.scale]));
+    // The paytable follows the stake: the top symbol's pays in sats at line bet 200, the scatter's × the total of 1,000, 5 of 20 paylines lit, the 5-line hit rate.
+    const top = cfg.symbols.filter((x) => !x.kind).pop(), scat = cfg.symbols.find((x) => x.kind === "scatter");
+    const pt = await ev(`(() => { const d = document.querySelector(".paytable");
+      return { top: [...d.querySelectorAll("[data-pays]")].find((e) => e.getAttribute("data-pays") === ${JSON.stringify(top.pays.join(","))}).textContent, scat: d.querySelector('[data-pays][data-of="total bet"]').textContent,
+        on: d.querySelectorAll(".lines-grid .pl:not(.is-off)").length, off: d.querySelectorAll(".lines-grid .pl.is-off").length, hit: d.querySelector('[data-stat="hit"]').textContent, head: d.querySelector("[data-lines-h]").textContent, text: d.textContent }; })()`);
+    const topSats = top.pays.map((m) => Math.round(m * cfg.payScales["5"] * 200).toLocaleString("en-US")).join(" / "), scatSats = scat.pays.map((m) => Math.round(m * cfg.payScales["5"] * 1000).toLocaleString("en-US")).join(" / ");
+    if (!pt.top.includes(topSats) || !pt.scat.includes(scatSats)) problems.push("paytable sats: " + JSON.stringify([pt.top, topSats, pt.scat, scatSats]));
+    if (pt.on !== 5 || pt.off !== 15 || pt.head !== "5 of 20 paylines active" || pt.hit !== Math.round(cfg.statsByLines["5"].hit * 100) + "%") problems.push("paytable lines/stats: " + JSON.stringify([pt.on, pt.off, pt.head, pt.hit]));
+    if (!/Choose 5, 10 or 20 lines and a bet per line\. A spin costs line bet × lines\./.test(pt.text) || /\bRTP\b/.test(pt.text) || !/at every line count/.test(pt.text)) problems.push("lines text");
+    // A spin at 20 lines with a line bet of 1: the request carries lines and lineBet (no bet), the win on a line past the tenth is drawn, Recent spins says 20 lines.
+    await ev(`TNC_PixiLines(20); TNC_PixiBet(1); window.__px = { wins: 0 }; setInterval(() => { const s = TNC_PixiState(); window.__px.wins = Math.max(window.__px.wins, s.wins); if (s.stage) TNC_PixiGo(); }, 50); ${space}`);
+    await sleep(300);
+    if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");
+    const sp = api.log.find((x) => x.method === "POST" && x.path === "/spins");
+    if (!sp || sp.body.lines !== 20 || sp.body.lineBet !== 1 || "bet" in sp.body) problems.push("request: " + JSON.stringify(sp && sp.body));
+    const after = await ev(`({ wins: window.__px.wins, bal: TNC_Auth.balance, hist: document.querySelector("#history li").textContent, lcd: TNC_PixiState().lcdSub })`);
+    if (after.wins < 1) problems.push("no win drawn (lines " + v.steps[0].phases[0].lines.map((l) => l.line + 1).join(", ") + ")");
+    if (after.bal !== api.balance) problems.push(`balance ${after.bal} != server ${api.balance}`);
+    if (!/bet 20 tBCH sats · 20 lines/.test(after.hist)) problems.push("history: " + after.hist);
+    // The server's word on a wrong stake shows on the display.
+    api.rejectSpin = { error: "invalid_bet", message: "The line bet must be 1 to 50 sats at 20 lines." };
+    await ev(space);
+    if (!(await until(`TNC_PixiState().lcd === "The line bet must be 1 to 50 sats at 20 lines." && !TNC_PixiState().busy`, 8000))) problems.push("invalid_bet message: " + await ev(`TNC_PixiState().lcd`));
+    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    check(`${g}: lines 5 / 10 / 20 at a line bet (the max per count, the total on the key and the display, remembered), the paytable at the stake, a 20-line spin's request and win, the server's invalid_bet message`, !problems.length, problems.join("; "));
+  }
   {
     resetApi();
     await open("index.html", 1280);
@@ -759,11 +808,11 @@ try {
     await ev(`TNC_PixiBet(1000)`);
     if ((await ev(`TNC_PixiState().bet`)) !== 100) problems.push("max bet " + await ev(`TNC_PixiState().bet`));
     if (!/tBTC sats/.test(await ev(`TNC_PixiState().lcd + " " + TNC_PixiState().jackpots.minor`))) problems.push("unit");
-    await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiBet(${v.bet}); ${space}`);
+    await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiLines(10); TNC_PixiBet(${v.bet}); ${space}`);
     await sleep(300);
     if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");
     const sp = api.log.find((x) => x.method === "POST" && x.path === "/spins");
-    if (!sp || sp.body.coin !== "btc" || sp.body.bet !== v.bet) problems.push("spin request " + JSON.stringify(sp && sp.body));
+    if (!sp || sp.body.coin !== "btc" || sp.body.lines !== 10 || sp.body.lineBet !== v.bet || "bet" in sp.body) problems.push("spin request " + JSON.stringify(sp && sp.body));
     const after = await ev(`({ bal: TNC_Auth.balance, bch: TNC_Auth.balanceOf("bch"), shown: TNC_PixiState().balance })`);
     if (after.bal !== api.btc || after.bch !== 500000 || after.shown.replace(/\D/g, "") !== String(api.btc)) problems.push("balances " + JSON.stringify(after) + " server " + api.btc);
     check("coins: a slot machine in tBTC (tBTC jackpots, bets up to 100, the spin's coin, the tBTC balance; tBCH untouched)", !problems.length, problems.join("; "));
@@ -863,7 +912,7 @@ try {
   const fill = (o) => ev(`(() => { const f = (i, x) => { const e = document.getElementById(i); if (e.type === "checkbox") e.checked = !!x; else e.value = x; };
     ${Object.entries(o).map(([k, x]) => `f(${JSON.stringify(k)}, ${JSON.stringify(x)});`).join(" ")} document.getElementById("vf-submit").click(); })()`);
   const result = () => ev(`document.getElementById("vf-result").textContent`);
-  const base = (v) => ({ "vf-game": v.gameId, "vf-version": String(v.gameVersion), "vf-bet": v.bet, "vf-seed": v.serverSeed, "vf-client": v.clientSeed, "vf-nonce": v.nonce, "vf-reward": "", "vf-nojp": false });
+  const base = (v) => ({ "vf-game": v.gameId, "vf-version": String(v.gameVersion), "vf-lines": String(v.lines || 10), "vf-bet": v.bet, "vf-seed": v.serverSeed, "vf-client": v.clientSeed, "vf-nonce": v.nonce, "vf-reward": "", "vf-nojp": false });
   const fv = SPINS["cosmic-voyage"];
   await fill({ ...base(fv), "vf-expect": fv.totalWin });
   check("fairness: the in-browser verifier reproduces a real version 4 spin", await until(`/✓ matches/.test(document.getElementById("vf-result").textContent)`, 10000));
@@ -877,6 +926,10 @@ try {
   await fill({ ...base(rv), "vf-expect": rv.totalWin + rv.reward.win, "vf-reward": rv.rewardBet });
   const rvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /Treasure Hold & Win at 3 sats/.test(t); })()`, 10000);
   check("fairness: the verifier replays a version 4 jackpot (clam pick) and a collector reward at its bet", j4ok && rvok, `jackpot ${!!j4ok}, reward ${!!rvok}: ${(await result()).slice(0, 160)}`);
+  const lv = SPINS["lines-cosmic-voyage"];   // version 6 (D47): a spin at 20 lines, its win on line 20
+  await fill({ ...base(lv), "vf-expect": lv.totalWin });
+  const lvok = await until(`(() => { const t = document.getElementById("vf-result").textContent; return /✓ matches/.test(t) && /20 lines \\(version 6\\)/.test(t); })()`, 10000);
+  check("fairness: the verifier replays a version 6 spin at 20 lines (line wins × the line bet, payScale of the line count)", lvok, lvok ? "" : (await result()).slice(0, 160));
   const mv = METERS[2];
   await ev(`(() => { const f = (i, x) => document.getElementById(i).value = x; f("mt-tier", "grand"); f("mt-rules", "current"); f("mt-min", ${mv.minSats}); f("mt-max", ${mv.maxSats});
     f("mt-seed", "${mv.seed}"); f("mt-hash", "${mv.seedHash}"); f("mt-amount", ${mv.startSats + 1});
@@ -899,21 +952,24 @@ try {
 
   // Your spins: GET /spins has no steps, so the page finds a reward's bet itself; a jackpot must match jackpotWin.
   resetApi(); signIn();
-  const item = (v, extra = {}) => ({ id: v.nonce, gameId: v.gameId, gameVersion: v.gameVersion, bet: v.bet, totalWin: v.totalWin + (v.reward ? v.reward.win : 0),
+  const item = (v, extra = {}) => ({ id: v.nonce, gameId: v.gameId, gameVersion: v.gameVersion, bet: v.bet, lines: v.lines, totalWin: v.totalWin + (v.reward ? v.reward.win : 0),
     jackpotWin: 0, nonce: v.nonce, serverSeedHash: v.serverSeedHash, serverSeed: v.serverSeed, clientSeed: v.clientSeed, createdAt: new Date().toISOString(), ...extra });
   api.history = [item(SPINS["reward-fruit-orchard"]), item(SPINS["reward-deep-sea"]), item(SPINS["reward-cosmic-voyage"]),
+    item(SPINS["lines-deep-sea"]),   // version 6 at 20 lines (D47)
     item(SPINS["jackpot-cosmic-voyage"], { jackpotWin: 1234 }), item(SPINS["fruit-orchard"]), item(SPINS["jackpot-fruit-orchard"], { jackpotWin: 777 }),
     item(SPINS["jackpot-deep-sea"]),   // a jackpot in the replay, none paid: only if jackpots were off (GET /spins has no flag)
     item(SPINS["deep-sea"], { totalWin: SPINS["deep-sea"].totalWin + 1 })];   // tampered: a mismatch
   await open("fairness.html", 1280);
-  await until(`document.querySelectorAll("#sp-body tr").length === 8`);
+  await until(`document.querySelectorAll("#sp-body tr").length === 9`);
   await ev(`document.getElementById("sp-verify-all").click()`);
-  const listOk = await until(`/1 of 8 spins did NOT match/.test(document.getElementById("sp-status").textContent)`, 30000);
+  const listOk = await until(`/1 of 9 spins did NOT match/.test(document.getElementById("sp-status").textContent)`, 30000);
   const notes = await ev(`[...document.querySelectorAll("#sp-body tr")].map(r => r.querySelector(".sp-check").textContent + " | " + ((r.querySelector(".sp-result") || {}).title || ""))`);
-  check("fairness: Verify all finds each collector reward's bet and checks jackpots against jackpotWin",
+  const linesCol = await ev(`[...document.querySelectorAll("#sp-body tr")].map(r => r.querySelector(".sp-lines").textContent)`);
+  check("fairness: Verify all finds each collector reward's bet, replays a 20-line spin and checks jackpots against jackpotWin; the lines next to every bet",
     listOk && notes.slice(0, 3).every((n) => /✓ Verified \| This spin filled the collector; its reward played at 3 sats/.test(n))
-      && notes.slice(3, 6).every((n) => /^✓ Verified/.test(n)) && /^✓ Verified \| Jackpots were off for this spin/.test(notes[6]) && /^✗ Mismatch/.test(notes[7]),
-    JSON.stringify(notes).slice(0, 400));
+      && notes.slice(3, 7).every((n) => /^✓ Verified/.test(n)) && /^✓ Verified \| Jackpots were off for this spin/.test(notes[7]) && /^✗ Mismatch/.test(notes[8])
+      && linesCol[3] === "20 lines" && linesCol[4] === "10 lines",
+    JSON.stringify(notes).slice(0, 400) + " " + JSON.stringify(linesCol));
 
 } catch (e) {
   check("test run", false, e.message);

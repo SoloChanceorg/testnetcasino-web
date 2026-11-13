@@ -471,7 +471,7 @@
     deck.addChildAt(nails, deck.getChildIndex(tags[0].c));
     // The − / + stepper around a chalk slate with the bet
     var SY = 252;
-    var cap2 = txt("YOUR BET · " + k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 12, fill: "#e9d6b0", letterSpacing: 0.5 }); cap2.position.set(BX + 95, SY - 40); deck.addChild(cap2);
+    var cap2 = txt((k.HAS_LINES ? "LINE BET · " : "YOUR BET · ") + k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 12, fill: "#e9d6b0", letterSpacing: 0.5 }); cap2.position.set(BX + 95, SY - 40); deck.addChild(cap2);
     var slate = k.recess(92, 44, 8); slate.position.set(BX + 95 - 50, SY - 26); deck.addChild(slate);
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 21, fill: "#f6f3e8", dropShadow: { color: "rgba(255,255,255,.35)", blur: 6, distance: 0, alpha: 1 } });
     betVal.position.set(BX + 95, SY - 2); deck.addChild(betVal);
@@ -486,6 +486,8 @@
     var down = crateKey("−", BX + 12), up = crateKey("+", BX + 178);
     k.deckHit(BX - 12, SY - 22, 48, 44, down, function () { down._sink(); k.stepBet(-1); });
     k.deckHit(BX + 154, SY - 22, 48, 44, up, function () { up._sink(); k.stepBet(1); });
+    // LINES: three crate keys under the apple, the chosen one a gold tag's colours
+    k.linesKeys(KX, 274, { labelFill: "#ffd166", off: [["#c98a4b", "#8a5527"], ["#5b3412", "#3b2109"], "#fff6dc"], on: [["#ffe79a", "#f5c542"], ["#a85d00", "#6a3a00"], "#7a0d17"] });
 
     return {
       win: win, bal: bal, key: key,
@@ -500,7 +502,7 @@
       update: function (s) {
         sub.text = s.sub;
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : 1; });
+        tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : t.v > s.maxBet ? 0.3 : 1; });   // tags above the max for these lines hang faded
       },
       points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY] }; }
     };

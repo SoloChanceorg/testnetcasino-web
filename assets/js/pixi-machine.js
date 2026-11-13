@@ -17,6 +17,14 @@
  * free spins, the bonus, a jackpot won in the game, collect symbols into the collector, its reward).
  * Randomness here is cosmetic only (blurred symbols while the reels turn, particles, closed picks).
  *
+ * Lines (D47, game config version 6): the player chooses 5, 10 or 20 lines (`engine.lines`) and a bet per
+ * line; a spin costs line bet × lines (the total: the balance check, the key's BET, every "bet" shown and
+ * everything the server counts). The bet control is the LINE bet on a ladder of ten stops; the stops above
+ * the max for the lines chosen (the coin's max bet / lines) are off, and changing the lines lowers a line
+ * bet above the new max. Numbered markers on both sides of the window show the active paylines, and a
+ * change of lines previews their shapes. With a config without `engine.lines` the machine plays as before
+ * (one line count, the bet the total).
+ *
  * Static art is painted with Canvas 2D into textures (gradients, glows, rounded panels); PixiJS
  * moves it. The canvas sits in a 3D stage, so the whole machine can tilt (CSS) on MINOR and up.
  * SPACE (or the spin key) spins, and stops the reels while they turn.
@@ -37,12 +45,18 @@
   var FY = 736;                          // the fold: the cabinet's upper body above, the console below
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   var SIGN = '"Bungee", "Poppins", sans-serif', MONO = '"SF Mono", ui-monospace, Menlo, Consolas, monospace';
-  // The selected coin (D46): tBTC bets 1 to 100 sats, tBCH 1 to 1,000. Every skin draws ten stops.
+  // The selected coin (D46): a spin costs at most 100 tBTC sats or 1,000 tBCH sats. Every skin draws ten stops of
+  // the bet ladder: the line bet (D47) up to the max at 5 lines (tBTC 20, tBCH 200), or the total bet with a
+  // config without lines.
   var COIN = window.TNC_Coin ? window.TNC_Coin.get() : "bch";
   var TICKER = window.TNC_Coin ? window.TNC_Coin.ticker(COIN) : "tBCH", SATS = TICKER + " sats";
-  var LADDER = COIN === "btc" ? [1, 2, 3, 5, 10, 15, 20, 30, 50, 100] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-  var MAX_BET = LADDER[LADDER.length - 1];
-  var LINE_COLORS = [0xffd166, 0x06d6a0, 0xef476f, 0x4cc9f0, 0xf78c6b, 0xc86bff, 0x83e377, 0xff99c8, 0xf9c74f, 0x90e0ef];
+  var MAX_BET = COIN === "btc" ? 100 : 1000;
+  var LINE_LADDER = COIN === "btc" ? [1, 2, 3, 4, 5, 6, 8, 10, 15, 20] : [1, 2, 3, 5, 10, 20, 30, 50, 100, 200];
+  var TOTAL_LADDER = COIN === "btc" ? [1, 2, 3, 5, 10, 15, 20, 30, 50, 100] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+  var LINE_COLORS = [0xffd166, 0x06d6a0, 0xef476f, 0x4cc9f0, 0xf78c6b, 0xc86bff, 0x83e377, 0xff99c8, 0xf9c74f, 0x90e0ef,
+                     0xff6b6b, 0x7bdff2, 0xfdffb6, 0xcaffbf, 0xbdb2ff, 0xffc6ff, 0xffb347, 0x00f5d4, 0xf15bb5, 0xfee440];
+  function lineColor(li) { return LINE_COLORS[li % LINE_COLORS.length]; }
+  function cssColor(c) { return "#" + ("00000" + c.toString(16)).slice(-6); }
   var TIER_NAMES = { minor: "MINOR", major: "MAJOR", grand: "GRAND" };
   var SPIN_RETRIES = 3;
   var SKINS = {};
@@ -120,7 +134,18 @@
     var REELS = game.engine.reels || 5, ROWS = game.engine.rows || 3, PAYLINES = game.engine.paylines;
     var syms = game.symbols, K = { wild: -1, scatter: -1, bonus: -1, top: -1 };
     syms.forEach(function (s, i) { if (s.kind) K[s.kind] = i; else K.top = i; });
-    var FS = game.freeSpins, BON = game.bonus, JPC = game.jackpot || null, COL = game.collector || null, S = game.payScale || 1;
+    var FS = game.freeSpins, BON = game.bonus, JPC = game.jackpot || null, COL = game.collector || null;
+    // Lines (D47): the line counts a player can choose and the one remembered (one for every game), the line-bet
+    // ladder; without `engine.lines` (an older config) one line count, every payline, and the ladder of total bets.
+    var HAS_LINES = !!(game.engine.lines && game.engine.lines.length), LINE_OPTS = HAS_LINES ? game.engine.lines.slice() : [PAYLINES.length];
+    var LADDER = HAS_LINES ? LINE_LADDER : TOTAL_LADDER;
+    var lines = (function () {
+      if (!HAS_LINES) return LINE_OPTS[0];
+      var v = parseInt((function () { try { return localStorage.getItem("tnc.lines"); } catch (e) { return null; } })(), 10);
+      return LINE_OPTS.indexOf(v) !== -1 ? v : (LINE_OPTS.indexOf(game.engine.defaultLines) !== -1 ? game.engine.defaultLines : LINE_OPTS[0]);
+    })();
+    // payScale at a line count (version 6: each has its own); every pay is × it.
+    function payScaleAt(n) { return (HAS_LINES && game.payScales && game.payScales[String(n)]) || game.payScale || 1; }
     var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Every wait and move goes through R: shorter with reduced motion, and 1.2× faster during free spins (`feature`).
     var FS_SPEED = 1.2;
@@ -275,7 +300,7 @@
     var kit = {
       W: W, H: H, RX: RX, RY: RY, CW: CW, CH: CH, GAP: GAP, RW: RW, RH: RH, REELS: REELS, ROWS: ROWS, FY: FY,
       TX: TX, TY: TY, TW: TW, TH: TH, LADDER: LADDER, COIN: COIN, SATS: SATS, TIER_NAMES: TIER_NAMES, EMOJI: EMOJI, SIGN: SIGN, MONO: MONO,
-      game: game, id: id, syms: syms, K: K, FS: FS, BON: BON, JPC: JPC, COL: COL, S: S, T: T,
+      game: game, id: id, syms: syms, K: K, FS: FS, BON: BON, JPC: JPC, COL: COL, S: payScaleAt(lines), T: T, HAS_LINES: HAS_LINES,
       app: app, L: L, PIXI: PIXI, sfx: sfx, reduce: reduce, R: R, ease: ease,
       paint: paint, texOf: texOf, grad: grad, hgrad: hgrad, rr: rr, txt: txt, animate: animate, sleep: sleep, rnd: rnd,
       fmt: fmt, amt: amt, num: num, unit: unit, fmtMult: fmtMult, emojiTex: emojiTex, button: button, setOff: setOff
@@ -517,6 +542,37 @@
     app.ticker.add(function (tk) { var dt = Math.min(50, tk.deltaMS); reels.forEach(function (r) { r.tick(dt); }); });   // speed: px per ms
     function cellXY(c, r) { return { x: RX + c * (CW + GAP) + CW / 2, y: RY + r * CH + CH / 2 }; }
     kit.cellXY = cellXY;
+    /* ═══ Payline markers: a numbered tab in each line's colour on both sides of the window, at the row where the line
+       enters (left) and leaves (right), stacked when several share a row. The active lines' tabs are lit, the others
+       dimmed; a winning line's tabs grow while its win shows. ═══ */
+    var markers = new PIXI.Container(); L.reels.addChild(markers);
+    var MKW = 20, MKH = 12, markerTabs = [];
+    (function () {
+      var left = [], right = [];
+      for (var r = 0; r < ROWS; r++) { left.push([]); right.push([]); }
+      PAYLINES.forEach(function (pl, li) { left[pl[0]].push(li); right[pl[REELS - 1]].push(li); });
+      var tabTex = {};
+      function tex(li) {
+        var c = lineColor(li);
+        if (!tabTex[c]) tabTex[c] = texOf(MKW, MKH, function (g, w, h) { rr(g, 0.5, 0.5, w - 1, h - 1, 3); g.fillStyle = cssColor(c); g.fill(); g.lineWidth = 1; g.strokeStyle = "rgba(0,0,0,.5)"; g.stroke(); });
+        return tabTex[c];
+      }
+      function place(side, groups, x) {
+        groups.forEach(function (list, row) {
+          var pitch = Math.min(MKH + 2, (CH - 4) / Math.max(1, list.length)), y0 = RY + row * CH + CH / 2 - (list.length - 1) * pitch / 2;
+          list.forEach(function (li, k) {
+            var c = new PIXI.Container(); c.position.set(x, y0 + k * pitch);
+            var s = new PIXI.Sprite(tex(li)); s.anchor.set(0.5); c.addChild(s);
+            c.addChild(txt(String(li + 1), { fontSize: 9, fill: "#15100a" }));
+            markers.addChild(c); markerTabs.push({ c: c, li: li, side: side });
+          });
+        });
+      }
+      place(0, left, RX - 16); place(1, right, RX + RW + 15);
+    })();
+    function paintMarkers() { markerTabs.forEach(function (m) { m.c.alpha = m.li < lines ? 1 : 0.16; m.c.scale.set(1); }); }
+    function litMarkers(lis) { markerTabs.forEach(function (m) { if (lis.indexOf(m.li) !== -1) { m.c.scale.set(1.35); m.c.alpha = 1; } }); }
+    paintMarkers();
     for (var gc = 0; gc < REELS; gc++) { var col0 = []; for (var gr = 0; gr < ROWS; gr++) col0.push(pickers[gc]()); grid.push(col0); reels[gc].setStatic(col0); }
 
     /* ═══ The collector (the skin draws it; its level is TANK.level, 0..1) ═══ */
@@ -657,12 +713,50 @@
     kit.press = function () { press(); };
     kit.setBet = function (v) { if (!busy) { sfx.chip(); setBet(v); } };
     kit.stepBet = function (d) { stepBet(d); };
+    kit.setLines = function (n) { setLines(n); };
     kit.busy = function () { return busy; };
-    kit.bet = function () { return bet; };
-    kit.playBet = function () { return playBet; };
+    kit.bet = function () { return bet; };          // the total: line bet × lines
+    kit.lineBet = function () { return lineBet; };
+    kit.lines = function () { return lines; };
+    kit.playBet = function () { return playBet; };  // the total bet the current spin (or its reward) plays at
     kit.feature = function () { return feature; };
+    // The lines selector (D47): one raised key per line count in a row with its label, drawn by the engine in the
+    // skin's colours and placed by the skin next to its bet control. o = { label, labelFill, off: [top, wall, text],
+    // on: [top, wall, text] } (top and wall as for keyArt). The chosen key sits lit and pressed in. Nothing with a
+    // config without lines.
+    var linesCtl = null, linesPts = [];
+    kit.linesKeys = function (cx, y, o) {
+      if (!HAS_LINES) return null;
+      var kw = o.w || 38, kh = o.h || 26, gap = o.gap || 6, depth = o.depth || 6, n = LINE_OPTS.length;
+      var label = txt(o.label || "LINES", { fontSize: 11, fill: o.labelFill || T.readout.label, letterSpacing: 2 });
+      var total = label.width + 10 + n * kw + (n - 1) * gap, x0 = cx - total / 2;
+      label.anchor.set(0, 0.5); label.position.set(x0, y); deck.addChild(label);
+      var keys = LINE_OPTS.map(function (v, i) {
+        var kx = x0 + label.width + 10 + i * (kw + gap) + kw / 2, kk = new PIXI.Container(); kk.position.set(kx, y);
+        var off = kit.keyArt(kw, kh, 7, depth, o.off[0], o.off[1]), on = kit.keyArt(kw, kh, 7, Math.max(2, depth - 3), o.on[0], o.on[1]);
+        off.anchor.set(0.5, 0.4); on.anchor.set(0.5, 0.4); on.y = 3; on.visible = false; kk.addChild(off, on);
+        var tp = new PIXI.Container(), t = txt(String(v), { fontSize: 15, fill: o.off[2] }); t.y = -2; tp.addChild(t); kk.addChild(tp);
+        var item = { c: kk, v: v, off: off, on: on, t: t, tp: tp, lit: false };
+        item.sink = function () { kit.sinkKey(function (d) { off.y = d; on.y = 3 + d; tp.y = d + (item.lit ? 3 : 0); }, 4); };
+        deck.addChild(kk);
+        kit.deckHit(kx - kw / 2 - 4, y - kh / 2 - 6, kw + 8, kh + depth + 12, kk, function () { item.sink(); setLines(v); });
+        linesPts.push([kx, y]);
+        return item;
+      });
+      linesCtl = {
+        set: function (cur) {
+          keys.forEach(function (kk) {
+            kk.lit = kk.v === cur; kk.on.visible = kk.lit; kk.off.visible = !kk.lit;
+            kk.t.style.fill = kk.lit ? o.on[2] : o.off[2]; kk.tp.y = kk.lit ? 3 : 0;
+          });
+        },
+        update: function (s) { keys.forEach(function (kk) { setOff(kk.c, s.busy); }); label.alpha = s.busy ? 0.6 : 1; }
+      };
+      linesCtl.set(lines);
+      return linesCtl;
+    };
 
-    // The skin's controls: { win, bal (readouts), key (the spin key's view), setBet(bet, index), update(s), points() }
+    // The skin's controls: { win, bal (readouts), key (the spin key's view), setBet(lineBet, index), update(s), points() }
     var ctl = null;
     ctl = skin.deck(kit, deck);
     var winRO = ctl.win, balRO = ctl.bal;
@@ -723,23 +817,42 @@
     /* ═══ State ═══ */
     var busy = false, feature = null, presentToken = 0, settle = 0;
     var reelsTurning = false, stopReq = false, stopWake = null;
-    function clampBet(v) { return Math.max(1, Math.min(MAX_BET, Math.round(isFinite(v) ? v : 1))); }
+    // The bet control is the LINE bet (D47): whole sats from 1 to the coin's max bet / lines (tBCH 200 / 100 / 50 at 5 /
+    // 10 / 20 lines, tBTC 20 / 10 / 5). `bet` is always the total, line bet × lines. Without lines in the config the
+    // control is the total bet itself (lines = every payline, the line bet the total).
+    function maxLineBet() { return HAS_LINES ? Math.max(1, Math.floor(MAX_BET / lines)) : MAX_BET; }
+    function clampBet(v) { return Math.max(1, Math.min(maxLineBet(), Math.round(isFinite(v) ? v : 1))); }
     function ladderIndex(v) { var b = 0; for (var i = 1; i < LADDER.length; i++) if (Math.abs(Math.log(LADDER[i] / v)) < Math.abs(Math.log(LADDER[b] / v))) b = i; return b; }
-    var bet = clampBet(parseInt((function () { try { return sessionStorage.getItem("tnc.bet." + COIN + "." + id); } catch (e) { return null; } })(), 10) || 10);
-    var playBet = bet;
+    var BET_KEY = (HAS_LINES ? "tnc.lineBet." : "tnc.bet.") + COIN + "." + id;
+    var lineBet = clampBet(parseInt((function () { try { return sessionStorage.getItem(BET_KEY); } catch (e) { return null; } })(), 10) || (HAS_LINES ? 1 : 10));
+    var bet = lineBet * (HAS_LINES ? lines : 1), playBet = bet, playLines = lines;
+    function totalOf(lb) { return HAS_LINES ? lb * lines : lb; }
+    function stakeText() { return HAS_LINES ? "Line bet " + fmt(lineBet) + " × " + lines + " lines = " + fmt(bet) + " " + SATS : "Bet " + fmt(bet) + " " + SATS; }
+    function syncStake() { if (window.TNC_Slot && TNC_Slot.setStake) TNC_Slot.setStake(lines, lineBet, bet); }
     function setBet(v) {
-      bet = clampBet(v);
-      try { sessionStorage.setItem("tnc.bet." + COIN + "." + id, String(bet)); } catch (e) {}
-      ctl.setBet(bet, ladderIndex(bet));
-      updateControls();
+      lineBet = clampBet(v); bet = totalOf(lineBet);
+      try { sessionStorage.setItem(BET_KEY, String(lineBet)); } catch (e) {}
+      ctl.setBet(lineBet, ladderIndex(lineBet));
+      updateControls(); syncStake();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
+    }
+    function setLines(n) {
+      if (!HAS_LINES || busy || LINE_OPTS.indexOf(n) === -1) return;
+      var changed = n !== lines;
+      lines = n;
+      try { localStorage.setItem("tnc.lines", String(lines)); } catch (e) {}
+      kit.S = payScaleAt(lines);
+      if (linesCtl) linesCtl.set(lines);
+      paintMarkers();
+      setBet(lineBet);   // a line bet above the new max comes down to it; the control and the paytable follow
+      if (changed) { sfx.chip(); setLcd(stakeText() + " a spin. Press " + T.spin + "!"); previewLines(); }
     }
     function stepBet(dir) {
       if (busy) return;
-      var next = bet, i;
-      if (dir > 0) { for (i = 0; i < LADDER.length; i++) if (LADDER[i] > bet) { next = LADDER[i]; break; } }
-      else { for (i = LADDER.length - 1; i >= 0; i--) if (LADDER[i] < bet) { next = LADDER[i]; break; } }
-      if (next !== bet) { sfx.chip(); setBet(next); setLcd("Bet " + fmt(bet) + " " + SATS + ". Press " + T.spin + "!"); }
+      var next = lineBet, i, max = maxLineBet();
+      if (dir > 0) { for (i = 0; i < LADDER.length; i++) if (LADDER[i] > lineBet && LADDER[i] <= max) { next = LADDER[i]; break; } }
+      else { for (i = LADDER.length - 1; i >= 0; i--) if (LADDER[i] < lineBet) { next = LADDER[i]; break; } }
+      if (next !== lineBet) { sfx.chip(); setBet(next); setLcd(stakeText() + ". Press " + T.spin + "!"); }
     }
     function cantAfford() { return signedIn() && currentBalance() < bet; }
     var authKnown = !Auth, keySub = "";
@@ -747,13 +860,15 @@
       var out = authKnown && !signedIn(), canStop = busy && reelsTurning && !stopReq;
       ctl.key._off = (busy && !canStop) || (!busy && cantAfford());   // its look follows in the key's ticker
       keySub = canStop ? "STOP" : busy ? (feature ? "FREE SPINS" : "GOOD LUCK") : out ? "SIGN IN" : "BET " + fmt(bet);
-      ctl.update({ busy: busy, canStop: canStop, out: out, feature: feature, bet: bet, sub: keySub });
+      var s = { busy: busy, canStop: canStop, out: out, feature: feature, bet: bet, lineBet: lineBet, lines: lines, maxBet: maxLineBet(), sub: keySub };
+      ctl.update(s);
+      if (linesCtl) linesCtl.update(s);
     }
     function renderLcdSub() {
       lcdSub.text = feature
         ? (feature.reward ? feature.name + " " : "Free spin ") + feature.played + " / " + (feature.played + feature.left) +
           (feature.mult > 1 ? " · wins ×" + feature.mult : "") + (feature.reward ? " · bet " + fmt(playBet) + " " + SATS : "") + " · won " + amt(feature.total)
-        : "Bet " + fmt(bet) + " " + SATS + " · 10 lines";
+        : HAS_LINES ? stakeText() : "Bet " + fmt(bet) + " " + SATS + " · " + lines + " lines";
     }
     function showReady() {
       if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get " + amt(window.TNC_Coin ? TNC_Coin.info(COIN).signup : 10000) + "."); return; }
@@ -818,7 +933,21 @@
     function clearWins() {
       hits.forEach(function (s) { if (s && !s.destroyed) { s.scale.set(1); s._pop = 0; } });
       hits = []; lineG.clear(); lineGlow.clear(); hitFrames.clear();
-      dimOthers(false);
+      lineG.alpha = lineGlow.alpha = 1; previewToken++;
+      dimOthers(false); paintMarkers();
+    }
+    // A change of lines: the active paylines drawn across the window for a moment, then faded out.
+    var previewToken = 0;
+    function previewLines() {
+      if (busy) return;
+      var tok = ++previewToken, drawn = [];
+      for (var li = 0; li < lines; li++) drawn.push({ pts: linePoints(li), color: lineColor(li), p: reduce ? 1 : 0 });
+      drawLines(drawn);
+      animate(R(1600), function (p) {
+        if (tok !== previewToken) return;
+        drawn.forEach(function (d) { d.p = Math.min(1, p * 3); }); drawLines(drawn);
+        lineG.alpha = lineGlow.alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
+      }, ease.lin).then(function () { if (tok === previewToken) { lineG.clear(); lineGlow.clear(); lineG.alpha = lineGlow.alpha = 1; } });
     }
     function linePoints(li) {
       var pts = PAYLINES[li].map(function (r, c) { var p = cellXY(c, r); return [p.x, p.y]; });
@@ -855,8 +984,9 @@
           }
         });
       });
-      items.filter(function (it) { return it.type === "line"; }).forEach(function (it, k) {
-        var d = { pts: linePoints(it.w.line), color: LINE_COLORS[it.w.line], p: reduce ? 1 : 0 };
+      var won = items.filter(function (it) { return it.type === "line"; });
+      won.forEach(function (it, k) {
+        var d = { pts: linePoints(it.w.line), color: lineColor(it.w.line), p: reduce ? 1 : 0 };
         drawn.push(d);
         setTimeout(function () {
           if (token !== presentToken) return;
@@ -865,6 +995,7 @@
         }, reduce ? 0 : k * 220);
       });
       drawLines(drawn);
+      litMarkers(won.map(function (it) { return it.w.line; }));
       if (hits.length) dimOthers(true);
     }
 
@@ -1296,7 +1427,7 @@
       }
       if (free) { feature.total += roundTotal; renderFeature(); renderLcdSub(); }
       else firstGrid = phases.length ? phases[0].grid : grid;
-      addHistory(free ? "free spin" : "bet " + fmt(bet) + " " + SATS, free ? roundTotal : roundTotal - bet, roundTotal, lastTier);
+      addHistory(free ? "free spin" : "bet " + fmt(playBet) + " " + SATS + (HAS_LINES ? " · " + playLines + " lines" : ""), free ? roundTotal : roundTotal - playBet, roundTotal, lastTier);
       return WAIT[lastTier];
     }
 
@@ -1471,10 +1602,11 @@
     }
 
     /* ═══ A paid spin ═══ */
-    function requestSpin(amount) {
-      var rid = newRequestId();
+    // POST /spins with { lines, lineBet } (D47; `bet` is not sent), or with the total `bet` for a config without lines.
+    function requestSpin() {
+      var rid = newRequestId(), stake = HAS_LINES ? { lines: lines, lineBet: lineBet } : bet;
       return (function attempt(n) {
-        return api.spin(id, amount, rid, COIN).then(function (r) {
+        return api.spin(id, stake, rid, COIN).then(function (r) {
           var retry = r.status === 0 || r.status === 502 || r.status === 503 || r.status === 504;
           if (retry && n < SPIN_RETRIES) { if (n === 0) setLcd("Connection hiccup. Retrying your spin…"); return sleep(800 * Math.pow(2, n)).then(function () { return attempt(n + 1); }); }
           return r;
@@ -1491,7 +1623,7 @@
       if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "TILT! Out of credit. Claim your daily bonus to play on." : "TILT! Bet " + fmt(bet) + " " + SATS + " is more than your " + amt(b) + ".", true); sfx.tilt(); shake(R(400), 8); return; }
       sfx.press();
       pressKey();
-      busy = true; playBet = bet; updateControls();
+      busy = true; playBet = bet; playLines = lines; updateControls();
       if (window.TNC_Jackpots) TNC_Jackpots.hold();
       ++presentToken; hideBanner(); clearWins(); overLayer.removeChildren();
       winRO.v.text = "0"; winShown = 0; wins = [];
@@ -1499,13 +1631,17 @@
       setLcd("Reels spinning… good luck!");
       sfx.spinStart(); startReels();
       var t0 = Date.now();
-      var r = await requestSpin(bet);
+      var r = await requestSpin();
       if (r.status !== 200 || !r.data || !r.data.steps) { await spinFailed(r); return; }
+      // The spin is played at the server's total bet and lines (what it charged).
+      if (typeof r.data.bet === "number" && r.data.bet > 0) playBet = r.data.bet;
+      if (r.data.lines && LINE_OPTS.indexOf(r.data.lines) !== -1) playLines = r.data.lines;
+      kit.S = payScaleAt(playLines);
       await stoppable(R(1000) - (Date.now() - t0));
       try { settle = 0; await playSteps(r.data.steps); if (settle > 0) await sleep(settle); }
       finally {
         if (window.TNC_Jackpots) TNC_Jackpots.release();
-        busy = false; feature = null; playBet = bet; tankFlash(false); renderFeature();
+        busy = false; feature = null; playBet = bet; playLines = lines; kit.S = payScaleAt(lines); tankFlash(false); renderFeature();
         if (Auth) Auth.setBalance(r.data.balance);
         syncBalance(); updateControls(); showReady();
       }
@@ -1578,6 +1714,8 @@
       var pts = ctl.points();
       return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]),
         dragFrom: pts.dragFrom ? deckPoint(pts.dragFrom[0], pts.dragFrom[1]) : null, dragTo: pts.dragTo ? deckPoint(pts.dragTo[0], pts.dragTo[1]) : null, keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
+        linesAt: linesPts.map(function (p) { return deckPoint(p[0], p[1]); }), lines: lines, lineBet: lineBet, maxLineBet: maxLineBet(), lineOpts: LINE_OPTS.slice(),
+        markers: markerTabs.filter(function (m) { return m.c.alpha === 1 && m.side === 0; }).length, markerTabs: markerTabs.length, lcdSub: lcdSub.text, payScale: kit.S,
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,
         banner: banner.visible ? bannerTitle.text + " | " + bannerAmt.text : "", stage: stage.visible, wins: wins.length, landed: landLog.slice(), turning: reelsTurning,
@@ -1586,7 +1724,8 @@
     };
     window.TNC_PixiGo = function () { if (kit._stageGo) { kit._stageGo(); return true; } return false; };
     window.TNC_PixiPress = function () { press(); };
-    window.TNC_PixiBet = function (v) { if (!busy) setBet(v); };
+    window.TNC_PixiBet = function (v) { if (!busy) setBet(v); };   // the line bet (the total with a config without lines)
+    window.TNC_PixiLines = function (n) { setLines(n); };
   }
 
   window.TNC_PixiMachine = {

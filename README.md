@@ -15,7 +15,8 @@ game, balance and account. There is no demo or guest mode: playing requires sign
   a balance, bonus, jackpots, leaderboards and withdrawals per coin. See **Coins** below.
 - Balance: kept on the server per account and coin, and shared by all games. New accounts get **1,000 tBTC sats** and
   **10,000 tBCH sats**, plus a daily bonus of **100 tBTC sats** and **1,000 tBCH sats** (each claimed on its own; resets at 00:00 UTC).
-- Bets: **1 to 100 tBTC sats** or **1 to 1,000 tBCH sats** per spin. Every game has an RTP of **101%** with everything included (it is a faucet, so it pays
+- Bets (backend decision D47): **5, 10 or 20 lines** at a **bet per line** (whole sats); a spin costs line bet × lines, **5 to 100 tBTC
+  sats** or **5 to 1,000 tBCH sats**. Every game has an RTP of **101%** at every line count with everything included (it is a faucet, so it pays
   back more than it takes; backend decision D45): the reels, free spins and bonus games 80.74%, the collector's reward
   3.36%, the jackpots' share of every bet 8.4% and the jackpot head starts 8.5%.
 - Jackpots: a Minor and a Major per game and a shared Grand, won inside the game (backend decision D43).
@@ -24,7 +25,13 @@ game, balance and account. There is no demo or guest mode: playing requires sign
 
 ## Games
 
-All games are 5 reels × 3 rows with 10 fixed paylines. The bet is the total for all lines (1–1,000 sats) and every pay is a multiple of it.
+All games are 5 reels × 3 rows with 20 paylines, of which the player plays the first **5, 10 or 20** (game config version 6, D47:
+5 = the middle, top and bottom rows and the two V shapes; 10 = those of version 5; 20 = all) at a **line bet** of whole sats. A spin
+costs line bet × lines (the **total bet**): the line bet runs from 1 to the coin's max bet / lines (tBCH 200 / 100 / 50 at 5 / 10 / 20
+lines, tBTC 20 / 10 / 5). Line wins are multiples of the line bet; the scatter, the bonus prizes and the Hold & Win values are
+multiples of the total bet; every win is × the line count's own `payScales[lines]`. Everything that counts a bet (the jackpot chance
+and meters, the collector, the leaderboards) counts the total. More lines win more often (hit rates from about 23% at 5 lines to 46%
+at 20, `statsByLines` in the config); fewer lines pay more per line bet; the RTP is 101% at every line count.
 
 Every machine has:
 - **Line wins**: 3, 4 or 5 matching symbols from the leftmost reel on any payline. Every winning line pays and the wins add up.
@@ -83,7 +90,11 @@ nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, hol
 | 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Rotary **BET DIAL** (a ridged brass knob; tap a number), ◀ ▶ keys |
 | 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
 
-All three are drawn with PixiJS (see Machines). The bet controls move along the bet ladder 1, 2, 5, 10, 20, 50, 100, 200, 500, 1,000. Space spins on every machine.
+All three are drawn with PixiJS (see Machines). The bet controls set the **line bet** along a ladder of ten stops (tBCH 1, 2, 3, 5, 10,
+20, 30, 50, 100, 200; tBTC 1, 2, 3, 4, 5, 6, 8, 10, 15, 20); the stops above the max for the lines chosen are dark, and changing the
+lines lowers a line bet above the new max. Under every spin key a row of three keys chooses the **lines** (5 / 10 / 20, remembered
+for all games in `localStorage`); the display reads "Line bet 5 × 20 lines = 100 tBCH sats" and the spin key's BET is the total.
+Space spins on every machine.
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
 lands the remaining reels at once. That is display only: the result is already fixed by the server. After a win the machine
 waits for the win animations to finish, plus half a second, before the next spin can start.
@@ -122,8 +133,8 @@ wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in
 - **Header**: the selected coin's balance beside the coin switch (both coins in its tooltip) and its daily bonus pill; the
   account chip only names the account. The lobby's daily bonus card has a line and a Claim button per coin.
 - **Faucet bar**: both faucets and both player totals side by side (`coins` in `GET /faucet`).
-- **Slots**: the bet ladder follows the coin (tBTC 1, 2, 3, 5, 10, 15, 20, 30, 50, 100; tBCH 1 ... 1,000; every skin draws ten
-  stops), and the machine shows the coin's jackpots and collectors.
+- **Slots**: the line-bet ladder follows the coin (tBTC 1 ... 20, tBCH 1 ... 200; every skin draws ten stops; the max line bet is
+  the coin's max bet / lines), and the machine shows the coin's jackpots and collectors.
 - **Roulette**: one table for both coins. Your chips are in the selected coin, with its chip values (tBTC 1 to 100, tBCH 1 to
   1,000) and limits (`limits` in the `table` message). Every chip carries a small diamond in its coin's colour; the players
   list, the round and the results show each player's amounts per coin; `settled` updates the balance of its coin.
@@ -202,8 +213,13 @@ The contract is `docs/API.md` in testnetcasino-service. `assets/js/api.js` is th
 ## Playing a game
 
 No game math runs in the browser. On load `assets/js/slot.js` reads `GET /games/{id}/config` (symbols, paytable, features,
-paylines, stats), builds the paytable and loads the machine (see Machines), which is built from the same config. A spin sends `POST /spins { gameId, bet, requestId }` with a new
+paylines, stats), builds the paytable and loads the machine (see Machines), which is built from the same config. A spin sends
+`POST /spins { gameId, coin, lines, lineBet, requestId }` (D47: no `bet`; the server answers with `bet`, the total, `lines` and
+`lineBet`, and the machine plays the spin at those) with a new
 `crypto.randomUUID()`; a network error, timeout or 5xx is retried with the same `requestId`, so a spin is never played twice.
+The paytable follows the stake (`TNC_Slot.setStake`): every pay in sats at the line bet and lines chosen (line wins × line bet,
+the scatter and bonus × total bet), the active paylines, and the hit rate and feature frequencies of that line count
+(`statsByLines`). A wrong stake (`invalid_bet`, `invalid_lines`) shows the server's message on the display.
 The reels start turning at once and land one by one on the server's result (a stop request only shortens the wait). The response's `steps[]` are then animated in order:
 `spin` (one or more phases: Lucky Respin, expanded reels, multiplier wilds, sticky wilds in free spins), `freeSpinsStart`,
 `retrigger`, `bonus` (pick / wheel / ladder, with the result already fixed), `freeSpinsEnd`, and from version 4 `jackpot`,
@@ -375,6 +391,13 @@ start (no WebGL), the page says so with a "Try again" button.
   sends a hex shockwave out across the console with sparks off the cap. Every key's depth is a spring toward its state
   (pressed, half down while the spin plays, an invitation half-press now and then at rest), stepped at most 4 ms at a
   time: one step over a long frame made it shoot up and down.
+- **Lines** (D47): a row of three keys under the spin key (crate keys in the orchard, brass under the sea, console keys in
+  space; drawn by the engine in the skin's colours, `kit.linesKeys(cx, y, { off, on })`) chooses 5, 10 or 20 lines; the chosen
+  key sits lit and pressed in. Numbered tabs in each line's colour sit on both sides of the reel window at the row where the
+  line enters and leaves (stacked when several share a row): the active lines' tabs are lit, the others dimmed, and a winning
+  line's tabs grow while its win shows. Changing the lines draws the active paylines across the window for a moment, lowers a
+  line bet above the new max, and puts "20 lines · Line bet 50 × 20 lines = 1,000 tBCH sats a spin" on the display. The
+  machine keeps `playBet` (the total) and `playLines` from the server's response for the spin and its reward.
 - **Drag the bet control**: the THRUST lever follows the hand up and down its slot, clicking into each detent (the bet
   changes there, with the chip sound) and settling on the nearest when let go; the BET DIAL turns under the hand from 1
   round to 1,000 and clicks onto the nearest stop. Taps on the marks and the step keys still work; a drag swallows the
@@ -408,8 +431,9 @@ start (no WebGL), the page says so with a "Try again" button.
   brass button, a neon key). A pointer click drops its focus afterwards, so the next Space spins instead of pressing the
   button again; a keyboard press keeps the focus where it was. The sound button does the same.
   Screen readers get the display text through a live region.
-- For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the bet,
-  `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine every jackpot reading.
+- For the smoke test: `window.TNC_PixiState()` reports what the machine shows, `TNC_PixiBet(n)` sets the line bet,
+  `TNC_PixiLines(n)` the lines, `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine
+  every jackpot reading.
 
 ## Account and withdrawals
 
@@ -453,13 +477,18 @@ shows while that row is out of view (IntersectionObserver). Amounts are sats of 
 - **Your seeds**: server seed hash, client seed and next nonce (`GET /fairness/seed`). Set a client seed
   (`POST /fairness/client-seed`) or reveal the server seed (`POST /fairness/rotate`); the page checks the revealed seed against the
   hash it showed before.
-- **Your spins**: `GET /spins?cursor=`. Once a spin's seed is revealed it can be verified, one by one or all at once.
-- **Verify any spin**: replays a spin from server seed, client seed, nonce, game, game version and bet. Nothing is sent to the server.
+- **Your spins**: `GET /spins?cursor=`. Once a spin's seed is revealed it can be verified, one by one or all at once. The bet
+  shown is the total, with the spin's lines under it (every spin before D47 played 10).
+- **Verify any spin**: replays a spin from server seed, client seed, nonce, game, game version, the total bet and (version 6)
+  the lines. Nothing is sent to the server.
 - **Jackpots**: the jackpots explained in plain words, and a checker: paste a seed, pick the tier and type the range from the
   win's Verify details (no presets, so the ranges are not given away) to get
   its seed hash, target, display scale and head start; with the published hash and the amount it also passes or fails the win.
 
-Game versions: the API serves only the current config (version 3). Versions 1 and 3 have the same rules; version 2
+Game versions: the API serves only the current config (version 6, D47: 20 paylines, the spin's `lines`, line pays × the line bet,
+`payScales` per line count; FAIRNESS.md section 5 with `F = lines`: the pays quoted in total bets are × F and the rounding uses
+`D = 10^7 × F` units per total bet. `configFor()` rebuilds version 5 from it: the first 10 paylines, line pays ÷ 10, the 10-line
+payScale; and the older versions from that). Versions 1 and 3 have the same rules; version 2
 (2026-11-08 to 2026-11-09) adds the two old jackpot draws at the end of the spin's random stream (the game's Major, then the
 Grand; a hit when `randInt(oneInSats) < bet`, with `oneInSats` 730,000 and 9,300,000 for every game). `TNC_Fair.configFor()`
 rebuilds a version from the current config, so every spin ever played can still be replayed; for version 2 the page also
@@ -556,7 +585,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113e`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113f`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

@@ -381,7 +381,7 @@
     // handle leans toward the player, pushed forward it stands up over the slot.
     var SLX = 93;   // the slot's centre line
     var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
-    var thrHead = txt(T.bet, { fontSize: 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
+    var thrHead = txt(k.HAS_LINES ? T.bet + " · PER LINE" : T.bet, { fontSize: k.HAS_LINES ? 12 : 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
     var slot = k.recess(12, 200, 6); slot.position.set(SLX - 10, 22); thr.addChild(slot);
     var slotFill = paint(6, 190, function (g) { rr(g, 0, 0, 6, 190, 3); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.9; g.fill(); });
     slotFill.position.set(SLX - 3, 31); thr.addChild(slotFill);
@@ -443,6 +443,8 @@
     });
     k.deckHit(556 - 2, 12 + 254, 40, 34, betDown, function () { betDown._sink(); k.stepBet(-1); });
     k.deckHit(556 + 106, 12 + 254, 40, 34, betUp, function () { betUp._sink(); k.stepBet(1); });
+    // LINES: three console keys under the LAUNCH hex, the chosen one in the cap's magenta
+    k.linesKeys(390, 274, { labelFill: "#b9a6ff", off: [["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"], "#ffffff"], on: [["#ffc4f4", "#e040c8"], ["#7a1a8a", "#3a0848"], "#ffffff"] });
 
     return {
       win: win, bal: bal, key: launch,
@@ -459,7 +461,7 @@
       update: function (s) {
         launchSub.text = s.sub;
         [betUp, betDown].forEach(function (b) { k.setOff(b, s.busy); });
-        thrMarks.forEach(function (m) { m.alpha = s.busy ? 0.55 : 1; });
+        thrMarks.forEach(function (m, j) { m.alpha = s.busy ? 0.55 : LADDER[j] > s.maxBet ? 0.3 : 1; });   // detents above the max for these lines go dark
       },
       points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 3 * 20], dragTo: [556 + SLX, 12 + 214 - 8 * 20] }; }   // the lever at 10, the detent for 500
     };

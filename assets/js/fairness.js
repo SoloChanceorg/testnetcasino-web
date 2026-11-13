@@ -5,12 +5,15 @@
  *   Your spins   GET /spins?cursor= (50 per page). A spin can be verified once its
  *                server seed is revealed (`serverSeed` is filled in after a rotation).
  *   Verify       replays any spin in the browser with fairness-engine.js and the
- *                game config from GET /games/{id}/config (version 4; older spins are
- *                replayed with TNC_Fair.configFor). Version 4 spins include the
+ *                game config from GET /games/{id}/config (version 6; older spins are
+ *                replayed with TNC_Fair.configFor). Version 4+ spins include the
  *                jackpot draws, the collect symbols and, when the spin filled the
  *                collector, its reward. GET /spins does not say at what bet the
  *                reward was played, so the list finds it (TNC_Fair.replay matchTotal);
- *                the form takes it from the spin's collect step. Nothing is sent anywhere.
+ *                the form takes it from the spin's collect step. Version 6 spins (D47)
+ *                play at their `lines` (5, 10 or 20) with `bet` the total (line bet ×
+ *                lines): the list shows the lines next to the bet and the form asks for
+ *                them. Nothing is sent anywhere.
  *   Jackpots     checks a jackpot seed: seed hash, target and head start (older
  *                cycles: display scale; FAIRNESS.md section 8).
  *
@@ -149,8 +152,9 @@
     tr.appendChild(el("td", "", GAMES[s.gameId] || s.gameId));
     var sc = s.coin || "bch";
     tr.setAttribute("data-coin", sc);
-    var betCell = el("td", "num", U.int(s.bet));
+    var betCell = el("td", "num", U.int(s.bet));   // the total bet (line bet × lines; every spin before D47 played 10 lines)
     betCell.appendChild(el("span", "sp-coin", " " + tick(sc)));
+    betCell.appendChild(el("span", "sp-lines", (s.lines || 10) + " lines"));
     tr.appendChild(betCell);
     var winCell = el("td", "num", U.int(s.totalWin));
     if (s.jackpotWin > 0) {   // a jackpot is paid on top of the game's result (totalWin)
@@ -247,6 +251,7 @@
     var out = $("vf-result"), btn = $("vf-submit");
     var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
     var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = vcoin === "btc" ? 100 : 1000;
+    var vlines = $("vf-lines") && version >= 6 ? parseInt($("vf-lines").value, 10) : null;   // version 6: the spin's lines; `bet` is its total
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
     var rewardBet = $("vf-reward").value.trim() === "" ? null : parseInt($("vf-reward").value, 10), noJp = $("vf-nojp").checked;
@@ -255,13 +260,15 @@
     var problem = !/^[0-9a-f]{64}$/.test(seedHex) ? "The server seed must be 64 hex characters."
       : !/^[A-Za-z0-9_-]{1,64}$/.test(client) ? "The client seed must be 1 to 64 letters, digits, _ or -."
       : !(nonce >= 0) ? "The nonce must be 0 or more."
-      : !(bet >= 1 && bet <= maxBet) ? "The bet must be 1 to " + fmt(maxBet) + " " + tick(vcoin) + " sats."
+      : !(bet >= 1 && bet <= maxBet) ? "The bet must be 1 to " + fmt(maxBet) + " " + tick(vcoin) + " sats (the total: line bet × lines)."
       : rewardBet !== null && !(rewardBet >= 1 && rewardBet <= bet) ? "The reward bet must be 1 tSat up to the spin's bet." : "";
     if (problem) { out.className = "vf-result is-bad"; out.textContent = problem; return; }
     busy(btn, true, "Replaying...");
     getConfig(gameId).then(function (current) {
       var game = Fair.configFor(current, version);
-      return Fair.replay(game, { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet, coin: vcoin }, { jackpots: !noJp, rewardBet: rewardBet, coin: vcoin })
+      var spin = { serverSeed: seedHex, clientSeed: client, nonce: nonce, bet: bet, coin: vcoin };
+      if (vlines) spin.lines = vlines;
+      return Fair.replay(game, spin, { jackpots: !noJp, rewardBet: rewardBet, coin: vcoin })
         .then(function (got) { showReplay(game, got, expect, rewardBet); });
     }).catch(function (err) {
       out.className = "vf-result is-bad";
@@ -278,6 +285,9 @@
       (match === true ? " ✓ matches" : match === false ? " ✗ expected " + fmt(expect) + " sats" : "")));
     var dl = el("dl", "seed-list");
     var d = el("div"); d.appendChild(el("dt", "", "Server seed hash")); d.appendChild(el("dd", "auth-mono", got.serverSeedHash)); dl.appendChild(d);
+    if (game.engine.lines && got.lines) {   // version 6: played at its lines, line wins × the line bet
+      var dlines = el("div"); dlines.appendChild(el("dt", "", "Lines")); dlines.appendChild(el("dd", "auth-mono", got.lines + " lines (version " + game.version + ")")); dl.appendChild(dlines);
+    }
     out.appendChild(dl);
     // The paid spin's final reels, then one line per step.
     var paid = got.steps[0], last = paid.phases[paid.phases.length - 1].grid;

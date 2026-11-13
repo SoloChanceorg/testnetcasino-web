@@ -1,6 +1,6 @@
 {
   "id": "fruit-orchard",
-  "version": 5,
+  "version": 6,
   "rtp": 1.01,
   "engine": {
     "reels": 5,
@@ -75,8 +75,84 @@
         1,
         2,
         1
+      ],
+      [
+        1,
+        2,
+        1,
+        0,
+        1
+      ],
+      [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      [
+        2,
+        1,
+        1,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      [
+        2,
+        1,
+        2,
+        1,
+        2
+      ],
+      [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        2,
+        1,
+        1
+      ],
+      [
+        0,
+        0,
+        2,
+        0,
+        0
+      ],
+      [
+        2,
+        2,
+        0,
+        2,
+        2
+      ],
+      [
+        0,
+        2,
+        2,
+        2,
+        0
       ]
     ],
+    "lines": [
+      5,
+      10,
+      20
+    ],
+    "defaultLines": 10,
     "maxRespins": 3,
     "maxFreeSpins": 100
   },
@@ -93,9 +169,9 @@
       "name": "Cherry",
       "weight": 60,
       "pays": [
-        0.5,
-        1.2,
-        5
+        5,
+        12,
+        50
       ]
     },
     {
@@ -103,9 +179,9 @@
       "name": "Lemon",
       "weight": 52,
       "pays": [
-        0.5,
-        1.5,
-        6
+        5,
+        15,
+        60
       ]
     },
     {
@@ -113,9 +189,9 @@
       "name": "Orange",
       "weight": 44,
       "pays": [
-        0.6,
-        2,
-        7
+        6,
+        20,
+        70
       ]
     },
     {
@@ -123,9 +199,9 @@
       "name": "Grapes",
       "weight": 32,
       "pays": [
-        1,
-        3,
-        12
+        10,
+        30,
+        120
       ]
     },
     {
@@ -133,9 +209,9 @@
       "name": "Watermelon",
       "weight": 24,
       "pays": [
-        1.5,
-        5,
-        25
+        15,
+        50,
+        250
       ]
     },
     {
@@ -143,9 +219,9 @@
       "name": "Lucky Seven",
       "weight": 16,
       "pays": [
-        3,
-        12,
-        60
+        30,
+        120,
+        600
       ]
     },
     {
@@ -153,9 +229,9 @@
       "name": "Golden Star",
       "weight": 3,
       "pays": [
-        5,
-        25,
-        120
+        50,
+        250,
+        1200
       ],
       "kind": "wild"
     },
@@ -254,13 +330,44 @@
     }
   },
   "payScale": 0.839276,
+  "payScales": {
+    "5": 0.839276,
+    "10": 0.839276,
+    "20": 0.839276
+  },
   "stats": {
-    "rtp": 0.8409,
+    "rtp": 0.8406,
     "hit": 0.342,
     "featureEvery": 75,
     "bonusEvery": 202,
     "rewardEvery": 757,
     "spins": "1 billion"
+  },
+  "statsByLines": {
+    "5": {
+      "rtp": 0.8406,
+      "hit": 0.227,
+      "featureEvery": 75,
+      "bonusEvery": 202,
+      "rewardEvery": 757,
+      "spins": "1 billion"
+    },
+    "10": {
+      "rtp": 0.8406,
+      "hit": 0.342,
+      "featureEvery": 75,
+      "bonusEvery": 202,
+      "rewardEvery": 757,
+      "spins": "1 billion"
+    },
+    "20": {
+      "rtp": 0.8412,
+      "hit": 0.459,
+      "featureEvery": 75,
+      "bonusEvery": 202,
+      "rewardEvery": 757,
+      "spins": "1 billion"
+    }
   },
   "rtpParts": {
     "game": 0.8074,

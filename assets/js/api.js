@@ -138,7 +138,13 @@
     fairnessSeed: function () { return get(PATHS.fairnessSeed); },
     setClientSeed: function (clientSeed) { return post(PATHS.fairnessClientSeed, { clientSeed: clientSeed }); },
     rotateSeed: function () { return post(PATHS.fairnessRotate); },
-    spin: function (gameId, bet, requestId, coin) { return post(PATHS.spins, { gameId: gameId, coin: coinOf(coin), bet: bet, requestId: requestId }); },
+    // stake (D47): { lines, lineBet } (a spin costs lineBet × lines; `bet` is not sent), or a number: the total bet
+    // of the API before D47 (played at 10 lines).
+    spin: function (gameId, stake, requestId, coin) {
+      var body = { gameId: gameId, coin: coinOf(coin), requestId: requestId };
+      if (typeof stake === "number") body.bet = stake; else { body.lines = stake.lines; body.lineBet = stake.lineBet; }
+      return post(PATHS.spins, body);
+    },
     spinHistory: function (cursor) { return get(withCursor(PATHS.spins, cursor)); },
     ledger: function (cursor, coin) { return get(q(PATHS.ledger, { coin: coinOf(coin), cursor: cursor })); },
 

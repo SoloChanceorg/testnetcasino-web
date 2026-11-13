@@ -8,9 +8,14 @@
  *   - randInt(n): rejection sampling (no modulo bias);
  *   - slot rules: the same as the backend's frozen reference engine;
  *   - wins: exact BigInt arithmetic, 1 unit = 10^-7 of the bet, each item
- *     rounded to whole sats with one draw when there is a remainder;
- *   - game versions: the API serves the current config (version 5 from D45, version 4
- *     from D43, before that version 3). Version 5 is version 4 with its own payScale and
+ *     rounded to whole sats with one draw when there is a remainder; from version 6
+ *     (lines, D47) a line pays a multiple of the LINE bet (1 unit = 10^-7 of it), the
+ *     pays quoted in total bets (scatter, bonus, Hold & Win) are multiplied by F = lines,
+ *     and the rounding uses D = 10^7 x F units per total bet (FAIRNESS.md section 5);
+ *   - game versions: the API serves the current config (version 6 from D47: 5, 10 or 20
+ *     lines of 20 paylines at a bet per line, each line count with its own payScale;
+ *     version 5 from D45, version 4 from D43, before that version 3). Version 5 is
+ *     version 4 with its own payScale and
  *     jackpot chances (a 101% Return to Player rate with everything included). Versions 1 and 3 have the same rules; version 2 (2026-11-08 to
  *     2026-11-09) adds two jackpot draws after every other draw: the game's Major,
  *     then the shared Grand (FAIRNESS.md section 4, step 5). Version 4 has version
@@ -63,31 +68,58 @@
   var V4_CONTRIBUTION = { minor: 0.04, major: 0.03, grand: 0.03 };
   var V4_ONLY = ["jackpots", "jackpot", "collector", "rtpParts"];
   function copy(o) { var g = {}; Object.keys(o).forEach(function (k) { g[k] = o[k]; }); return g; }
-  /** The rules a spin of `version` was played with, built from the current config (version 3, 4 or 5). */
+  // Version 5 from version 6 (D47): the first 10 of the 20 paylines (in the same order), no line choice, line pays
+  // of the total bet (a tenth of version 6's, which are of the line bet at 10 lines), the 10-line payScale.
+  function v5From6(game) {
+    var g = copy(game);
+    g.version = 5;
+    g.engine = copy(game.engine); g.engine.paylines = game.engine.paylines.slice(0, 10);
+    delete g.engine.lines; delete g.engine.defaultLines;
+    g.symbols = game.symbols.map(function (s) {
+      var t = copy(s);
+      if (s.kind !== "scatter" && s.pays) t.pays = s.pays.map(function (p) { return p / 10; });
+      return t;
+    });
+    g.payScale = game.payScales ? game.payScales["10"] : game.payScale;
+    g.stats = game.statsByLines ? game.statsByLines["10"] : game.stats;
+    delete g.payScales; delete g.statsByLines;
+    return g;
+  }
+  /** The rules a spin of `version` was played with, built from the current config (version 3, 4, 5 or 6). */
   function configFor(game, version) {
     version = Number(version || game.version);
-    var cur = game.version, known = !!V3_PAYSCALE[game.id];
+    var cur = Number(game.version), known = !!V3_PAYSCALE[game.id];
+    if (version === cur && version !== 2) return game;
+    var g = game;
+    if (cur === 6 && version < 6) { g = v5From6(game); cur = 5; if (version === 5) return g; }
     var ok = version === cur || (version >= 1 && version <= 3 && (cur === 3 || (cur >= 4 && known)))
       || (version === 4 && cur === 5 && known);
     if (!ok) {
-      throw new Error("Game version " + version + " cannot be checked with the version " + cur + " rules the server serves.");
+      throw new Error("Game version " + version + " cannot be checked with the version " + game.version + " rules the server serves.");
     }
-    if (version === cur && version !== 2) return game;
-    var g;
+    var base = g;
     if (version === 4) {   // from version 5
-      g = copy(game);
-      g.version = 4; g.payScale = V4_PAYSCALE[game.id]; g.rtp = 1.1;
+      g = copy(base);
+      g.version = 4; g.payScale = V4_PAYSCALE[base.id]; g.rtp = 1.1;
       g.rtpParts = { game: 0.96, collector: 0.04, jackpots: 0.1 };
-      g.jackpot = copy(game.jackpot);
+      g.jackpot = copy(base.jackpot);
       ["minor", "major", "grand"].forEach(function (t) { g.jackpot[t] = { oneInSats: V4_ONE_IN[t], contribution: V4_CONTRIBUTION[t] }; });
       return g;
     }
     g = {};
-    Object.keys(game).forEach(function (k) { if (V4_ONLY.indexOf(k) === -1) g[k] = game[k]; });
+    Object.keys(base).forEach(function (k) { if (V4_ONLY.indexOf(k) === -1) g[k] = base[k]; });
     g.version = version;
-    if (cur >= 4) { g.payScale = V3_PAYSCALE[game.id]; g.rtp = 1.0001; }
+    if (cur >= 4) { g.payScale = V3_PAYSCALE[base.id]; g.rtp = 1.0001; }
     if (version === 2) g.jackpots = V2_JACKPOTS;
     return g;
+  }
+  /** The lines a spin plays: version 6+ one of engine.lines (default engine.defaultLines); before, every payline. */
+  function linesOf(game, lines) {
+    var E = game.engine;
+    if (!E.lines) return E.paylines.length;
+    lines = Number(lines || E.defaultLines || 10);
+    if (E.lines.indexOf(lines) === -1) throw new Error("This game cannot be played at " + lines + " lines (" + E.lines.join(", ") + ").");
+    return lines;
   }
 
   /* ═══════════════ Random stream ═══════════════ */
@@ -124,8 +156,9 @@
   }
 
   /* ═══════════════ Slot rules (FAIRNESS.md section 3) ═══════════════ */
-  function rules(game) {
-    var E = game.engine, REELS = E.reels, ROWS = E.rows, PAYLINES = E.paylines;
+  // `lines`: how many of engine.paylines the spin plays (version 6+: its `lines`; before: all of them).
+  function rules(game, lines) {
+    var E = game.engine, REELS = E.reels, ROWS = E.rows, PAYLINES = E.paylines, N_LINES = lines || PAYLINES.length;
     var MAX_RESPINS = E.maxRespins, MAX_FREE_SPINS = E.maxFreeSpins;
     var syms = game.symbols, K = { wild: -1, scatter: -1, bonus: -1 };
     syms.forEach(function (s, i) { if (s.kind) K[s.kind] = i; });
@@ -163,7 +196,7 @@
     // sats are computed exactly later.
     function evaluate(lineGrid, countGrid, wm) {
       var cap = (game.wildMult && game.wildMult.cap) || Infinity, lines = [];
-      for (var li = 0; li < PAYLINES.length; li++) {
+      for (var li = 0; li < N_LINES; li++) {
         var pl = PAYLINES[li], seq = [];
         for (var c = 0; c < REELS; c++) seq.push(lineGrid[c][pl[c]]);
         var wildRun = 0;
@@ -324,21 +357,30 @@
   }
 
   /* ═══════════════ Exact wins (FAIRNESS.md section 5) ═══════════════ */
-  function exact(game) {
-    var scale = BigInt(Math.round(game.payScale * 1e6));
+  // Pays in tenths, payScale in millionths: a win is an exact number of units. Up to version 5 a unit is 10^-7 of the
+  // total bet (F = 1). From version 6 (lines) a line pays a multiple of the line bet (a unit is 10^-7 of it), the pays
+  // quoted in total bets (scatter, bonus prize, Hold & Win) are multiplied by F = lines, and one total bet is D = 10^7 x F
+  // units; payScale is the line count's own (payScales[lines]).
+  function exact(game, lines) {
+    var withLines = !!(game.engine && game.engine.lines);
+    var F = withLines ? BigInt(lines) : 1n;
+    var ps = withLines && game.payScales ? game.payScales[String(lines)] : game.payScale;
+    var scale = BigInt(Math.round(ps * 1e6));
     var scat = game.symbols.findIndex(function (s) { return s.kind === "scatter"; });
     function tenths(sym, count) { return count >= 3 ? BigInt(Math.round(game.symbols[sym].pays[Math.min(count, 5) - 3] * 10)) : 0n; }
     return {
-      scale: scale,
+      scale: scale, F: F, D: UNITS_PER_BET * F,
       line: function (w) { return tenths(w.symbol, w.count) * scale * BigInt(w.wildMult); },
-      scatter: function (s) { return tenths(scat, Math.min(s.count, 5)) * scale; },
-      prize: function (p) { return BigInt(Math.round(p * 10)) * scale; }
+      scatter: function (s) { return tenths(scat, Math.min(s.count, 5)) * scale * F; },
+      prize: function (p) { return BigInt(Math.round(p * 10)) * scale * F; }
     };
   }
-  function toSats(bet, units, randInt) {
+  // Sats for `units` at the total bet `bet` (D units = one total bet), with the unbiased random rounding.
+  function toSats(bet, units, randInt, D) {
+    D = D || UNITS_PER_BET;
     var e = BigInt(bet) * units;
-    var whole = e / UNITS_PER_BET, rem = e % UNITS_PER_BET;
-    return Number(whole) + (rem > 0n && BigInt(randInt(Number(UNITS_PER_BET))) < rem ? 1 : 0);
+    var whole = e / D, rem = e % D;
+    return Number(whole) + (rem > 0n && BigInt(randInt(Number(D))) < rem ? 1 : 0);
   }
 
   /* ═══════════════ One paid spin, in the documented draw order ═══════════════ */
@@ -346,21 +388,23 @@
   // amounts are a tenth of tBCH's), so the chance per spin at the same share of the max bet is the same.
   // opts.jackpots === false: the version 4 jackpot draws were skipped (the spin said "jackpots": false).
   // opts.rewardBet: the spin filled the collector (its collect step: full, bet); the reward is played at it.
+  // opts.lines (version 6+): the spin's line count (5, 10 or 20; default the game's defaultLines). `bet` is always the
+  // spin's TOTAL bet (line bet x lines); the reward plays at its own total bet and the spin's lines.
   // Without rewardBet the result has `stream` and `reward(bet)` to play the reward afterwards, from the
   // stream's position after the collect symbols, as often as needed (the fairness page tries bets with it).
   function COIN_SCALE(coin) { return coin === "btc" ? 10 : 1; }
   function play(game, bet, randInt, opts, stream) {
     opts = opts || {};
-    var spinBet = bet;
-    var R = rules(game), X = exact(game), pickers = R.makePickers(randInt);
+    var spinBet = bet, lines = linesOf(game, opts.lines);
+    var R = rules(game, lines), X = exact(game, lines), pickers = R.makePickers(randInt);
     var steps = [], total = 0;
 
     function paid(r, b) {
       var win = 0;
       var phases = r.phases.map(function (ph) {
         var pw = 0;
-        ph.res.lines.forEach(function (w) { pw += toSats(b, X.line(w) * BigInt(ph.mult), randInt); });
-        if (ph.res.scatter) pw += toSats(b, X.scatter(ph.res.scatter) * BigInt(ph.mult), randInt);
+        ph.res.lines.forEach(function (w) { pw += toSats(b, X.line(w) * BigInt(ph.mult), randInt, X.D); });
+        if (ph.res.scatter) pw += toSats(b, X.scatter(ph.res.scatter) * BigInt(ph.mult), randInt, X.D);
         win += pw;
         return { grid: ph.grid, win: pw };
       });
@@ -369,7 +413,7 @@
     function bonus(b, out) {
       var x = R.bonusGame(randInt);
       x.type = "bonus";
-      x.win = toSats(b, X.prize(x.prize), randInt);
+      x.win = toSats(b, X.prize(x.prize), randInt, X.D);
       out.push(x);
       return x.win;
     }
@@ -433,13 +477,13 @@
           riseStep: rise.step || 0, riseMax: rise.max || 0, locked: r.lockedWild || null }, b, out);
       } else {
         var h = R.holdAndWin(randInt);
-        win = toSats(b, BigInt(h.totalTenths) * X.scale, randInt);
+        win = toSats(b, BigInt(h.totalTenths) * X.scale * X.F, randInt, X.D);
         var pearls = function (list) { return list.map(function (p) { return { reel: p.reel, row: p.row, value: p.value / 10 }; }); };
         out.push({ type: "holdAndWin", bet: b, start: pearls(h.start), respins: h.respins.map(pearls), prize: h.totalTenths / 10, win: win });
       }
       return { win: win, steps: out };
     }
-    var result = { totalWin: total, steps: steps, jackpotHits: jackpotHits, jackpot: jackpot, collected: collected.length };
+    var result = { totalWin: total, steps: steps, jackpotHits: jackpotHits, jackpot: jackpot, collected: collected.length, lines: lines };
     if (collected.length && opts.rewardBet) {
       var rw = reward(opts.rewardBet);
       result.rewardBet = opts.rewardBet;
@@ -454,16 +498,17 @@
   }
 
   /**
-   * Replays one spin: { serverSeed, clientSeed, nonce, bet } with the game config; opts as for play()
-   * ({ jackpots, rewardBet }), plus matchTotal: a spin's totalWin from GET /spins, which does not say
-   * whether the spin filled the collector or at what bet. If the replay has collect symbols and does
+   * Replays one spin: { serverSeed, clientSeed, nonce, bet (total), coin?, lines? } with the game config; opts as
+   * for play() ({ jackpots, rewardBet, coin, lines }), plus matchTotal: a spin's totalWin from GET /spins, which does
+   * not say whether the spin filled the collector or at what bet. If the replay has collect symbols and does
    * not reach matchTotal, the reward is tried at every bet from the spin's bet down to 1 (the reward's
    * bet is the spin's bet capped at the cycle's average); a match is kept as rewardBet.
-   * Resolves to { totalWin, steps, serverSeedHash, ... }.
+   * Resolves to { totalWin, steps, serverSeedHash, lines, ... }.
    */
   function replay(game, spin, opts) {
     var blocks = 32;
     if (spin.coin && !(opts && opts.coin)) opts = Object.assign({}, opts || {}, { coin: spin.coin });
+    if (spin.lines != null && !(opts && opts.lines)) opts = Object.assign({}, opts || {}, { lines: spin.lines });
     function attempt() {
       return makeStream(spin.serverSeed, spin.clientSeed, spin.nonce, blocks).then(function (st) {
         try {
@@ -606,7 +651,7 @@
   }
 
   var api = { sha256Hex: sha256Hex, makeStream: makeStream, play: play, replay: replay,
-              configFor: configFor, meter: meter, verifyMeterWin: verifyMeterWin, roulette: roulette, rouletteCovers: rouletteCovers };
+              configFor: configFor, linesOf: linesOf, meter: meter, verifyMeterWin: verifyMeterWin, roulette: roulette, rouletteCovers: rouletteCovers };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TNC_Fair = api;
 })(typeof window !== "undefined" ? window : globalThis);

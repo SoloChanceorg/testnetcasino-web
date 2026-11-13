@@ -319,7 +319,7 @@
     knobArt.anchor.set(0.5); knob.addChild(knobArt);
     var capGlass = k.recess(62, 62, 31); capGlass.anchor.set(0.5); dial.addChild(capGlass);   // the glass cap with the value
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "800", fontSize: 18, fill: "#e8fbff", dropShadow: { color: "#2ec5ff", blur: 8, distance: 0, alpha: 0.9 } }); betVal.y = -4;
-    var betUnit = txt(k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 10, fill: "#8fb8c8" }); betUnit.y = 14;
+    var betUnit = txt(k.HAS_LINES ? "PER LINE" : k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 10, fill: "#8fb8c8" }); betUnit.y = 14;
     dial.addChild(betVal, betUnit);
     var labels = LADDER.map(function (v, i) {
       var a = ang(i), x = Math.sin(a) * LR, y = -Math.cos(a) * LR;
@@ -421,6 +421,8 @@
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
     });
     k.deckHit(KX - KR, KY - KR, KR * 2, KR * 2 + DEPTH, key, function () { k.press(); });
+    // LINES: three brass keys under the DIVE button, the chosen one lit like the sonar
+    k.linesKeys(KX, 274, { labelFill: "#ffd98a", off: [["#ffe79a", "#b8902f"], ["#6a5010", "#3a2a08"], "#2a1d05"], on: [["#dffbff", "#2ec5ff"], ["#0a5d7a", "#063a4c"], "#032030"] });
 
     return {
       win: win, bal: bal, key: key,
@@ -437,7 +439,7 @@
       update: function (s) {
         sub.text = s.sub;
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        labels.forEach(function (l) { l.alpha = s.busy ? 0.55 : 1; });
+        labels.forEach(function (l, j) { l.alpha = s.busy ? 0.55 : LADDER[j] > s.maxBet ? 0.3 : 1; });   // stops above the max for these lines go dark
       },
       points: function () { return { spin: [KX, KY], betUp: [210, 268], dragFrom: [DX, DY - 80], dragTo: [DX + 87, DY + 23] }; }   // dragTo: the stop for 500 (105° round from the top)
     };
