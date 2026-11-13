@@ -376,10 +376,9 @@
     });
     k.deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { k.press(); });
 
-    // THRUST: the bet ladder (1 ... 4,000 in tBCH on twelve detents, 1 ... 400 in tBTC on nine) as an aircraft
-    // throttle: a T-handle on a shaft rising from a gate slot sunk into the console, a detent notch at every step;
-    // ▲ ▼ keys below, the readout between them a tap zone for the entry box. Pulled back (low thrust) the handle
-    // leans toward the player, pushed forward it stands up over the slot.
+    // THRUST: the coin's line bets (D49: seven, however many) as an aircraft throttle: a T-handle on a shaft rising
+    // from a gate slot sunk into the console, a detent notch at every option; ▲ ▼ keys below round the readout.
+    // Pulled back (low thrust) the handle leans toward the player, pushed forward it stands up over the slot.
     var SLX = 93, N = LADDER.length - 1, STEP = 180 / N;   // the slot's centre line; the detents from y 214 up to 34, however many
     var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
     var thrHead = txt(k.HAS_LINES ? T.bet + " · PER LINE" : T.bet, { fontSize: k.HAS_LINES ? 12 : 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
@@ -419,7 +418,6 @@
     }
     drawLever(3);
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(70, 270); thr.addChild(betVal);
-    k.betEntry(556 + 36, 12 + 254, 68, 34);   // a tap on the readout between the keys: type any line bet
     function smallKey(label, x) {
       var kk = new PIXI.Container(); kk.position.set(x, 270);
       var art = k.keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
@@ -464,9 +462,9 @@
       update: function (s) {
         launchSub.text = s.sub;
         [betUp, betDown].forEach(function (b) { k.setOff(b, s.busy); });
-        thrMarks.forEach(function (m, j) { m.alpha = s.busy ? 0.55 : LADDER[j] > s.maxBet ? 0.3 : 1; });   // detents above the max for these lines go dark
+        thrMarks.forEach(function (m) { m.alpha = s.busy ? 0.55 : 1; });
       },
-      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 3 * STEP], dragTo: [556 + SLX, 12 + 214 - 8 * STEP], betEntry: [556 + 70, 12 + 270] }; }   // the lever at the 4th detent, dragged to the 9th
+      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 2 * STEP], dragTo: [556 + SLX, 12 + 214 - 5 * STEP] }; }   // the lever at the 3rd detent, dragged to the 6th
     };
   }
 

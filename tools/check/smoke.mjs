@@ -33,6 +33,7 @@ const GAMES = ["fruit-orchard", "deep-sea", "cosmic-voyage"];
 const PAGES = ["index.html", "login.html", "account.html", "fairness.html", "leaderboards.html", "jackpots.html", "withdrawals.html",
   ...GAMES.map((g) => `games/${g}.html`), "games/roulette.html"];
 const CONFIGS = Object.fromEntries(GAMES.map((g) => [g, fs.readFileSync(path.join(FIX, `config-${g}.json`), "utf8")]));
+const LINE_BETS = { bch: [1, 10, 50, 100, 200, 500, 1000], btc: [1, 5, 10, 20, 50, 100, 200] };   // D49: the line bets per coin, served with the config
 const SPINS = JSON.parse(fs.readFileSync(path.join(FIX, "spins.json"), "utf8"));
 const METERS = JSON.parse(fs.readFileSync(path.join(FIX, "meters.json"), "utf8"));   // backend meter vectors
 const ROULETTE = JSON.parse(fs.readFileSync(path.join(FIX, "roulette.json"), "utf8"));   // backend roulette vectors (rules 2 first, golden round 2117 first of all)
@@ -95,7 +96,7 @@ function handle(method, url, body) {
   const p = url.pathname, qcoin = url.searchParams.get("coin");
   api.log.push({ method, path: p, query: url.search, body: body ? JSON.parse(body) : null });
   const cfg = /^\/games\/([\w-]+)\/config$/.exec(p);
-  if (cfg && CONFIGS[cfg[1]]) return [200, CONFIGS[cfg[1]]];
+  if (cfg && CONFIGS[cfg[1]]) return [200, CONFIGS[cfg[1]].replace(/\}\s*$/, ', "lineBets": ' + JSON.stringify(LINE_BETS) + ' }')];   // D49: the API adds the line bets as the last field
   // Roulette (D44): the REST side; the WebSocket is a fake in the page (see FAKE_WS), driven by the tests.
   if (p === "/roulette/state") return [200, { type: "table", serverTime: new Date().toISOString(), players: [], bets: [], rules: RULES2 }];
   if (p === "/roulette/bets" && method === "POST") {
@@ -135,14 +136,14 @@ function handle(method, url, body) {
     case "/auth/logout": api.user = null; return [204, null];
     case "/spins":
       if (method === "POST") {
-        // Lines (D47, D48): the request carries { lines, lineBet } (no bet), checked like the live server: lines 5, 10 or 20
-        // (a request with only `bet` is refused), the line bet 1 to the coin's max (tBCH 20,000, tBTC 2,000) over the lines.
-        // The queued vector's steps play at the request's stake.
+        // Lines (D47, D49): the request carries { lines, lineBet } (no bet), checked like the live server: lines 5, 10 or 20
+        // (a request with only `bet` is refused), the line bet one of the coin's options. The queued vector's steps play at
+        // the request's stake.
         const b = JSON.parse(body), coin = b.coin || "bch";
-        const lines = b.lines, maxLine = Math.floor((coin === "btc" ? 2000 : 20000) / lines);
+        const lines = b.lines;
         if (![5, 10, 20].includes(lines)) return [400, { error: "invalid_lines", message: "Lines must be 5, 10 or 20." }];
         const lineBet = b.lineBet, bet = b.bet != null ? b.bet : lineBet * lines;
-        if (!Number.isInteger(lineBet) || lineBet < 1 || lineBet > maxLine) return [400, { error: "invalid_bet", message: `The line bet must be 1 to ${maxLine.toLocaleString("en-US")} sats at ${lines} lines.` }];
+        if (!LINE_BETS[coin].includes(lineBet)) return [400, { error: "invalid_bet", message: `The line bet must be one of ${LINE_BETS[coin].join(", ")} sats.` }];
         if (b.bet != null && b.lineBet != null && b.bet !== lineBet * lines) return [400, { error: "invalid_bet", message: "bet must equal lineBet × lines." }];
         if (api.rejectSpin) { const e = api.rejectSpin; api.rejectSpin = null; return [400, e]; }
         const v = api.spinQueue.shift();
@@ -343,13 +344,6 @@ try {
     return until(`typeof TNC_PixiState === "function" && TNC_PixiState().theme === "${THEME[g]}" && !!document.querySelector("#px-canvas canvas")`, 15000);
   }
   const space = `document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))`;
-  // A point on the machine (canvas coordinates from TNC_PixiState) on the screen, through the tilted canvas's corners.
-  const screenPoint = (expr) => ev(`(() => { const p = ${expr}, q = [...document.querySelectorAll(".px-corner")].map((e) => e.getBoundingClientRect()).flatMap((r) => [r.x, r.y]);
-    const dx1 = q[2] - q[4], dx2 = q[6] - q[4], dx3 = q[0] - q[2] + q[4] - q[6], dy1 = q[3] - q[5], dy2 = q[7] - q[5], dy3 = q[1] - q[3] + q[5] - q[7];
-    const det = dx1 * dy2 - dx2 * dy1, gg = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det, u = (p.x + 22) / 804, v = (p.y + 10) / 1104;
-    const a = q[2] - q[0] + gg * q[2], b = q[6] - q[0] + hh * q[6], d = q[3] - q[1] + gg * q[3], e = q[7] - q[1] + hh * q[7], w = gg * u + hh * v + 1;
-    return { x: (a * u + b * v + q[0]) / w, y: (d * u + e * v + q[1]) / w }; })()`);
-  const click = async (pt) => { for (const t of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: pt.x, y: pt.y, button: "left", clickCount: 1 }); };
   for (const g of GAMES) {
     const problems = [], i = GAMES.indexOf(g), c = COLLECTOR[g];
     const major = (45678 + i).toLocaleString("en-US"), minor = (2310 + i).toLocaleString("en-US");
@@ -554,25 +548,30 @@ try {
     const problems = [], cfg = CFG[g], v = SPINS["lines-" + g];   // a version 6 spin at 20 lines with a win on a line past the tenth
     resetApi(); signIn(500000); api.spinQueue.push(v);
     await openMachine(g);
-    // D48: the max line bet is the coin's max (tBCH 20,000) over the lines: 2,000 at 10 lines, 1,000 at 20, 4,000 at 5; the ladder's twelve stops.
-    const s = await ev(`(() => { const S = TNC_PixiState; TNC_PixiLines(10); TNC_PixiBet(1500); const a = S(); TNC_PixiLines(20); const b = S(); TNC_PixiLines(5); TNC_PixiBet(9999); const c = S();
-      return { opts: a.lineOpts, tabs: a.markerTabs, ladder: a.ladder, max: a.maxBet, a: [a.lines, a.lineBet, a.bet, a.maxLineBet, a.markers, a.keySub], b: [b.lines, b.lineBet, b.bet, b.maxLineBet, b.markers, b.lcdSub],
-        c: [c.lines, c.lineBet, c.bet, c.maxLineBet, c.markers], stored: localStorage.getItem("tnc.lines"), scale: c.payScale, keys: c.linesAt.length }; })()`);
+    // D49: the line bets are the coin's seven options from the config, each at any line count; a number that is no option takes the nearest lower one.
+    const s = await ev(`(() => { const S = TNC_PixiState; TNC_PixiLines(10); TNC_PixiBet(1500); const a = S(); TNC_PixiLines(20); const b = S(); TNC_PixiLines(5); TNC_PixiBet(999); const c = S();
+      return { opts: a.lineOpts, tabs: a.markerTabs, ladder: a.ladder, a: [a.lines, a.lineBet, a.bet, a.markers, a.keySub], b: [b.lines, b.lineBet, b.bet, b.markers, b.lcdSub],
+        c: [c.lines, c.lineBet, c.bet, c.markers], stored: localStorage.getItem("tnc.lines"), storedBet: sessionStorage.getItem("tnc.lineBet.${g}"), scale: c.payScale, keys: c.linesAt.length }; })()`);
     if (JSON.stringify(s.opts) !== "[5,10,20]" || s.tabs !== 40 || s.keys !== 3) problems.push("selector: " + JSON.stringify({ opts: s.opts, tabs: s.tabs, keys: s.keys }));
-    if (JSON.stringify(s.ladder) !== "[1,2,5,10,20,50,100,200,500,1000,2000,4000]" || s.max !== 20000) problems.push("ladder: " + JSON.stringify([s.ladder, s.max]));
-    if (JSON.stringify(s.a) !== JSON.stringify([10, 1500, 15000, 2000, 10, "BET 15,000"])) problems.push("10 lines: " + JSON.stringify(s.a));
-    if (JSON.stringify(s.b) !== JSON.stringify([20, 1000, 20000, 1000, 20, "Line bet 1,000 × 20 lines = 20,000 tBCH sats"])) problems.push("20 lines (the line bet lowered to its max): " + JSON.stringify(s.b));
-    if (JSON.stringify(s.c) !== JSON.stringify([5, 4000, 20000, 4000, 5]) || s.stored !== "5" || s.scale !== cfg.payScales["5"]) problems.push("5 lines: " + JSON.stringify([s.c, s.stored, s.scale]));
-    // The paytable follows the stake: the top symbol's pays in sats at line bet 4,000, the scatter's × the total of 20,000, 5 of 20 paylines lit, the 5-line hit rate, the limits text.
+    if (JSON.stringify(s.ladder) !== "[1,10,50,100,200,500,1000]") problems.push("ladder: " + JSON.stringify(s.ladder));
+    if (JSON.stringify(s.a) !== JSON.stringify([10, 1000, 10000, 10, "BET 10,000"])) problems.push("10 lines: " + JSON.stringify(s.a));
+    if (JSON.stringify(s.b) !== JSON.stringify([20, 1000, 20000, 20, "Line bet 1,000 × 20 lines = 20,000 tBCH sats"])) problems.push("20 lines (the line bet kept): " + JSON.stringify(s.b));
+    if (JSON.stringify(s.c) !== JSON.stringify([5, 500, 2500, 5]) || s.stored !== "5" || s.storedBet !== "500" || s.scale !== cfg.payScales["5"]) problems.push("5 lines, 999 -> 500: " + JSON.stringify([s.c, s.stored, s.storedBet, s.scale]));
+    // Only the balance holds a spin: at 1,000 × 5 over a balance of 4,000 the key goes off and the display says so, the selection kept; the balance back, the key too.
+    const poor = await ev(`(() => { const S = TNC_PixiState; TNC_PixiBet(1000); TNC_Auth.setBalance(4000); const s = S(); return [s.lineBet, s.lines, s.bet, s.keyOff, s.lcd]; })()`);
+    if (!(poor[0] === 1000 && poor[1] === 5 && poor[2] === 5000) || !poor[3] || !/balance is 4,000 tBCH sats/.test(poor[4])) problems.push("over the balance: " + JSON.stringify(poor));
+    await ev(`TNC_Auth.setBalance(500000)`);
+    if (await ev(`TNC_PixiState().keyOff`)) problems.push("key still off with the balance back");
+    // The paytable follows the stake: the top symbol's pays in sats at line bet 1,000, the scatter's × the total of 5,000, 5 of 20 paylines lit, the 5-line hit rate, the options text.
     const top = cfg.symbols.filter((x) => !x.kind).pop(), scat = cfg.symbols.find((x) => x.kind === "scatter");
     const pt = await ev(`(() => { const d = document.querySelector(".paytable");
       return { top: [...d.querySelectorAll("[data-pays]")].find((e) => e.getAttribute("data-pays") === ${JSON.stringify(top.pays.join(","))}).textContent, scat: d.querySelector('[data-pays][data-of="total bet"]').textContent,
         on: d.querySelectorAll(".lines-grid .pl:not(.is-off)").length, off: d.querySelectorAll(".lines-grid .pl.is-off").length, hit: d.querySelector('[data-stat="hit"]').textContent, head: d.querySelector("[data-lines-h]").textContent, text: d.textContent }; })()`);
-    const topSats = top.pays.map((m) => Math.round(m * cfg.payScales["5"] * 4000).toLocaleString("en-US")).join(" / "), scatSats = scat.pays.map((m) => Math.round(m * cfg.payScales["5"] * 20000).toLocaleString("en-US")).join(" / ");
+    const topSats = top.pays.map((m) => Math.round(m * cfg.payScales["5"] * 1000).toLocaleString("en-US")).join(" / "), scatSats = scat.pays.map((m) => Math.round(m * cfg.payScales["5"] * 5000).toLocaleString("en-US")).join(" / ");
     if (!pt.top.includes(topSats) || !pt.scat.includes(scatSats)) problems.push("paytable sats: " + JSON.stringify([pt.top, topSats, pt.scat, scatSats]));
     if (pt.on !== 5 || pt.off !== 15 || pt.head !== "5 of 20 paylines active" || pt.hit !== Math.round(cfg.statsByLines["5"].hit * 100) + "%") problems.push("paytable lines/stats: " + JSON.stringify([pt.on, pt.off, pt.head, pt.hit]));
     if (!/Choose 5, 10 or 20 lines and a bet per line\. A spin costs line bet × lines\./.test(pt.text) || /\bRTP\b/.test(pt.text) || !/at every line count/.test(pt.text)) problems.push("lines text");
-    if (!/from 1 to 4,000 at 5 lines, 2,000 at 10 lines, 1,000 at 20 lines \(a spin costs at most 20,000 tBCH sats\)/.test(pt.text)) problems.push("limits text");
+    if (!/Line bet: 1, 10, 50, 100, 200, 500 or 1,000 tBCH sats per line, each at any line count \(a spin costs 5 to 20,000 tBCH sats\)\. Only your balance can hold a spin\./.test(pt.text)) problems.push("options text");
     // A spin at 20 lines with a line bet of 1: the request carries lines and lineBet (no bet), the win on a line past the tenth is drawn, Recent spins says 20 lines.
     await ev(`TNC_PixiLines(20); TNC_PixiBet(1); window.__px = { wins: 0 }; setInterval(() => { const s = TNC_PixiState(); window.__px.wins = Math.max(window.__px.wins, s.wins); if (s.stage) TNC_PixiGo(); }, 50); ${space}`);
     await sleep(300);
@@ -584,52 +583,13 @@ try {
     if (after.bal !== api.balance) problems.push(`balance ${after.bal} != server ${api.balance}`);
     if (!/bet 20 tBCH sats · 20 lines/.test(after.hist)) problems.push("history: " + after.hist);
     // The server's word on a wrong stake shows on the display.
-    api.rejectSpin = { error: "invalid_bet", message: "The line bet must be 1 to 1,000 sats at 20 lines." };
+    api.rejectSpin = { error: "invalid_bet", message: "The line bet must be one of 1, 10, 50, 100, 200, 500, 1000 sats." };
     await ev(space);
-    if (!(await until(`TNC_PixiState().lcd === "The line bet must be 1 to 1,000 sats at 20 lines." && !TNC_PixiState().busy`, 8000))) problems.push("invalid_bet message: " + await ev(`TNC_PixiState().lcd`));
+    if (!(await until(`TNC_PixiState().lcd === "The line bet must be one of 1, 10, 50, 100, 200, 500, 1000 sats." && !TNC_PixiState().busy`, 8000))) problems.push("invalid_bet message: " + await ev(`TNC_PixiState().lcd`));
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
     check(`${g}: lines 5 / 10 / 20 at a line bet (the max per count, the total on the key and the display, remembered), the paytable at the stake, a 20-line spin's request and win, the server's invalid_bet message`, !problems.length, problems.join("; "));
   }
 
-  /* ═══ 4e. Free entry (D48): any line bet typed into the entry box, from the Line bet button or a tap on the console's readout;
-     the range for the lines chosen, a number above the max lowered to it, the MAX key, Escape ═══ */
-  for (const g of GAMES) {
-    const problems = [];
-    resetApi(); signIn(500000);
-    await openMachine(g);
-    const typed = async (text) => { await ev(`(() => { const i = document.getElementById("px-entry-in"); i.value = ${JSON.stringify(text)}; document.getElementById("px-entry").requestSubmit(); })()`); await sleep(150); };
-    await ev(`TNC_PixiLines(10); TNC_PixiBet(5); document.getElementById("px-bet").click()`); await sleep(150);
-    const e1 = await ev(`(() => { const s = TNC_PixiState(), i = document.getElementById("px-entry-in"); return { open: s.entry, hint: s.entryHint, max: s.entryMax, value: i.value, focused: document.activeElement === i, label: document.getElementById("px-entry-label").textContent }; })()`);
-    if (!e1.open || e1.value !== "5" || !e1.focused || e1.label !== "LINE BET · tBCH sats" || e1.max !== "MAX 2,000" || !/^1 to 2,000 at 10 lines\. A spin costs line bet × 10: up to 20,000 tBCH sats\.$/.test(e1.hint)) problems.push("opened: " + JSON.stringify(e1));
-    await typed("777");
-    const e2 = await ev(`(() => { const s = TNC_PixiState(); return [s.entry, s.lineBet, s.bet, s.lcd, s.keySub, sessionStorage.getItem("tnc.lineBet.bch.${g}")]; })()`);
-    if (JSON.stringify(e2) !== JSON.stringify([false, 777, 7770, "Line bet 777 × 10 lines = 7,770 tBCH sats. Press " + SPIN[g] + "!", "BET 7,770", "777"])) problems.push("777: " + JSON.stringify(e2));
-    // Above the max: lowered to it, and the display says so
-    await ev(`document.getElementById("px-bet").click()`); await sleep(100); await typed("5,000");
-    const e3 = await ev(`(() => { const s = TNC_PixiState(); return [s.entry, s.lineBet, s.bet, s.lcd]; })()`);
-    if (JSON.stringify(e3) !== JSON.stringify([false, 2000, 20000, "The line bet is at most 2,000 tBCH sats at 10 lines. Line bet 2,000 × 10 lines = 20,000 tBCH sats."])) problems.push("5,000: " + JSON.stringify(e3));
-    // Nothing typed: the box stays with the current bet; Escape closes it; the MAX key at 20 lines sets 1,000
-    await ev(`document.getElementById("px-bet").click()`); await sleep(100); await typed("");
-    const e4 = await ev(`(() => { const s = TNC_PixiState(); return [s.entry, document.getElementById("px-entry-in").value, s.lineBet]; })()`);
-    if (JSON.stringify(e4) !== JSON.stringify([true, "2000", 2000])) problems.push("empty: " + JSON.stringify(e4));
-    await ev(`document.getElementById("px-entry-in").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(100);
-    if (await ev(`TNC_PixiState().entry`)) problems.push("Escape did not close the box");
-    await ev(`TNC_PixiLines(20); document.getElementById("px-bet").click()`); await sleep(100);
-    const e5 = await ev(`(() => { const s = TNC_PixiState(); return [s.entryMax, s.entryHint, s.lineBet]; })()`);
-    if (e5[0] !== "MAX 1,000" || !/^1 to 1,000 at 20 lines\./.test(e5[1]) || e5[2] !== 1000) problems.push("20 lines: " + JSON.stringify(e5));
-    await ev(`TNC_PixiBet(3); document.getElementById("px-entry-max").click()`); await sleep(150);
-    const e6 = await ev(`(() => { const s = TNC_PixiState(); return [s.entry, s.lineBet, s.bet, s.lcd]; })()`);
-    if (JSON.stringify(e6) !== JSON.stringify([false, 1000, 20000, "Line bet 1,000 × 20 lines = 20,000 tBCH sats. Press " + SPIN[g] + "!"])) problems.push("MAX: " + JSON.stringify(e6));
-    // A real tap on the console's bet readout opens the box too; the ladder's top stop is 4,000 (at 20 lines dark but there)
-    await ev(`scrollTo(0, document.getElementById("px-canvas").getBoundingClientRect().bottom + scrollY - innerHeight + 20)`);   // the console in view
-    await sleep(100);
-    const at = await screenPoint(`TNC_PixiState().betEntryAt`);
-    if (!at) problems.push("no readout point"); else { await click(at); await sleep(200); if (!(await ev(`TNC_PixiState().entry`))) problems.push("a tap on the readout did not open the box"); }
-    await ev(`document.getElementById("px-entry-cancel").click()`); await sleep(100);
-    if (await ev(`TNC_PixiState().entry`)) problems.push("Cancel did not close the box");
-    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: the bet entry box (the Line bet button and a tap on the readout) takes any line bet, lowers one above the max with a word on the display, MAX, Escape and Cancel`, !problems.length, problems.join("; "));
-  }
   {
     resetApi();
     await open("index.html", 1280);
@@ -850,25 +810,28 @@ try {
     check("coins: the header switch (tBTC first), \"Just need\" only when signed out, both balances, both faucets, tBTC jackpots, a daily bonus per coin, switching reloads in the other coin", !problems.length, problems.join("; "));
   }
   {
-    // A slot machine in tBTC: tBTC jackpots, bets up to 100, the spin's coin and the tBTC balance.
+    // A slot machine in tBTC: tBTC jackpots, its own line bets, the spin's coin and the tBTC balance.
     const problems = [], g = "fruit-orchard", v = SPINS[g];
     resetApi(); signIn(500000); api.spinQueue.push(v);
+    await ev(`sessionStorage.setItem("tnc.lineBet.${g}", "500"); localStorage.setItem("tnc.lines", "10")`);   // as chosen in tBCH
     if (!(await openMachine(g, 1280, "btc"))) problems.push("not built");
     await until(`TNC_PixiState().jackpots.grand === "12,199 tBTC sats"`, 8000);
     const j = await ev(`TNC_PixiState().jackpots`);
     if (j.grand !== "12,199 tBTC sats" || j.major !== "4,568 tBTC sats") problems.push("jackpots " + JSON.stringify(j));
-    await ev(`TNC_PixiLines(10); TNC_PixiBet(1000)`);   // D48: the line bet capped at 200 at 10 lines, the total at 2,000; the tBTC ladder's nine stops
-    const mx = await ev(`(() => { const s = TNC_PixiState(); return [s.lineBet, s.bet, s.maxLineBet, s.ladder, s.maxBet]; })()`);
-    if (JSON.stringify(mx) !== JSON.stringify([200, 2000, 200, [1, 2, 5, 10, 20, 50, 100, 200, 400], 2000])) problems.push("max bet " + JSON.stringify(mx));
+    // D49: tBTC's own options from the config; the line bet of 500 chosen in tBCH (the session's memory) opens as tBTC's nearest lower option, 200
+    const mx = await ev(`(() => { const s = TNC_PixiState(); return [s.lineBet, s.lines, s.ladder]; })()`);
+    if (JSON.stringify(mx) !== JSON.stringify([200, 10, [1, 5, 10, 20, 50, 100, 200]])) problems.push("tBTC options / carried line bet " + JSON.stringify(mx));
+    await ev(`TNC_PixiLines(10); TNC_PixiBet(1000)`);   // no such option: the highest, a spin of 2,000
+    if ((await ev(`TNC_PixiState().bet`)) !== 2000) problems.push("1000 -> 200 × 10: " + await ev(`TNC_PixiState().bet`));
     if (!/tBTC sats/.test(await ev(`TNC_PixiState().lcd + " " + TNC_PixiState().jackpots.minor`))) problems.push("unit");
-    await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiLines(10); TNC_PixiBet(${v.bet}); ${space}`);
+    await ev(`window.__px = {}; setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50); TNC_PixiLines(10); TNC_PixiBet(10); ${space}`);
     await sleep(300);
     if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");
     const sp = api.log.find((x) => x.method === "POST" && x.path === "/spins");
-    if (!sp || sp.body.coin !== "btc" || sp.body.lines !== 10 || sp.body.lineBet !== v.bet || "bet" in sp.body) problems.push("spin request " + JSON.stringify(sp && sp.body));
+    if (!sp || sp.body.coin !== "btc" || sp.body.lines !== 10 || sp.body.lineBet !== 10 || "bet" in sp.body) problems.push("spin request " + JSON.stringify(sp && sp.body));
     const after = await ev(`({ bal: TNC_Auth.balance, bch: TNC_Auth.balanceOf("bch"), shown: TNC_PixiState().balance })`);
     if (after.bal !== api.btc || after.bch !== 500000 || after.shown.replace(/\D/g, "") !== String(api.btc)) problems.push("balances " + JSON.stringify(after) + " server " + api.btc);
-    check("coins: a slot machine in tBTC (tBTC jackpots, bets up to 100, the spin's coin, the tBTC balance; tBCH untouched)", !problems.length, problems.join("; "));
+    check("coins: a slot machine in tBTC (tBTC jackpots, its own line bets, the line bet carried over from tBCH, the spin's coin, the tBTC balance; tBCH untouched)", !problems.length, problems.join("; "));
   }
   {
     // Roulette in tBTC: tBTC chips and limits, chips of both coins on one table, results per coin.

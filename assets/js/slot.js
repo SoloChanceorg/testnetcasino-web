@@ -47,7 +47,10 @@
     var PAYLINES = game.engine.paylines, REELS = game.engine.reels || 5, ROWS = game.engine.rows || 3, MAX_FREE_SPINS = game.engine.maxFreeSpins || 100;
     // Lines (D47, version 6): the line counts to choose from; line wins are × the line bet, everything else × the total bet.
     var HAS_LINES = !!(game.engine.lines && game.engine.lines.length), LINE_OPTS = HAS_LINES ? game.engine.lines : [PAYLINES.length];
-    var UNIT = window.TNC_Units ? TNC_Units.unit() : "sats", MAX_TOTAL = window.TNC_Coin ? TNC_Coin.info().maxBet : 20000;   // D48: 20,000 tBCH sats, 2,000 tBTC
+    var UNIT = window.TNC_Units ? TNC_Units.unit() : "sats", COIN_ID = window.TNC_Coin ? TNC_Coin.get() : "bch";
+    // The coin's line bets (D49), from the config's `lineBets` (the API's documented options if a config has none).
+    var LINE_BETS = HAS_LINES ? (game.lineBets && game.lineBets[COIN_ID] && game.lineBets[COIN_ID].length ? game.lineBets[COIN_ID] : COIN_ID === "btc" ? [1, 5, 10, 20, 50, 100, 200] : [1, 10, 50, 100, 200, 500, 1000]) : [];
+    var MIN_TOTAL = LINE_BETS.length ? LINE_BETS[0] * LINE_OPTS[0] : 0, MAX_TOTAL = LINE_BETS.length ? LINE_BETS[LINE_BETS.length - 1] * LINE_OPTS[LINE_OPTS.length - 1] : 0;
     function pct(x) { return String(+(x * 100).toFixed(2)) + "%"; }
     var RTP = pct(game.rtp || game.stats.rtp), PARTS = game.rtpParts || null;
     function cellHtml(i) {
@@ -88,8 +91,8 @@
       var linesRules = !HAS_LINES ? '' : '<div class="pt-section"><div class="pt-h">Lines and bets</div><ul class="rules">' +
           '<li><b>Choose ' + listOr(LINE_OPTS) + ' lines and a bet per line.</b> A spin costs line bet × lines. More lines win more often; fewer lines win less often but pay more per line bet. ' +
             'The Return to Player rate is ' + RTP + ' at every line count, everything included.</li>' +
-          '<li><b>Line bet:</b> whole ' + UNIT + ', from 1 to ' + LINE_OPTS.map(function (n) { return fmt(Math.floor(MAX_TOTAL / n)) + " at " + n + " lines"; }).join(", ") +
-            ' (a spin costs at most ' + fmt(MAX_TOTAL) + ' ' + UNIT + '). Pick a stop on the bet control, or tap its readout (or the Line bet button under the machine) and type any number. Changing the lines lowers a line bet above the new maximum. Your stake now: <b data-stake>…</b>.</li>' +
+          '<li><b>Line bet:</b> ' + listOr(LINE_BETS.map(fmt)) + ' ' + UNIT + ' per line, each at any line count (a spin costs ' + fmt(MIN_TOTAL) + ' to ' + fmt(MAX_TOTAL) + ' ' + UNIT + '). ' +
+            'Only your balance can hold a spin. Your stake now: <b data-stake>…</b>.</li>' +
           '<li><b>What pays × what:</b> line wins pay × the line bet; the ' + syms[SCAT].emoji + ' scatter, the ' + esc(BON.name) + ' prizes' +
             (COL && COL.reward.type === "holdAndWin" ? ' and the ' + esc(COL.reward.name) + ' pearls' : '') + ' pay × the total bet. ' +
             'Everything that counts your bet counts the total: the jackpot chance' + (COL ? ', the ' + esc(COL.name) : '') + ', the leaderboards.</li>' +

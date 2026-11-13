@@ -288,9 +288,8 @@
     var paint = k.paint, rr = k.rr, txt = k.txt, LADDER = k.LADDER, reduce = k.reduce;
     var win = k.readout("WIN", 484, 22, { w: 206 }), bal = k.readout("BALANCE", 484, 156, { w: 206 });
 
-    // The BET DIAL: the ladder's stops from 1 (lower left) round 270° to the top line bet (lower right; twelve stops
-    // in tBCH, nine in tBTC); a ridged brass knob turns to the bet, its value on the glass cap in the middle, and a tap
-    // on the cap opens the entry box for any number.
+    // The BET DIAL: the coin's line bets (D49: seven) from the lowest (lower left) round 270° to the highest (lower
+    // right), however many; a ridged brass knob turns to the bet, its value on the glass cap in the middle.
     var DX = 122, DY = 124, LR = 104, STEP = 270 / (LADDER.length - 1);
     function ang(i) { return (-135 + i * STEP) * Math.PI / 180; }   // 0 = up, clockwise
     var dial = new PIXI.Container(); dial.position.set(DX, DY); deck.addChild(dial);
@@ -340,12 +339,11 @@
       return kk;
     }
     var down = stepKey("◀", 34), up = stepKey("▶", 210);
-    // Drag the dial: the knob turns under the hand, from 1 round to the top stop, the bet changing at each stop, and
-    // clicks onto the nearest stop when let go. The glass cap in the middle is the entry box's tap zone instead.
+    // Drag the dial: the knob turns under the hand, from the lowest stop round to the highest, the bet changing at each
+    // stop, and clicks onto the nearest stop when let go.
     var turning = false, stopI = null;
-    k.betEntry(DX - 31, DY - 31, 62, 62);   // the cap, before the dial's drag zone: a tap there types a line bet
     k.deckDrag(DX - LR - 14, DY - LR - 14, (LR + 14) * 2, (LR + 14) * 2, {
-      start: function (d) { if (Math.hypot(d.x - DX, d.y - DY) < 31) return; turning = true; },
+      start: function () { turning = true; },
       move: function (d) {
         if (!turning) return;
         var a = Math.atan2(d.x - DX, -(d.y - DY)) * 180 / Math.PI;   // 0 = up, clockwise
@@ -443,9 +441,9 @@
       update: function (s) {
         sub.text = s.sub;
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        labels.forEach(function (l, j) { l.alpha = s.busy ? 0.55 : LADDER[j] > s.maxBet ? 0.3 : 1; });   // stops above the max for these lines go dark
+        labels.forEach(function (l) { l.alpha = s.busy ? 0.55 : 1; });
       },
-      points: function () { return { spin: [KX, KY], betUp: [210, 268], dragFrom: [DX, DY - 80], dragTo: [DX + 87, DY + 23], betEntry: [DX, DY] }; }   // dragTo: 105° round from the top
+      points: function () { return { spin: [KX, KY], betUp: [210, 268], dragFrom: [DX, DY - 80], dragTo: [DX + 87, DY + 23] }; }   // dragTo: 105° round from the top
     };
   }
 

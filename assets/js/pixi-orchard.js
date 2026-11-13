@@ -439,8 +439,8 @@
     });
     k.deckHit(KX - KR, KY - KR - 20, KR * 2, KR * 2 + DEPTH + 20, key, function () { k.press(); });
 
-    // Price tags: the bet ladder on paper tags hanging from two rows of nails (six a row for tBCH's twelve stops,
-    // five for tBTC's nine); the slate under them shows the line bet and opens the entry box for any number.
+    // Price tags: the coin's line bets (D49: seven) on paper tags hanging from two rows of nails, however many;
+    // the slate under them shows the line bet.
     var BX = 500, PER_ROW = Math.ceil(LADDER.length / 2), TGW = PER_ROW > 5 ? 29 : 34, TGH = 50, TGAP = PER_ROW > 5 ? 4 : 5;
     var head = txt(T.bet, { fontSize: 14, fill: "#ffd166", letterSpacing: 2, dropShadow: { color: "#2b1606", blur: 0, distance: 2, angle: Math.PI / 2, alpha: 1 } });
     head.position.set(BX + 95, 16); deck.addChild(head);
@@ -476,7 +476,6 @@
     var slate = k.recess(100, 44, 8); slate.position.set(BX + 95 - 54, SY - 26); deck.addChild(slate);
     var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 21, fill: "#f6f3e8", dropShadow: { color: "rgba(255,255,255,.35)", blur: 6, distance: 0, alpha: 1 } });
     betVal.position.set(BX + 95, SY - 2); deck.addChild(betVal);
-    k.betEntry(BX + 95 - 54, SY - 26, 100, 44);   // a tap on the slate: type any line bet
     function crateKey(label, x) {
       var kk = new PIXI.Container(); kk.position.set(x, SY);
       var art = k.keyArt(40, 34, 7, 7, ["#c98a4b", "#8a5527"], ["#5b3412", "#3b2109"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
@@ -504,9 +503,9 @@
       update: function (s) {
         sub.text = s.sub;
         [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : t.v > s.maxBet ? 0.3 : 1; });   // tags above the max for these lines hang faded
+        tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : 1; });
       },
-      points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY], betEntry: [BX + 95, SY - 4] }; }
+      points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY] }; }
     };
   }
 

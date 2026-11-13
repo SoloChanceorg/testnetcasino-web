@@ -250,7 +250,7 @@
     e.preventDefault();
     var out = $("vf-result"), btn = $("vf-submit");
     var gameId = $("vf-game").value, version = parseInt($("vf-version").value, 10), bet = parseInt($("vf-bet").value, 10), nonce = parseInt($("vf-nonce").value, 10);
-    var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = version >= 6 ? (vcoin === "btc" ? 2000 : 20000) : (vcoin === "btc" ? 100 : 1000);   // D48 raised the max with version 6
+    var vcoin = $("vf-coin") ? $("vf-coin").value : "bch", maxBet = version >= 6 ? (vcoin === "btc" ? 4000 : 20000) : (vcoin === "btc" ? 100 : 1000);   // D49: the biggest spin, line bet 200 / 1,000 × 20 lines
     var vlines = $("vf-lines") && version >= 6 ? parseInt($("vf-lines").value, 10) : null;   // version 6: the spin's lines; `bet` is its total
     var seedHex = $("vf-seed").value.trim().toLowerCase(), client = $("vf-client").value.trim();
     var expect = $("vf-expect").value.trim() === "" ? null : parseInt($("vf-expect").value, 10);
