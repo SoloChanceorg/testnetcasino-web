@@ -3,8 +3,9 @@
  *
  * A submarine: a riveted hull with a brass nameplate and rising bubbles, the reels behind a bolted
  * porthole, the Treasure Chest beside them (gold coins pile up in it as players fill it), a sonar
- * display, and a diamond-plate console with the BET DIAL (a rotary knob), the DIVE key and the WIN
- * and BALANCE gauges. The Ship's Wheel bonus, the Magic Oyster's clams for a jackpot won in the game
+ * display, and a diamond-plate console with the BALANCE, TOTAL BET and WIN gauges and a button
+ * panel: brass line keys, sea-glass bet keys in brass bezels (the chosen ones lit like the sonar)
+ * and the DIVE key. The Ship's Wheel bonus, the Magic Oyster's clams for a jackpot won in the game
  * and the Treasure Hold & Win.
  */
 (function () {
@@ -14,11 +15,11 @@
   var BRASS = ["#fff1c4", "#d4a94a", "#8a6a1c"];
 
   var theme = {
-    title: "DEEP SEA TREASURE", spin: "DIVE", bet: "BET DIAL", lower: "Turn the dial down", fsShort: "Rising Tide",
+    title: "DEEP SEA TREASURE", spin: "DIVE", fsShort: "Rising Tide",
     neon: "#d4a94a", neon2: "#2ec5ff", text: "#d8f3ff", accent: "#ffd166", featY: 258,
     burst: ["💎", "🐚", "🐠", "🦪", "🪙"],
     quips: ["Only seaweed down here…", "The current carried it away.", "Nothing in this net.", "Dive again!"],
-    welcome: "Welcome aboard, diver! Turn the dial and press DIVE", twist: "RISING TIDE",
+    welcome: "Welcome aboard, diver! Pick your lines and bet, then press DIVE", twist: "RISING TIDE",
     jp: { major: ["#3a1a4a", "#1c0a26", "#c86bff", "#e8c8ff", "#f0dcff"], minor: ["#06323f", "#031c24", "#2ec5ff", "#a8ecff", "#c8f4ff"] },
     feat: { fill: "rgba(2,24,36,.6)", stroke: "rgba(212,169,74,.65)", text: "#d8f3ff", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#2a1c02" },
     fs: { color: 0x3dd9a4, fill: 0x2ec5ff, fillAlpha: 0.13, bulb: 0xcffff0 },   // free spins: the rising tide, sea-green frame
@@ -283,83 +284,25 @@
     g.lineWidth = 3.5; g.strokeStyle = T.neon; g.stroke();
   }
 
-  // The controls: the BET DIAL, the DIVE key, the WIN and BALANCE gauges.
+  // The controls, a button panel like a casino machine's: the BALANCE, TOTAL BET and WIN gauges along the fold; on
+  // the left the line keys (brass) over the bet keys (sea glass), each in a brass bezel, the chosen one of each lit
+  // like the sonar; on the right the DIVE key.
   function deck(k, deck) {
-    var paint = k.paint, rr = k.rr, txt = k.txt, LADDER = k.LADDER, reduce = k.reduce;
-    var win = k.readout("WIN", 484, 22, { w: 206 }), bal = k.readout("BALANCE", 484, 156, { w: 206 });
+    var paint = k.paint, txt = k.txt, reduce = k.reduce, P = k.panel;
+    var bal = k.readout("BALANCE", P.meterX[0], P.meterY), bet = k.readout(k.HAS_LINES ? "TOTAL BET" : "BET", P.meterX[1], P.meterY), win = k.readout("WIN", P.meterX[2], P.meterY);
 
-    // The BET DIAL: the coin's line bets (D49: seven) from the lowest (lower left) round 270° to the highest (lower
-    // right), however many; a ridged brass knob turns to the bet, its value on the glass cap in the middle.
-    var DX = 122, DY = 124, LR = 104, STEP = 270 / (LADDER.length - 1);
-    function ang(i) { return (-135 + i * STEP) * Math.PI / 180; }   // 0 = up, clockwise
-    var dial = new PIXI.Container(); dial.position.set(DX, DY); deck.addChild(dial);
-    var face = paint(240, 240, function (g) {
-      var c = 120;
-      g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 12; g.shadowOffsetY = 5;
-      g.beginPath(); g.arc(c, c, 92, 0, Math.PI * 2); g.fillStyle = brass(g, c - 92, c + 92); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      g.beginPath(); g.arc(c, c, 84, 0, Math.PI * 2); g.fillStyle = "#03181e"; g.fill();
-      for (var i = 0; i < LADDER.length; i++) {
-        var a = ang(i), sx = Math.sin(a), sy = -Math.cos(a);
-        g.lineWidth = 3; g.strokeStyle = "#ffe79a"; g.beginPath(); g.moveTo(c + sx * 72, c + sy * 72); g.lineTo(c + sx * 82, c + sy * 82); g.stroke();
-      }
-      g.beginPath(); g.arc(c, c, 77, ang(0) - Math.PI / 2, ang(LADDER.length - 1) - Math.PI / 2); g.lineWidth = 2; g.strokeStyle = "rgba(46,197,255,.5)"; g.stroke();
-    });
-    face.anchor.set(0.5); dial.addChild(face);
-    var knob = new PIXI.Container(); dial.addChild(knob);
-    var knobArt = paint(140, 140, function (g) {
-      var c = 70;
-      g.shadowColor = "rgba(0,0,0,.65)"; g.shadowBlur = 10; g.shadowOffsetY = 5;
-      g.beginPath();
-      for (var i = 0; i <= 48; i++) { var a = i / 48 * Math.PI * 2, r = i % 2 ? 60 : 64; g.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r); }   // ridges
-      g.closePath(); g.fillStyle = brass(g, c - 64, c + 64); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      g.lineWidth = 1; g.strokeStyle = "#5a440f"; g.stroke();
-      g.beginPath(); g.arc(c, c, 52, 0, Math.PI * 2); g.fillStyle = k.grad(g, c - 52, c + 52, ["#f7e2a8", "#b8902f"]); g.fill();
-      g.beginPath(); g.moveTo(c - 7, c - 64); g.lineTo(c + 7, c - 64); g.lineTo(c, c - 50); g.closePath(); g.fillStyle = "#d7263d"; g.fill();   // the pointer
-    });
-    knobArt.anchor.set(0.5); knob.addChild(knobArt);
-    var capGlass = k.recess(62, 62, 31); capGlass.anchor.set(0.5); dial.addChild(capGlass);   // the glass cap with the value
-    var betVal = txt("", { fontFamily: k.MONO, fontWeight: "800", fontSize: 18, fill: "#e8fbff", dropShadow: { color: "#2ec5ff", blur: 8, distance: 0, alpha: 0.9 } }); betVal.y = -4;
-    var betUnit = txt(k.HAS_LINES ? "PER LINE" : k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 10, fill: "#8fb8c8" }); betUnit.y = 14;
-    dial.addChild(betVal, betUnit);
-    var labels = LADDER.map(function (v, i) {
-      var a = ang(i), x = Math.sin(a) * LR, y = -Math.cos(a) * LR;
-      var l = txt(String(v), { fontFamily: k.MONO, fontWeight: "800", fontSize: LADDER.length > 10 ? 12 : 13, fill: "#8fb8c8", dropShadow: { color: "#000", blur: 3, distance: 0, alpha: 0.8 } });
-      l.anchor.set(0.5 - 0.45 * Math.sin(a), 0.5);   // a long number grows outward from the ring, not into the brass
-      l.position.set(x, y); dial.addChild(l);
-      var hx = x - l.width * l.anchor.x - 6;
-      k.deckHit(DX + hx, DY + y - 13, l.width + 12, 26, null, function () { k.setBet(v); });
-      return l;
-    });
-    function stepKey(label, x) {
-      var kk = new PIXI.Container(); kk.position.set(x, 268);
-      var art = k.keyArt(40, 30, 8, 7, ["#ffe79a", "#b8902f"], ["#6a5010", "#3a2a08"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
-      var tp = new PIXI.Container(); var t = txt(label, { fontSize: 15, fill: "#2a1d05" }); t.y = -1; tp.addChild(t); kk.addChild(tp);
-      kk._sink = function () { k.sinkKey(function (v) { art.y = v; tp.y = v; }, 5); };
-      deck.addChild(kk);
-      return kk;
-    }
-    var down = stepKey("◀", 34), up = stepKey("▶", 210);
-    // Drag the dial: the knob turns under the hand, from the lowest stop round to the highest, the bet changing at each
-    // stop, and clicks onto the nearest stop when let go.
-    var turning = false, stopI = null;
-    k.deckDrag(DX - LR - 14, DY - LR - 14, (LR + 14) * 2, (LR + 14) * 2, {
-      start: function () { turning = true; },
-      move: function (d) {
-        if (!turning) return;
-        var a = Math.atan2(d.x - DX, -(d.y - DY)) * 180 / Math.PI;   // 0 = up, clockwise
-        a = Math.max(-135, Math.min(135, a));
-        var fi = (a + 135) / STEP, i = Math.round(fi);
-        knob.rotation = a * Math.PI / 180;
-        if (i !== stopI) k.setBet(LADDER[i]);
-      },
-      end: function () { turning = false; if (stopI != null) { knob._a = knob.rotation; k.setBet(LADDER[stopI]); } }
-    });
-    var dlabel = txt(T.bet, { fontSize: 13, fill: "#ffd98a", letterSpacing: 2 }); dlabel.position.set(DX, 268); deck.addChild(dlabel);
-    k.deckHit(8, 250, 54, 40, down, function () { down._sink(); k.stepBet(-1); });
-    k.deckHit(184, 250, 54, 40, up, function () { up._sink(); k.stepBet(1); });
+    // The keys: pills of glass and brass, each seated in a brass bezel bolted to the plate.
+    function pill(g, x, y, w, h) { k.rr(g, x, y, w, h, Math.min(w, h) / 2); }
+    var BEZEL = { pad: 4, fill: brass, rim: "#5a440f", hole: "#02141c" };
+    var SONAR = { top: ["#f2ffff", "#8af4ff", "#25c2e2"], wall: ["#0f88a6", "#064a60"], rim: "#ffffff", inner: "rgba(0,90,120,.4)", text: "#03303c", shadow: "rgba(240,255,255,.8)", gloss: 0.3, shade: 0.12 };
+    k.linesKeys(Object.assign({}, P.lines, { shape: pill, socket: BEZEL, glow: "#5ef0ff", font: k.SIGN, weight: "400", size: 26, word: "LINES", wordSize: 13, on: SONAR,
+      off: { top: ["#fff1c4", "#d9ae52", "#9a7422"], wall: ["#6e5212", "#3a2a08"], rim: "rgba(255,246,214,.85)", inner: "rgba(90,60,0,.4)", text: "#2a1d05", shadow: "rgba(255,241,196,.7)", gloss: 0.28 } }));
+    k.legend((k.HAS_LINES ? "BET PER LINE · " : "BET · ") + k.SATS, P.fieldX + 2, P.fieldX + P.fieldW - 2, P.legendY, "#ffd98a", 0xd4a94a);
+    k.betKeys(Object.assign({}, P.bets, { shape: pill, socket: BEZEL, glow: "#5ef0ff", size: 21, head: "BET", on: SONAR,
+      off: { top: ["#4cc0cf", "#1b8296", "#0b4d60"], wall: ["#0a4252", "#04222c"], rim: "rgba(190,248,255,.8)", inner: "rgba(0,30,40,.45)", text: "#f0feff", word: "#bff3fb", shadow: "#04303c", gloss: 0.22 } }));
 
     // DIVE: a round key in a brass collar, amber like a hatch light; it sinks when pressed.
-    var DEPTH = 18, KR = 72, KX = 360, KY = 134;
+    var DEPTH = 18, KR = 68, KX = P.spinX, KY = P.spinY - 2;
     var key = new PIXI.Container(); key.position.set(KX, KY); deck.addChild(key);
     function circle(g, cx, cy, r) { g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); }
     var well = paint(270, 270, function (g) {
@@ -422,28 +365,12 @@
       shine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
     });
-    k.deckHit(KX - KR, KY - KR, KR * 2, KR * 2 + DEPTH, key, function () { k.press(); });
-    // LINES: three brass keys under the DIVE button, the chosen one lit like the sonar
-    k.linesKeys(KX, 274, { labelFill: "#ffd98a", off: [["#ffe79a", "#b8902f"], ["#6a5010", "#3a2a08"], "#2a1d05"], on: [["#dffbff", "#2ec5ff"], ["#0a5d7a", "#063a4c"], "#032030"] });
+    k.spinKey(KX - KR, KY - KR, KR * 2, KR * 2 + DEPTH, key);
 
     return {
-      win: win, bal: bal, key: key,
-      setBet: function (bet, i) {
-        labels.forEach(function (l, j) { l.style.fill = j === i ? "#ffe79a" : "#8fb8c8"; l.scale.set(j === i ? 1.15 : 1); });
-        stopI = i;
-        var to = ang(i), from = knob._a == null ? to : knob._a;
-        knob._a = to;
-        if (turning) { betVal.text = String(bet); betVal.scale.set(betVal.width > 52 ? 52 / betVal.width * betVal.scale.x : 1); return; }   // under the hand: no snap yet
-        k.animate(k.R(260), function (p) { knob.rotation = from + (to - from) * p; }, k.ease.back);
-        betVal.text = String(bet);
-        betVal.scale.set(betVal.width > 52 ? 52 / betVal.width * betVal.scale.x : 1);
-      },
-      update: function (s) {
-        sub.text = s.sub;
-        [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        labels.forEach(function (l) { l.alpha = s.busy ? 0.55 : 1; });
-      },
-      points: function () { return { spin: [KX, KY], betUp: [210, 268], dragFrom: [DX, DY - 80], dragTo: [DX + 87, DY + 23] }; }   // dragTo: 105° round from the top
+      bal: bal, bet: bet, win: win, key: key,
+      update: function (s) { sub.text = s.sub; },
+      points: function () { return { spin: [KX, KY] }; }
     };
   }
 

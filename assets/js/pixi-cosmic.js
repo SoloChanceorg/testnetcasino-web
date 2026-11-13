@@ -1,9 +1,10 @@
 /*
  * TestnetCasino.com: Cosmic Voyage on the PixiJS engine (pixi-machine.js).
  *
- * A neon spaceship cabinet: the Fuel Tank beside the reels, a console with the WIN and BALANCE
- * screens, the hexagonal LAUNCH key and the THRUST lever (an aircraft throttle), the Warp Ladder
- * bonus and the Star Map Wheel for a jackpot won in the game.
+ * A neon spaceship cabinet: the Fuel Tank beside the reels, a console with the BALANCE, TOTAL BET
+ * and WIN screens and a button panel of hexagonal keys (violet line keys, indigo bet keys, the
+ * chosen ones magenta, and the big LAUNCH key), the Warp Ladder bonus and the Star Map Wheel for a
+ * jackpot won in the game.
  */
 (function () {
   "use strict";
@@ -11,11 +12,11 @@
   var PIXI = window.PIXI;
 
   var theme = {
-    title: "COSMIC ★ VOYAGE", spin: "LAUNCH", bet: "THRUST", lower: "Lower your thrust", fsShort: "Hyperspace",
+    title: "COSMIC ★ VOYAGE", spin: "LAUNCH", fsShort: "Hyperspace",
     bg: ["#1d0c44", "#0c0526"], neon: "#9a6bff", neon2: "#2ec5ff", text: "#e0eaff", accent: "#ffd166",
     burst: ["⭐", "✨", "🌟", "💫", "🪐"],
     quips: ["Lost signal. Try again!", "Nothing but dark matter.", "Houston, no win.", "Recalibrating the thrusters…"],
-    welcome: "Welcome, commander! Set the thrust and press LAUNCH", twist: "ALL WINS ×3",
+    welcome: "Welcome, commander! Pick your lines and bet, then press LAUNCH", twist: "ALL WINS ×3",
     jp: { major: ["#2a1260", "#160a36", "#9a6bff", "#e0c3ff", "#e0c3ff"], minor: ["#0b2a4a", "#071a30", "#2ec5ff", "#9ff0ff", "#9ff0ff"] },
     feat: { fill: "rgba(46,197,255,.08)", stroke: "rgba(46,197,255,.55)", text: "#cfe0ff", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#2a1c02" },
     fs: { color: 0xff4fd8, fill: 0xff4fd8, fillAlpha: 0.1, bulb: 0xffe6ff },   // free spins: hyperspace, magenta frame
@@ -282,22 +283,39 @@
     fold.addColorStop(0, "rgba(220,200,255,.35)"); fold.addColorStop(0.12, "rgba(220,200,255,.08)"); fold.addColorStop(0.25, "rgba(0,0,0,.35)"); fold.addColorStop(1, "rgba(0,0,0,0)");
     g.fillStyle = fold; g.fillRect(0, 0, w, 22);
     g.strokeStyle = "rgba(0,0,0,.4)"; g.lineWidth = 2;                                                // panel seams
-    [OX + 252, OX + 528].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
+    g.beginPath(); g.moveTo(10, 83); g.lineTo(w - 10, 83); g.moveTo(OX + 495, 83); g.lineTo(OX + 495, h - 10); g.stroke();
     g.strokeStyle = "rgba(179,136,255,.16)"; g.lineWidth = 1;
-    [OX + 254, OX + 530].forEach(function (x) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x, h - 10); g.stroke(); });
+    g.beginPath(); g.moveTo(10, 85); g.lineTo(w - 10, 85); g.moveTo(OX + 497, 85); g.lineTo(OX + 497, h - 10); g.stroke();
     g.restore();
     g.beginPath(); g.moveTo(1.5, 0); g.lineTo(1.5, h - 16); g.quadraticCurveTo(1.5, h - 1.5, 16, h - 1.5); g.lineTo(w - 16, h - 1.5); g.quadraticCurveTo(w - 1.5, h - 1.5, w - 1.5, h - 16); g.lineTo(w - 1.5, 0);
     g.lineWidth = 3; g.strokeStyle = T.neon; g.stroke();   // the outline continues: sides and front, open at the fold
   }
 
-  // The controls: WIN and BALANCE, the LAUNCH key, the THRUST lever.
+  // The controls, a button panel like a casino machine's: the BALANCE, TOTAL BET and WIN screens along the fold; on
+  // the left the line keys (violet) over the bet keys (indigo, cyan edged), all hexagons, the chosen one of each in
+  // the LAUNCH key's magenta; on the right the hexagonal LAUNCH key.
   function deck(k, deck) {
-    var paint = k.paint, rr = k.rr, grad = k.grad, txt = k.txt, LADDER = k.LADDER, reduce = k.reduce;
-    var win = k.readout("WIN", 22, 22), bal = k.readout("BALANCE", 22, 156);
+    var paint = k.paint, txt = k.txt, reduce = k.reduce, P = k.panel;
+    var bal = k.readout("BALANCE", P.meterX[0], P.meterY), bet = k.readout(k.HAS_LINES ? "TOTAL BET" : "BET", P.meterX[1], P.meterY), win = k.readout("WIN", P.meterX[2], P.meterY);
+
+    // The keys: hexagons, like the LAUNCH key (a tall key points up, a wide one points sideways).
+    function hexKey(g, x, y, w, h) {
+      g.beginPath();
+      if (h >= w) { var c = w * 0.29; g.moveTo(x + w / 2, y); g.lineTo(x + w, y + c); g.lineTo(x + w, y + h - c); g.lineTo(x + w / 2, y + h); g.lineTo(x, y + h - c); g.lineTo(x, y + c); }
+      else { var d = h * 0.3; g.moveTo(x + d, y); g.lineTo(x + w - d, y); g.lineTo(x + w, y + h / 2); g.lineTo(x + w - d, y + h); g.lineTo(x + d, y + h); g.lineTo(x, y + h / 2); }
+      g.closePath();
+    }
+    var SOCKET = { pad: 3, fill: "#07031a", rim: "rgba(154,107,255,.55)" };
+    var HOT = { top: ["#ffd3f6", "#ff5ccf", "#c2189a"], wall: ["#8a0f66", "#48063a"], rim: "#ffffff", inner: "rgba(255,255,255,.35)", text: "#ffffff", shadow: "#5a0a4a", gloss: 0.3, shade: 0.15 };
+    k.linesKeys(Object.assign({}, P.lines, { shape: hexKey, socket: SOCKET, glow: "#ff4fd8", font: k.SIGN, weight: "400", size: 26, word: "LINES", wordSize: 13, inset: 44, on: HOT,
+      off: { top: ["#a57cff", "#6f45e6", "#4424ac"], wall: ["#2c1578", "#170a44"], rim: "rgba(225,210,255,.85)", inner: "rgba(20,0,70,.4)", text: "#ffffff", shadow: "#1d0c52", gloss: 0.22 } }));
+    k.legend((k.HAS_LINES ? "BET PER LINE · " : "BET · ") + k.SATS, P.fieldX + 2, P.fieldX + P.fieldW - 2, P.legendY, "#b9a6ff", 0x9a6bff);
+    k.betKeys(Object.assign({}, P.bets, { shape: hexKey, socket: SOCKET, glow: "#ff4fd8", size: 21, head: "BET", on: Object.assign({}, HOT, { word: "#6a0a58", shadow: "#5a0a4a" }),
+      off: { top: ["#3d3288", "#241b5c", "#150e3a"], wall: ["#120b34", "#070318"], rim: "#5ee6ff", inner: "rgba(94,230,255,.28)", text: "#e2f8ff", word: "#8fe9ff", halo: "#22b8e0", gloss: 0.14, shade: 0.3 } }));
 
     // LAUNCH: a hexagonal key standing up from the console; it sinks when pressed.
-    var LDEPTH = 18, LR = 74;
-    var launch = new PIXI.Container(); launch.position.set(390, 130); deck.addChild(launch);
+    var LDEPTH = 18, LR = 72, LX = P.spinX, LY = P.spinY - 2;
+    var launch = new PIXI.Container(); launch.position.set(LX, LY); deck.addChild(launch);
     var launchWell = paint(260, 260, function (g) {                // the socket in the console
       hexPath(g, 130, 130 + LDEPTH, LR + 14); g.fillStyle = "#07031a"; g.fill();
       g.lineWidth = 3; g.strokeStyle = "rgba(255,79,216,.55)"; g.shadowColor = "#ff4fd8"; g.shadowBlur = 22; g.stroke();
@@ -316,7 +334,7 @@
       g.save(); hexPath(g, 120, 120, LR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(120, 62, 70, 26, 0, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
     });
     launchCap.anchor.set(0.5); launchTop.addChild(launchCap);
-    var launchLabel = txt(T.spin, { fontSize: 26, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
+    var launchLabel = txt(T.spin, { fontSize: 23, fill: "#fff", letterSpacing: 1, dropShadow: { color: "#5a0a6a", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
     launchLabel.y = -6;
     var launchSub = txt("", { fontSize: 12, fill: "#ffe6fb", letterSpacing: 1.5 }); launchSub.y = 22;
     launchTop.addChild(launchLabel, launchSub);
@@ -374,97 +392,12 @@
       capShine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       capShine.x = -LR * 1.4 + LR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
     });
-    k.deckHit(390 - LR, 130 - LR, LR * 2, LR * 2 + LDEPTH, launch, function () { k.press(); });
-
-    // THRUST: the coin's line bets (D49: seven, however many) as an aircraft throttle: a T-handle on a shaft rising
-    // from a gate slot sunk into the console, a detent notch at every option; ▲ ▼ keys below round the readout.
-    // Pulled back (low thrust) the handle leans toward the player, pushed forward it stands up over the slot.
-    var SLX = 93, N = LADDER.length - 1, STEP = 180 / N;   // the slot's centre line; the detents from y 214 up to 34, however many
-    var thr = new PIXI.Container(); thr.position.set(556, 12); deck.addChild(thr);
-    var thrHead = txt(k.HAS_LINES ? T.bet + " · PER LINE" : T.bet, { fontSize: k.HAS_LINES ? 12 : 14, fill: "#b9a6ff", letterSpacing: 2 }); thrHead.position.set(66, 12); thr.addChild(thrHead);
-    var slot = k.recess(12, 200, 6); slot.position.set(SLX - 10, 22); thr.addChild(slot);
-    var slotFill = paint(6, 190, function (g) { rr(g, 0, 0, 6, 190, 3); g.fillStyle = grad(g, 0, 190, ["#ff4fd8", "#6a1fb8"]); g.globalAlpha = 0.9; g.fill(); });
-    slotFill.position.set(SLX - 3, 31); thr.addChild(slotFill);
-    var detents = new PIXI.Graphics();
-    LADDER.forEach(function (v, i) { var y = 214 - i * STEP; detents.moveTo(SLX + 10, y).lineTo(SLX + 18, y).moveTo(SLX - 18, y).lineTo(SLX - 10, y); });
-    detents.stroke({ width: 2, color: 0x9a86e0, alpha: 0.7 }); thr.addChild(detents);
-    var thrMarks = LADDER.map(function (v, i) {
-      var y = 214 - i * STEP, m = txt(String(v), { fontFamily: k.MONO, fontWeight: "700", fontSize: STEP < 20 ? 12 : 13, fill: "#8f86b8" });
-      m.anchor.set(1, 0.5); m.position.set(SLX - 24, y); thr.addChild(m);
-      k.deckHit(556 + 4, 12 + y - STEP / 2, 120, STEP, null, function () { k.setBet(v); });
-      return m;
-    });
-    // The lever: a collar in the slot, a shaft, and the T-handle (a ribbed grip with glowing end caps).
-    var thrKnob = new PIXI.Container(); thrKnob.x = SLX; thr.addChild(thrKnob);
-    var leverShadow = new PIXI.Graphics(), leverShaft = new PIXI.Graphics(); thrKnob.addChild(leverShadow, leverShaft);
-    var collar = paint(26, 14, function (g) { g.beginPath(); g.ellipse(13, 7, 11, 5.5, 0, 0, Math.PI * 2); g.fillStyle = grad(g, 2, 12, ["#cdbcff", "#4b3a8a"]); g.fill(); });
-    collar.anchor.set(0.5); thrKnob.addChild(collar);
-    var grip = paint(60, 30, function (g) {
-      g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 6; g.shadowOffsetY = 4;
-      rr(g, 7, 6, 46, 16, 8); g.fillStyle = grad(g, 6, 22, ["#f4efff", "#b9a6ff", "#5a3fb0"]); g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-      g.strokeStyle = "rgba(60,30,120,.45)"; g.lineWidth = 1.2;                                   // ribs
-      for (var x = 17; x <= 43; x += 4) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, 20); g.stroke(); }
-      [[7, "#ff4fd8"], [47, "#ff4fd8"]].forEach(function (c) {                                    // glowing end caps
-        rr(g, c[0], 6, 6, 16, 3); g.fillStyle = c[1]; g.shadowColor = c[1]; g.shadowBlur = 8; g.fill(); g.shadowBlur = 0;
-      });
-      g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, 8.5); g.lineTo(46, 8.5); g.stroke();   // highlight
-    });
-    grip.anchor.set(0.5, 0.47); thrKnob.addChild(grip);
-    function drawLever(i) {   // i: 0 (1 sat, pulled back) .. N (the top stop, pushed forward)
-      var reach = 24 - 14 * (i / N);   // how far the handle leans toward the player
-      leverShadow.clear().roundRect(-3, 2, 6, reach + 4, 3).fill({ color: 0x000000, alpha: 0.35 });
-      leverShaft.clear().roundRect(-3, 0, 6, reach, 3).fill(0xbfb3e6).roundRect(-3, 0, 2, reach, 1).fill({ color: 0xffffff, alpha: 0.6 });
-      grip.y = reach; grip.scale.y = 0.85 + 0.15 * (1 - i / N);
-    }
-    drawLever(3);
-    var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 17, fill: "#fff" }); betVal.position.set(70, 270); thr.addChild(betVal);
-    function smallKey(label, x) {
-      var kk = new PIXI.Container(); kk.position.set(x, 270);
-      var art = k.keyArt(34, 26, 7, 7, ["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
-      var top = new PIXI.Container(); var t = txt(label, { fontSize: 15, fill: "#fff" }); t.y = -1; top.addChild(t); kk.addChild(top);
-      kk._sink = function () { k.sinkKey(function (v) { art.y = v; top.y = v; }, 5); };
-      thr.addChild(kk);
-      return kk;
-    }
-    var betDown = smallKey("▼", 16), betUp = smallKey("▲", 124);
-    // Drag the lever: it follows the hand along the slot, clicking into each detent (the bet changes there), and
-    // settles on the nearest one when let go.
-    function leverAt(fi) { thrKnob.y = 214 - fi * STEP; thrKnob._fi = fi; drawLever(fi); slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y; }
-    var dragging = false;
-    k.deckDrag(556 + SLX - 46, 12 + 18, 92, 214, {
-      start: function () { dragging = true; },
-      move: function (d) {
-        if (!dragging) return;
-        var fi = Math.max(0, Math.min(N, (214 - (d.y - 12)) / STEP)), i = Math.round(fi);
-        leverAt(fi);
-        if (i !== thrKnob._i) k.setBet(LADDER[i]);
-      },
-      end: function () { dragging = false; if (thrKnob._i != null) k.setBet(LADDER[thrKnob._i]); }
-    });
-    k.deckHit(556 - 2, 12 + 254, 40, 34, betDown, function () { betDown._sink(); k.stepBet(-1); });
-    k.deckHit(556 + 106, 12 + 254, 40, 34, betUp, function () { betUp._sink(); k.stepBet(1); });
-    // LINES: three console keys under the LAUNCH hex, the chosen one in the cap's magenta
-    k.linesKeys(390, 274, { labelFill: "#b9a6ff", off: [["#8a6cff", "#4b2fa8"], ["#2c1a66", "#160a36"], "#ffffff"], on: [["#ffc4f4", "#e040c8"], ["#7a1a8a", "#3a0848"], "#ffffff"] });
+    k.spinKey(LX - LR, LY - LR, LR * 2, LR * 2 + LDEPTH, launch);
 
     return {
-      win: win, bal: bal, key: launch,
-      setBet: function (bet, i) {
-        thrMarks.forEach(function (m, j) { m.style.fill = j === i ? "#ffffff" : "#8f86b8"; });
-        if (dragging) { thrKnob._i = i; betVal.text = String(bet); return; }
-        k.animate(k.R(220), (function (from, fromI) { return function (p) {
-          thrKnob.y = from + (214 - i * STEP - from) * p; drawLever(fromI + (i - fromI) * p);
-          slotFill.height = Math.max(4, 221 - thrKnob.y); slotFill.y = thrKnob.y;
-        }; })(thrKnob.y || 214, thrKnob._fi != null ? thrKnob._fi : thrKnob._i == null ? i : thrKnob._i));
-        thrKnob._i = i; thrKnob._fi = null;
-        betVal.text = String(bet);   // like the lever marks: 1000, not 1,000
-        betVal.scale.set(betVal.width > 60 ? 60 / betVal.width * betVal.scale.x : 1);
-      },
-      update: function (s) {
-        launchSub.text = s.sub;
-        [betUp, betDown].forEach(function (b) { k.setOff(b, s.busy); });
-        thrMarks.forEach(function (m) { m.alpha = s.busy ? 0.55 : 1; });
-      },
-      points: function () { return { spin: [390, 130], betUp: [556 + 124, 12 + 270], dragFrom: [556 + SLX, 12 + 214 - 2 * STEP], dragTo: [556 + SLX, 12 + 214 - 5 * STEP] }; }   // the lever at the 3rd detent, dragged to the 6th
+      bal: bal, bet: bet, win: win, key: launch,
+      update: function (s) { launchSub.text = s.sub; },
+      points: function () { return { spin: [LX, LY] }; }
     };
   }
 

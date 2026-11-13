@@ -86,18 +86,21 @@ Each game page drops you into its own world and has **its own machine**, and its
 (Fruit Orchard: wooden crate, striped awning with string lights, tilted sign, price-tag Play; Deep Sea: riveted hull, brass
 nameplate, porthole reels, brass Play; Cosmic Voyage: cut-corner neon panel, holographic title, neon Play):
 
-| | Cabinet | Display | Spin | Bet |
-|---|---|---|---|---|
-| 🍒 Fruit Orchard | Wooden fruit stand: striped awning with string lights, board walls, a wooden counter | Chalkboard | Round red apple **SPIN** key | Seven hanging **price tags** (two rows), crate − / + around a chalk slate |
-| 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Rotary **BET DIAL** (a ridged brass knob; tap a number), ◀ ▶ keys |
-| 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | **Thrust** lever in a slot, ▲ ▼ keys |
+| | Cabinet | Display | Spin key | Line keys | Bet keys | The chosen key |
+|---|---|---|---|---|---|---|
+| 🍒 Fruit Orchard | Wooden fruit stand: striped awning with string lights, board walls, a wooden counter | Chalkboard | Round red apple **SPIN** key | Leaf-green crate keys | Cream price-tag keys | Gold |
+| 🐚 Deep Sea | Riveted submarine hull, brass nameplate, bolted porthole round the reels, bubbles, a diamond-plate console | Sonar screen | Amber **DIVE** key in a brass collar | Brass pill keys | Teal glass keys in brass bezels | Sonar cyan |
+| 🌙 Cosmic Voyage | Neon starship cabinet, a cockpit console | Neon display | Raised hexagonal **LAUNCH** key | Violet hex keys | Indigo hex keys with a cyan rim | Magenta |
 
-All three are drawn with PixiJS (see Machines). The bet controls pick the **line bet** among the coin's options from the config
-(D49: tBCH 1, 10, 50, 100, 200, 500, 1,000; tBTC 1, 5, 10, 20, 50, 100, 200), drawn as the stops of each control; every option
-works at every line count, so nothing goes dark or moves when the lines change, and only the balance can hold a spin (the usual
-"balance is …" state, the selection kept). The choice is remembered per game whatever the coin: after a coin change the other
-coin keeps it when it offers it, else takes its nearest lower option (or its lowest). Under every spin key a row of three keys chooses the **lines** (5 / 10 / 20, remembered
-for all games in `localStorage`); the display reads "Line bet 5 × 20 lines = 100 tBCH sats" and the spin key's BET is the total.
+All three are drawn with PixiJS (see Machines). Every console is a **button panel**, like a casino machine's, and every control
+on it is a key: three meters on top (BALANCE, TOTAL BET, WIN), then three **line keys** (5 LINES, 10 LINES, 20 LINES), the
+coin's seven **bet keys** (BET 1 … BET 1000) and the spin key. There is no slider, dial, lever, entry box or step key. The bet
+keys are the coin's **line bet** options from the config (D49: tBCH 1, 10, 50, 100, 200, 500, 1,000; tBTC 1, 5, 10, 20, 50, 100,
+200), one key per option; every option works at every line count, so nothing goes dark or moves when the lines change, and only
+the balance can hold a spin (the usual "balance is …" state, the selection kept). The chosen line key and bet key sit lit and
+pressed in. The line bet is remembered per game whatever the coin: after a coin change the other coin keeps it when it offers
+it, else takes its nearest lower option (or its lowest). The **lines** are remembered for all games in `localStorage`; the display
+reads "Line bet 5 × 20 lines = 100 tBCH sats", and the TOTAL BET meter and the spin key's BET show the total.
 Space spins on every machine.
 The reels stop one by one, left to right (about 3 s per spin). While they turn, the spin control reads STOP: pressing it or Space
 lands the remaining reels at once. That is display only: the result is already fixed by the server. After a win the machine
@@ -137,7 +140,7 @@ wallet or a passkey). tBTC amounts are a tenth of tBCH's, and the RTP is 101% in
 - **Header**: the selected coin's balance beside the coin switch (both coins in its tooltip) and its daily bonus pill; the
   account chip only names the account. The lobby's daily bonus card has a line and a Claim button per coin.
 - **Faucet bar**: both faucets and both player totals side by side (`coins` in `GET /faucet`).
-- **Slots**: the line-bet options follow the coin (`lineBets[coin]` in the config; every skin draws however many stops there are),
+- **Slots**: the line-bet options follow the coin (`lineBets[coin]` in the config; every skin draws one key per option),
   and the machine shows the coin's jackpots and collectors.
 - **Roulette**: one table for both coins. Your chips are in the selected coin, with its chip values (tBTC 1 to 100, tBCH 1 to
   1,000) and limits (`limits` in the `table` message). Every chip carries a small diamond in its coin's colour; the players
@@ -376,10 +379,10 @@ start (no WebGL), the page says so with a "Try again" button.
   prize wheel and a pick game, the collector's level, the console in perspective, full screen and pointer mapping. It plays
   the server's `steps[]` exactly as before.
 - **A skin** draws the game's own machine and plays its own shows: Fruit Orchard (the stand, the Apple Tree budding,
-  greening and fruiting, price tags, Harvest Pick baskets, the golden apples), Deep Sea (the hull, the Treasure Chest's
-  pyramid of coins and pearls, the BET DIAL, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic
-  Voyage (the cockpit, the Fuel Tank with fuel pouring from the reels, the THRUST lever, the Warp Ladder, the Star Map
-  Wheel). A skin's collector returns `collect(items, o)` (its own way of taking the symbols in, moving the level through
+  greening and fruiting, Harvest Pick baskets, the golden apples), Deep Sea (the hull, the Treasure Chest's
+  pyramid of coins and pearls, the Ship's Wheel, the Magic Oyster's clams, Treasure Hold & Win), Cosmic
+  Voyage (the cockpit, the Fuel Tank with fuel pouring from the reels, the Warp Ladder, the Star Map
+  Wheel), and its button panel in its own material (`deck`). A skin's collector returns `collect(items, o)` (its own way of taking the symbols in, moving the level through
   `k.levelTo`), `full()`, `reward()`, `land(cells)` (called as each reel lands with the coming collect step's cells on it)
   and `badge: false` (no symbol drawn on the cells) next to `count`, `flash` and `target`; the engine flies the symbols to
   `target` and sprays coins when a skin has none of these.
@@ -395,19 +398,25 @@ start (no WebGL), the page says so with a "Try again" button.
   sends a hex shockwave out across the console with sparks off the cap. Every key's depth is a spring toward its state
   (pressed, half down while the spin plays, an invitation half-press now and then at rest), stepped at most 4 ms at a
   time: one step over a long frame made it shoot up and down.
-- **Lines** (D47): a row of three keys under the spin key (crate keys in the orchard, brass under the sea, console keys in
-  space; drawn by the engine in the skin's colours, `kit.linesKeys(cx, y, { off, on })`) chooses 5, 10 or 20 lines; the chosen
-  key sits lit and pressed in. Numbered tabs in each line's colour sit on both sides of the reel window at the row where the
+- **Lines** (D47): the three line keys choose 5, 10 or 20 lines. Numbered tabs in each line's colour sit on both sides of the reel window at the row where the
   line enters and leaves (stacked when several share a row): the active lines' tabs are lit, the others dimmed, and a winning
-  line's tabs grow while its win shows. Changing the lines draws the active paylines across the window for a moment, lowers a
+  line's tabs grow while its win shows. Changing the lines draws the active paylines across the window for a moment, changes
   nothing else (the line bet stays), and puts "20 lines · Line bet 1,000 × 20 lines = 20,000 tBCH sats a spin" on the display. The
   machine keeps `playBet` (the total) and `playLines` from the server's response for the spin and its reward.
-- **Drag the bet control**: the THRUST lever follows the hand up and down its slot, clicking into each detent (the bet
-  changes there, with the chip sound) and settling on the nearest when let go; the BET DIAL turns under the hand from the
-  lowest option round to the highest and clicks onto the nearest stop. Taps on the marks and the step keys still work; a drag swallows the
-  tap at its end. The engine maps the pointer back to the flat deck through the console's homography wherever it goes on
-  the screen while the button is held (`kit.deckDrag(x, y, w, h, { start, move, end })`).
-- **The console** (readouts, spin key, bet control) is drawn flat into a render texture every frame and shown on a
+- **The button panel**: three meters, the line keys, the bet keys and the spin key, laid out by one plan for every skin
+  (`kit.panel`: the meters' places, the line keys' row, the legend "BET PER LINE · tBCH sats", the bet keys' row, the spin
+  key's centre). The engine draws and runs the keys (`kit.linesKeys(o)`, `kit.betKeys(o)`: a key bank each); the skin gives
+  their shape, socket and colours (`shape`, `socket`, `off`, `on`, `glow`), so the orchard's are rounded crate and price-tag
+  keys, the sea's are pills in brass bezels and space's are hexagons. A key stands over its socket with its side walls
+  toward the player. It lights a little under the pointer, goes down under the finger and acts when let go on it (a press
+  let go off the key does nothing). The chosen key stays latched a little lower with its lamp on, breathing; on a change the
+  light runs from the old key to the new one and the new label pops. A shimmer passes along each row now and then at rest,
+  and a win sends waves of light across both rows. Every bet key plays its own note (a pentatonic step per key, in the
+  theme's voice). While a spin plays the unlit keys go dark and take no press; over the balance the keys stay live (that is
+  how the bet is lowered) and the spin key goes off. With reduced motion the keys show their states without the motion.
+  With a config without lines (the API before D47) there are no line keys: the bet keys take the room in two rows, one per
+  bet of the old ladder, and the meter reads BET.
+- **The console** (meters, line keys, bet keys, spin key) is drawn flat into a render texture every frame and shown on a
   `PerspectiveMesh`, so it slopes toward the player, a little wider at the front. Keys stand up from it (side walls) and
   sink when pressed; screens are recessed. Taps are mapped back to the flat deck through the inverse homography.
 - **Free spins mode**: while a feature runs (free spins, Harvest Festival, Hyperdrive) everything plays 1.2× faster (every
@@ -435,7 +444,8 @@ start (no WebGL), the page says so with a "Try again" button.
   brass button, a neon key). A pointer click drops its focus afterwards, so the next Space spins instead of pressing the
   button again; a keyboard press keeps the focus where it was. The sound button does the same.
   Screen readers get the display text through a live region.
-- For the smoke test: `window.TNC_PixiState()` reports what the machine shows (among it `ladder`, the coin's line bets),
+- For the smoke test: `window.TNC_PixiState()` reports what the machine shows (among it `ladder`, the coin's line bets;
+  `litLines`, `litBet` and `meterBet`, what the panel shows; `tap`, every key's point on the page for real mouse taps),
   `TNC_PixiBet(n)` sets the line bet (an option, or the nearest lower one),
   `TNC_PixiLines(n)` the lines, `TNC_PixiGo()` presses a stage's button (or Auto). `TNC_Jackpots.onRender(fn)` gives the machine
   every jackpot reading.
@@ -590,7 +600,7 @@ robots.txt, sitemap.xml, 404.html  Search engines and missing pages (see SEO)
 
 ## Hosting: GitHub Pages
 
-Every local script and stylesheet link carries a version tag (`?v=20261113h`). GitHub Pages lets browsers cache files for about
+Every local script and stylesheet link carries a version tag (`?v=20261113i`). GitHub Pages lets browsers cache files for about
 10 minutes, so bump the tag on each release (`node tools/site.mjs version`); otherwise a new page can run with an old cached script.
 
 ## Development tools

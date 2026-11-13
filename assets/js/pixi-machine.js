@@ -2,12 +2,12 @@
  * TestnetCasino.com: the slot machines drawn with PixiJS (the engine).
  *
  * The whole machine is one canvas: the jackpot rows, the cabinet, the reels, the collector,
- * the display, the readouts, the spin key and the bet control, the banners, the particles
- * and the bonus and jackpot stages. slot.js loads PixiJS, this file and the game's skin.
+ * the display, the meters (BALANCE, TOTAL BET, WIN) and the button panel (three line keys,
+ * the bet keys, the spin key), the banners, the particles and the bonus and jackpot stages. slot.js loads PixiJS, this file and the game's skin.
  *
  * The engine is shared by every game: the reels, the spin and its steps, win lines, banners,
- * particles, the stage, the console in perspective (and taps mapped back to it), full screen,
- * the jackpot rows and the collector's level. Each game has a skin (pixi-<theme>.js) that
+ * particles, the stage, the console in perspective (and taps mapped back to it), the banks of
+ * line and bet keys, full screen, the jackpot rows and the collector's level. Each game has a skin (pixi-<theme>.js) that
  * registers with TNC_PixiMachine.skin(theme, skin): its colours and words, the cabinet, the
  * collector, the controls on the console, the bonus game and the jackpot show.
  * The paytable and rules come from slot.js (TNC_Slot.paytableSection).
@@ -18,13 +18,14 @@
  * Randomness here is cosmetic only (blurred symbols while the reels turn, particles, closed picks).
  *
  * Lines (D47, game config version 6): the player chooses 5, 10 or 20 lines (`engine.lines`) and a bet per
- * line; a spin costs line bet × lines (the total: the balance check, the key's BET, every "bet" shown and
- * everything the server counts). The bet control is the LINE bet, one of the coin's seven options from the
- * config's `lineBets` (D49: tBCH 1, 10, 50, 100, 200, 500, 1,000; tBTC 1, 5, 10, 20, 50, 100, 200); every
- * option plays at every line count, nothing is disabled or lowered, and only the balance can hold a spin.
+ * line; a spin costs line bet × lines (the total: the balance check, the TOTAL BET meter, the key's BET, every
+ * "bet" shown and everything the server counts). The console is a button panel, like a casino machine's: one
+ * key per line count, one key per LINE bet (the coin's seven options from the config's `lineBets`, D49: tBCH
+ * 1, 10, 50, 100, 200, 500, 1,000; tBTC 1, 5, 10, 20, 50, 100, 200) and the spin key; the chosen keys stay lit.
+ * Every option plays at every line count, nothing is disabled or lowered, and only the balance can hold a spin.
  * Numbered markers on both sides of the window show the active paylines, and a change of lines previews
- * their shapes. With a config without `engine.lines` the machine plays as before (one line count, the bet
- * the total, the old ladder of ten).
+ * their shapes. With a config without `engine.lines` the machine plays as before (one line count, no line
+ * keys, a key for each total bet of the old ladder of ten).
  *
  * Static art is painted with Canvas 2D into textures (gradients, glows, rounded panels); PixiJS
  * moves it. The canvas sits in a 3D stage, so the whole machine can tilt (CSS) on MINOR and up.
@@ -46,8 +47,8 @@
   var FY = 736;                          // the fold: the cabinet's upper body above, the console below
   var EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   var SIGN = '"Bungee", "Poppins", sans-serif', MONO = '"SF Mono", ui-monospace, Menlo, Consolas, monospace';
-  // The selected coin (D46). The line bets come from the config (`lineBets[coin]`, D49); every skin draws the stops of
-  // the bet ladder, however many. A config without lines plays the total bet on the old ladder of ten (max 100 / 1,000).
+  // The selected coin (D46). The line bets come from the config (`lineBets[coin]`, D49); the console has a key for
+  // each, however many. A config without lines plays the total bet on the old ladder of ten (max 100 / 1,000).
   var COIN = window.TNC_Coin ? window.TNC_Coin.get() : "bch";
   var TICKER = window.TNC_Coin ? window.TNC_Coin.ticker(COIN) : "tBCH", SATS = TICKER + " sats";
   var TOTAL_LADDER = COIN === "btc" ? [1, 2, 3, 5, 10, 15, 20, 30, 50, 100] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
@@ -623,10 +624,11 @@
     kit.setLcd = setLcd;
     kit.setLcdSub = function (s) { lcdSub.text = s; };
 
-    /* ═══ Deck: readouts, the spin key, the bet control, on the cabinet's console sloping toward the player ═══
+    /* ═══ Deck: the meters and the button panel (line keys, bet keys, the spin key), on the cabinet's console
+       sloping toward the player ═══
        The deck is drawn flat into a render texture every frame and shown on a PerspectiveMesh:
        a little wider at the front, like a console. Keys stand up from it (their side walls face the
-       player), screens and slots are sunk into it. Taps are mapped back through the same projection. */
+       player), screens are sunk into it. Taps are mapped back through the same projection. */
     // The console is the cabinet's lower body: from the fold it slopes toward the player across the
     // cabinet's full width, its sides continuing the cabinet's, flaring a little toward the front edge.
     // DW × DH: the controls' area, drawn at OX inside the full console width DWF.
@@ -657,46 +659,64 @@
         rr(g, 4, 4, w, h, r); g.lineWidth = 1.5; g.strokeStyle = c.rim; g.stroke();
       });
     };
-    // A raised key: a top face and side walls toward the player (depth px), with a contact shadow.
-    kit.keyArt = function (w, h, r, depth, top, wall) {
-      return paint(w + 12, h + depth + 14, function (g) {
-        g.shadowColor = "rgba(0,0,0,.7)"; g.shadowBlur = 10; g.shadowOffsetY = 4;
-        rr(g, 6, 6 + depth, w, h, r); g.fillStyle = wall[1]; g.fill(); g.shadowBlur = 0; g.shadowOffsetY = 0;
-        for (var d = depth; d > 0; d--) { rr(g, 6, 6 + d, w, h, r); g.fillStyle = d > depth / 2 ? wall[1] : wall[0]; g.fill(); }
-        rr(g, 6, 6, w, h, r); g.fillStyle = grad(g, 6, 6 + h, top); g.fill();
-        g.lineWidth = 1.5; g.strokeStyle = "rgba(255,255,255,.55)"; g.stroke();
-      });
-    };
-    kit.sinkKey = function (set, depth) {   // a small key: down, then back up
-      return animate(R(90), function (p) { set(depth * p); }, ease.out).then(function () { return animate(R(160), function (p) { set(depth * (1 - p)); }, ease.out); });
-    };
-    // A readout: a recessed screen with its label, value and unit.
+    // A meter: a recessed screen one line high, its label top left, its unit top right, the value under them
+    // (a value wider than the glass shrinks to fit).
+    var meters = [];
     kit.readout = function (label, x, y, o) {
       o = o || {};
-      var w = o.w || 212, h = o.h || 112, c = new PIXI.Container(); c.position.set(x, y);
-      var sc = kit.recess(w, h, o.r || 12); sc.position.set(-4, -4); c.addChild(sc);
-      var l = txt(label, { fontSize: 14, fill: T.readout.label, letterSpacing: 3 }); l.position.set(w / 2, 20);
-      var v = txt("0", { fontFamily: o.font || MONO, fontWeight: "700", fontSize: o.size || 36, fill: T.readout.value, dropShadow: { color: T.readout.glow, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(w / 2, h * 0.535);
+      var w = o.w || 220, h = o.h || 62, c = new PIXI.Container(); c.position.set(x, y);
+      var sc = kit.recess(w, h, o.r || 10); sc.position.set(-4, -4); c.addChild(sc);
+      var l = txt(label, { fontSize: 11, fill: T.readout.label, letterSpacing: 2 }); l.anchor.set(0, 0.5); l.position.set(12, 15);
+      var v = txt("0", { fontFamily: o.font || MONO, fontWeight: "700", fontSize: o.size || 28, fill: T.readout.value, dropShadow: { color: T.readout.glow, blur: 10, distance: 0, alpha: 0.9 } }); v.position.set(w / 2, h - 23);
       // The unit in Poppins: the sign font has capitals only, and the ticker keeps its lowercase t.
-      var u = txt(unit(), { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 13, fill: T.readout.unit }); u.position.set(w / 2, h - 18);
+      var u = txt(unit(), { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 11, fill: T.readout.unit }); u.anchor.set(1, 0.5); u.position.set(w - 12, 15);
       c.addChild(l, v, u); deck.addChild(c);
-      return { v: v, u: u, c: c };
+      var m = { v: v, u: u, c: c, max: w - 24, last: null };
+      meters.push(m);
+      return m;
     };
+    app.ticker.add(function () {
+      meters.forEach(function (m) { if (m.v.text === m.last) return; m.last = m.v.text; m.v.scale.set(1); if (m.v.width > m.max) m.v.scale.set(m.max / m.v.width); });
+    });
 
-    // Hit areas on the flat deck (the mesh maps taps back to them)
+    // An engraved legend: small words between two hairlines, from x0 to x1.
+    kit.legend = function (s, x0, x1, y, fill, line) {
+      var t = txt(s, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 12, fill: fill, letterSpacing: 1 }), cx = (x0 + x1) / 2, hw = t.width / 2 + 12;
+      t.position.set(cx, y);
+      deck.addChild(new PIXI.Graphics().moveTo(x0, y).lineTo(cx - hw, y).moveTo(cx + hw, y).lineTo(x1, y).stroke({ width: 1.5, color: line, alpha: 0.55 }), t);
+      return t;
+    };
+    // The button panel's plan, the same on every machine (flat deck coordinates): the meters in a strip along the
+    // fold; under it a field of keys on the left, the line keys in a row over the bet keys (one row up to seven, two
+    // rows past that; with a config without lines the bet keys alone, the old ladder's ten in two rows); the spin key
+    // on the right. Each skin draws its own keys on this plan.
+    kit.panel = (function () {
+      var FX = 8, FW = 476, top = HAS_LINES ? 184 : 104, room = 272 - top;
+      var n = LADDER.length, rows = n > 7 ? 2 : 1, per = Math.ceil(n / rows), gap = per > 5 ? 8 : 10, rowGap = HAS_LINES ? 10 : 16, D = rows > 1 && HAS_LINES ? 8 : 10;
+      var w = Math.floor((FW - (per - 1) * gap) / per), h = Math.min(84, Math.floor((room - rows * D - (rows - 1) * rowGap) / rows)), used = rows * (h + D) + (rows - 1) * rowGap;
+      var ln = LINE_OPTS.length, lw = Math.floor((FW - (ln - 1) * 10) / ln);
+      return {
+        meterX: [8, 240, 472], meterY: 12, meterW: 220, meterH: 62, fieldX: FX, fieldW: FW,
+        lines: HAS_LINES ? { x: FX + Math.round((FW - ln * lw - (ln - 1) * 10) / 2), y: 92, w: lw, h: 52, gap: 10, depth: 8 } : null,
+        legendY: HAS_LINES ? 170 : 88,
+        bets: { x: FX + Math.round((FW - per * w - (per - 1) * gap) / 2), y: top + Math.round((room - used) / 2), w: w, h: h, gap: gap, depth: D, perRow: per, rowGap: rowGap },
+        spinX: 590, spinY: 172
+      };
+    })();
+
+    // Hit areas on the flat deck (the mesh maps taps back to them). A hit knows when the pointer is down on it
+    // (`held`) and over it (`over`): a key goes down under the finger and acts when it is let go.
     var deckHits = [];
-    kit.deckHit = function (x, y, w, h, view, fn) { deckHits.push({ x: x, y: y, w: w, h: h, view: view, fn: fn }); };
-    var deckDrags = [];   // drag zones: { x, y, w, h, on: { start, move, end } } (see the console's pointer handling)
-    kit.deckDrag = function (x, y, w, h, on) { deckDrags.push({ x: x, y: y, w: w, h: h, on: on }); };
+    kit.deckHit = function (x, y, w, h, view, fn) { var hit = { x: x, y: y, w: w, h: h, view: view, fn: fn, held: false, over: false }; deckHits.push(hit); return hit; };
     // The spin key's depth: a spring toward its target (pressed: all the way; while the spin plays: half;
     // idle: a half press now and then, an invitation; off: up). The skin draws the key at that depth.
-    var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0, keyPressAt = -1e9;
+    var keyT = 0, keyX = 0, keyV = 0, keyPressUntil = 0, keyPressAt = -1e9, spinHit = null;
     // flash: 1 right after a press, gone 320 ms later (the cap and its ring flare with it)
     kit.keyState = function () { return { busy: busy, off: !!(ctl && ctl.key && ctl.key._off) && !busy, t: keyT, x: keyX, flash: Math.max(0, 1 - (performance.now() - keyPressAt) / 320) }; };
     kit.keySpring = function (depth, dt) {
       var now = performance.now(), off = !!(ctl && ctl.key && ctl.key._off) && !busy, target;
       dt = Math.min(50, dt); keyT += dt;
-      if (now < keyPressUntil) target = depth - 2;
+      if (now < keyPressUntil || (spinHit && spinHit.held)) target = depth - 2;
       else if (busy) target = depth * 0.55;
       else if (off || reduce) target = 0;
       else {
@@ -711,55 +731,158 @@
     };
     function pressKey() { keyPressUntil = performance.now() + 120; keyPressAt = performance.now(); }
     kit.press = function () { press(); };
-    kit.setBet = function (v) { if (!busy) { sfx.chip(); setBet(v); } };
-    kit.stepBet = function (d) { stepBet(d); };
-    kit.setLines = function (n) { setLines(n); };
+    // The spin key's place on the deck (the flat rectangle a tap counts in) and its view (`_off`: not to be pressed)
+    kit.spinKey = function (x, y, w, h, view) { spinHit = kit.deckHit(x, y, w, h, view, function () { press(); }); };
     kit.busy = function () { return busy; };
     kit.bet = function () { return bet; };          // the total: line bet × lines
     kit.lineBet = function () { return lineBet; };
     kit.lines = function () { return lines; };
     kit.playBet = function () { return playBet; };  // the total bet the current spin (or its reward) plays at
     kit.feature = function () { return feature; };
-    // The lines selector (D47): one raised key per line count in a row with its label, drawn by the engine in the
-    // skin's colours and placed by the skin next to its bet control. o = { label, labelFill, off: [top, wall, text],
-    // on: [top, wall, text] } (top and wall as for keyArt). The chosen key sits lit and pressed in. Nothing with a
-    // config without lines.
-    var linesCtl = null, linesPts = [];
-    kit.linesKeys = function (cx, y, o) {
-      if (!HAS_LINES) return null;
-      var kw = o.w || 38, kh = o.h || 26, gap = o.gap || 6, depth = o.depth || 6, n = LINE_OPTS.length;
-      var label = txt(o.label || "LINES", { fontSize: 11, fill: o.labelFill || T.readout.label, letterSpacing: 2 });
-      var total = label.width + 10 + n * kw + (n - 1) * gap, x0 = cx - total / 2;
-      label.anchor.set(0, 0.5); label.position.set(x0, y); deck.addChild(label);
-      var keys = LINE_OPTS.map(function (v, i) {
-        var kx = x0 + label.width + 10 + i * (kw + gap) + kw / 2, kk = new PIXI.Container(); kk.position.set(kx, y);
-        var off = kit.keyArt(kw, kh, 7, depth, o.off[0], o.off[1]), on = kit.keyArt(kw, kh, 7, Math.max(2, depth - 3), o.on[0], o.on[1]);
-        off.anchor.set(0.5, 0.4); on.anchor.set(0.5, 0.4); on.y = 3; on.visible = false; kk.addChild(off, on);
-        var tp = new PIXI.Container(), t = txt(String(v), { fontSize: 15, fill: o.off[2] }); t.y = -2; tp.addChild(t); kk.addChild(tp);
-        var item = { c: kk, v: v, off: off, on: on, t: t, tp: tp, lit: false };
-        item.sink = function () { kit.sinkKey(function (d) { off.y = d; on.y = 3 + d; tp.y = d + (item.lit ? 3 : 0); }, 4); };
-        deck.addChild(kk);
-        kit.deckHit(kx - kw / 2 - 4, y - kh / 2 - 6, kw + 8, kh + depth + 12, kk, function () { item.sink(); setLines(v); });
-        linesPts.push([kx, y]);
-        return item;
+
+    /* ═══ Key banks: the line keys and the bet keys ═══
+       A bank is a row (or rows) of raised keys of one size, one of them lit: the chosen one. The engine draws and
+       runs them, the skin gives their place, size, shape and colours:
+         o = { x, y, w, h, gap, perRow, rowGap, depth, shape(g, x, y, w, h), socket: { pad, fill, rim, hole },
+               off / on: { top: [colours], wall: [upper, lower], rim, inner, text, word, shadow | halo, gloss, shade },
+               glow, font, weight, size, word, wordSize, wordFont, head, headSize, inset, dy, deco(g, x, y, w, h, on) }
+       The label is the key's value; `word` is printed beside it on the same line, `head` small over it.
+       A key stands `depth` px over its socket, its side walls toward the player. It goes down under the finger and
+       acts when let go; the chosen key stays latched a little lower with its lamp on (breathing); the light runs
+       from the old key to the new one; a shimmer passes along the row at rest, and a wave on a win. While a spin
+       plays the unlit keys go dark and take no press. With reduced motion: the states only. */
+    var banks = [];
+    function keyBank(values, o, onPress) {
+      var n = values.length, per = o.perRow || n, w = o.w, h = o.h, gap = o.gap == null ? 8 : o.gap, rowGap = o.rowGap == null ? 14 : o.rowGap;
+      var D = o.depth || 8, TR = Math.max(2, Math.floor(D / 2)), LIT = Math.min(3, TR - 1), M = 18, sk = o.socket || {}, pad = sk.pad == null ? 4 : sk.pad;
+      var shape = o.shape || function (g, x, y, w, h) { rr(g, x, y, w, h, Math.min(12, h / 4)); };
+      function fillOf(g, f, y0, y1) { return typeof f === "function" ? f(g, y0, y1) : f; }
+      // The part that stays put: the socket in the console and the lower walls (the cap's travel never covers them).
+      function baseTex(st) {
+        return texOf(w + 2 * M, h + D + 2 * M, function (g) {
+          g.lineJoin = "round";
+          shape(g, M - pad, M + D - pad, w + 2 * pad, h + 2 * pad);
+          g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 7; g.shadowOffsetY = 3;
+          g.fillStyle = fillOf(g, sk.fill || "#05030c", M + D - pad, M + D + h + pad); g.fill();
+          g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+          if (sk.rim) { g.lineWidth = 1.5; g.strokeStyle = sk.rim; g.stroke(); }
+          if (sk.hole) { shape(g, M - 1.5, M + D - 1.5, w + 3, h + 3); g.fillStyle = sk.hole; g.fill(); }
+          for (var d = D; d >= TR; d--) { shape(g, M, M + d, w, h); g.fillStyle = d > TR + (D - TR) * 0.45 ? st.wall[1] : st.wall[0]; g.fill(); }
+        });
+      }
+      // The part that moves: the top face over a skirt of upper wall (TR px, the key's travel).
+      function capTex(st, on) {
+        return texOf(w + 2 * M, h + TR + 2 * M, function (g) {
+          g.lineJoin = "round";
+          for (var d = TR; d >= 1; d--) { shape(g, M, M + d, w, h); g.fillStyle = st.wall[0]; g.fill(); }
+          shape(g, M, M, w, h); g.fillStyle = grad(g, M, M + h, st.top); g.fill();
+          g.save(); g.clip();
+          g.beginPath(); g.ellipse(M + w / 2, M - h * 0.1, w * 0.72, h * 0.52, 0, 0, Math.PI * 2);                    // gloss on the upper half
+          g.fillStyle = "rgba(255,255,255," + (st.gloss == null ? 0.16 : st.gloss) + ")"; g.fill();
+          var sh = g.createLinearGradient(0, M + h * 0.55, 0, M + h); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0," + (st.shade == null ? 0.22 : st.shade) + ")");
+          g.fillStyle = sh; g.fillRect(M, M, w, h);                                                                   // shade toward the front edge
+          if (o.deco) o.deco(g, M, M, w, h, on);
+          g.restore();
+          shape(g, M + 3.5, M + 3.5, w - 7, h - 7); g.lineWidth = 1; g.strokeStyle = st.inner || "rgba(255,255,255,.2)"; g.stroke();   // the lens line
+          shape(g, M + 0.75, M + 0.75, w - 1.5, h - 1.5); g.lineWidth = 1.5; g.strokeStyle = st.rim || "rgba(255,255,255,.55)"; g.stroke();
+        });
+      }
+      var BASE = [baseTex(o.off), baseTex(o.on)], CAP = [capTex(o.off, false), capTex(o.on, true)];
+      var GLOW = texOf(w + 2 * M, h + 2 * M, function (g) {            // the lamp's light round the lit key
+        g.lineJoin = "round"; g.shadowColor = o.glow || "#ffffff"; g.shadowBlur = 13;
+        shape(g, M - pad, M - pad, w + 2 * pad, h + 2 * pad); g.fillStyle = o.glow || "#ffffff"; g.globalAlpha = 0.85; g.fill();
       });
-      linesCtl = {
-        set: function (cur) {
-          keys.forEach(function (kk) {
-            kk.lit = kk.v === cur; kk.on.visible = kk.lit; kk.off.visible = !kk.lit;
-            kk.t.style.fill = kk.lit ? o.on[2] : o.off[2]; kk.tp.y = kk.lit ? 3 : 0;
-          });
-        },
-        update: function (s) { keys.forEach(function (kk) { setOff(kk.c, s.busy); }); label.alpha = s.busy ? 0.6 : 1; }
+      var FLASH = texOf(w + 4, h + 4, function (g) { g.lineJoin = "round"; shape(g, 2, 2, w, h); g.fillStyle = "#ffffff"; g.fill(); });
+      function labelOf(v, st) {
+        var c = new PIXI.Container(); c.position.set(w / 2, h / 2 + (o.dy || 0));
+        var ds = st.halo ? { color: st.halo, blur: 6, distance: 0, alpha: 0.9 } : st.shadow ? { color: st.shadow, blur: 0, distance: 1.5, angle: Math.PI / 2, alpha: 1 } : null;
+        var size = o.size || 20, main = txt(String(v), Object.assign({ fontFamily: o.font || MONO, fontWeight: o.weight || "800", fontSize: size, fill: st.text }, ds ? { dropShadow: ds } : {}));
+        c.addChild(main);
+        if (o.word) {   // the number, then its word beside it on the same line
+          var ws = o.wordSize || 12, wd = txt(o.word, Object.assign({ fontFamily: o.wordFont || SIGN, fontSize: ws, fill: st.word || st.text, letterSpacing: 1 }, ds ? { dropShadow: ds } : {}));
+          var tw = main.width + 6 + wd.width;
+          main.anchor.set(0, 0.5); wd.anchor.set(0, 0.5); main.x = -tw / 2; wd.x = -tw / 2 + main.width + 6; wd.y = (size - ws) * 0.26;
+          c.addChild(wd);
+        }
+        if (o.head) {   // a small word over the number
+          var hs = o.headSize || 10, hd = txt(o.head, Object.assign({ fontFamily: o.wordFont || SIGN, fontSize: hs, fill: st.word || st.text, letterSpacing: 1.5 },
+            st.halo ? { dropShadow: { color: st.halo, blur: 4, distance: 0, alpha: 0.8 } } : st.shadow ? { dropShadow: { color: st.shadow, blur: 0, distance: 1, angle: Math.PI / 2, alpha: 0.9 } } : {}));
+          hd.y = -(size * 0.5 + hs * 0.5 + 3) + (hs + 3) / 2; main.y = (hs + 3) / 2; c.addChild(hd);
+        }
+        var mw = w - (o.inset == null ? 14 : o.inset); if (c.width > mw) c.scale.set(mw / c.width);
+        return c;
+      }
+      var bank = { keys: [], pts: [], cur: null, busy: false, phase: banks.length * 2600 + 1500, shim: -1 };
+      function paintKey(k) {
+        var i = k.lit ? 1 : 0;
+        k.base.texture = BASE[i]; k.cap.texture = CAP[i]; k.lab[0].visible = !k.lit; k.lab[1].visible = k.lit;
+      }
+      values.forEach(function (v, i) {
+        var x = o.x + (i % per) * (w + gap), y = o.y + Math.floor(i / per) * (h + D + rowGap);
+        var c = new PIXI.Container(); c.position.set(x, y); deck.addChild(c);
+        var base = new PIXI.Sprite(BASE[0]); base.position.set(-M, -M);
+        var glow = new PIXI.Sprite(GLOW); glow.position.set(-M, D - M); glow.blendMode = "add"; glow.alpha = 0;
+        var top = new PIXI.Container(), cap = new PIXI.Sprite(CAP[0]); cap.position.set(-M, -M);
+        var lab = [labelOf(v, o.off), labelOf(v, o.on)];
+        var flash = new PIXI.Sprite(FLASH); flash.position.set(-2, -2); flash.blendMode = "add"; flash.alpha = 0;
+        top.addChild(cap, lab[0], lab[1], flash); c.addChild(base, glow, top);
+        var k = { v: v, i: i, c: c, base: base, glow: glow, top: top, cap: cap, lab: lab, flash: flash, s0: lab[0].scale.x, lit: false, y: 0, f: 0, sh: 0, pop: 0, lum: 1, until: 0, q: [], hit: null };
+        var vpad = Math.min(6, rowGap / 2);
+        k.hit = kit.deckHit(x - gap / 2, y - vpad, w + gap, h + D + 2 * vpad, c, function () { k.f = 1; k.until = performance.now() + 110; onPress(v, i); });
+        paintKey(k); bank.keys.push(k); bank.pts.push([x + w / 2, y + h / 2]);
+      });
+      bank.set = function (cur) {
+        var a = values.indexOf(bank.cur), b = values.indexOf(cur), now = performance.now();
+        bank.keys.forEach(function (k, j) { k.lit = j === b; paintKey(k); });
+        if (a !== -1 && b !== -1 && a !== b && !reduce) {
+          for (var j = a, dir = b > a ? 1 : -1; j !== b; j += dir) bank.keys[j].q.push(now + Math.abs(j - a) * 32);
+          bank.keys[b].pop = 1;
+        }
+        bank.cur = cur;
       };
+      bank.update = function (s) { bank.busy = s.busy; bank.keys.forEach(function (k) { k.c._off = s.busy; }); };
+      bank.wave = function (passes, delay) {
+        var now = performance.now() + (delay || 0);
+        for (var p = 0; p < passes; p++) bank.keys.forEach(function (k, j) { k.q.push(now + p * 460 + j * 45); });
+      };
+      bank.tick = function (now, dt) {
+        var ph = (now + bank.phase) % 7400, shim = !bank.busy && !reduce && ph < n * 70 ? Math.floor(ph / 70) : -1;
+        if (shim !== bank.shim) { bank.shim = shim; if (shim >= 0) bank.keys[shim].sh = Math.max(bank.keys[shim].sh, 0.5); }
+        bank.keys.forEach(function (k) {
+          for (var qi = k.q.length - 1; qi >= 0; qi--) if (now >= k.q[qi]) { k.q.splice(qi, 1); k.sh = 1; }
+          var target = (k.hit.held && !bank.busy) || now < k.until ? TR : k.lit ? LIT : 0;
+          k.y = reduce ? target : k.y + (target - k.y) * Math.min(1, dt / 38);
+          k.top.y = k.y;
+          k.f = Math.max(0, k.f - dt / 300); k.sh = Math.max(0, k.sh - dt / 260); k.pop = Math.max(0, k.pop - dt / 260);
+          var over = k.hit.over && !bank.busy ? 0.12 : 0;
+          k.flash.alpha = reduce ? over : Math.max(k.f * 0.6, k.sh * 0.38, over);
+          k.glow.alpha = k.lit ? (reduce ? 0.8 : 0.72 + 0.24 * Math.sin(now / 380)) : reduce ? 0 : k.sh * 0.45;
+          k.lab[0].scale.set(k.s0); k.lab[1].scale.set(k.s0 * (1 + 0.22 * k.pop));
+          var lum = bank.busy && !k.lit ? 0.5 : 1;
+          k.lum = reduce ? lum : k.lum + (lum - k.lum) * Math.min(1, dt / 140);
+          var c8 = Math.round(255 * k.lum); k.c.tint = (c8 << 16) | (c8 << 8) | c8;
+        });
+      };
+      banks.push(bank);
+      return bank;
+    }
+    app.ticker.add(function (tk) { var now = performance.now(), dt = Math.min(50, tk.deltaMS); for (var i = 0; i < banks.length; i++) banks[i].tick(now, dt); });
+    function keyWave(passes) { if (!reduce) banks.forEach(function (b, i) { b.wave(passes, i * 140); }); }
+    // The line keys (D47): one per line count; nothing with a config without lines. The bet keys: one per line bet
+    // (D49), or one per total bet of the old ladder with a config without lines.
+    var linesCtl = null, betCtl = null;
+    kit.linesKeys = function (o) {
+      if (!HAS_LINES) return null;
+      linesCtl = keyBank(LINE_OPTS, o, function (v) { setLines(v, true); });
       linesCtl.set(lines);
       return linesCtl;
     };
+    kit.betKeys = function (o) { betCtl = keyBank(LADDER, o, function (v) { pressBet(v); }); return betCtl; };
 
-    // The skin's controls: { win, bal (readouts), key (the spin key's view), setBet(lineBet, index), update(s), points() }
+    // The skin's controls: { bal, bet, win (the meters), key (the spin key's view), update(s), points() }
     var ctl = null;
     ctl = skin.deck(kit, deck);
-    var winRO = ctl.win, balRO = ctl.bal;
+    var winRO = ctl.win, balRO = ctl.bal, betRO = ctl.bet || null;
     var winShown = 0, balShown = currentBalance();
 
     // The console in perspective
@@ -779,49 +902,27 @@
       }
       return null;
     }
-    // Drag zones on the flat deck (a lever, a dial): the pointer's deck point goes to the zone's start / move / end
-    // while the button is held, wherever the pointer wanders on the screen. A drag swallows the tap at its end.
-    var drag = null;
-    function dragAt(e) {
-      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
-      for (var i = 0; i < deckDrags.length; i++) { var z = deckDrags[i]; if (d.x >= z.x && d.x <= z.x + z.w && d.y >= z.y && d.y <= z.y + z.h) return { zone: z, d: d }; }
-      return null;
-    }
+    // A key is held while the pointer is down on it, and lit a little while a mouse is over it.
+    var heldHit = null, overHit = null;
+    function letGo() { if (heldHit) { heldHit.held = false; heldHit = null; } }
+    function hoverOn(h) { if (h === overHit) return; if (overHit) overHit.over = false; overHit = h; if (h) h.over = true; }
     deckMesh.eventMode = "static";
-    deckMesh.on("pointerdown", function (e) {
-      if (busy) return;
-      var z = dragAt(e); if (!z) return;
-      drag = { zone: z.zone, x0: e.global.x, y0: e.global.y, moved: false };
-      if (z.zone.on.start) z.zone.on.start(z.d);
-    });
-    deckMesh.on("globalpointermove", function (e) {
-      if (!drag) return;
-      if (Math.abs(e.global.x - drag.x0) + Math.abs(e.global.y - drag.y0) > 4) drag.moved = true;
-      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y);
-      if (drag.zone.on.move) drag.zone.on.move(d);
-    });
-    function endDrag(e) {
-      if (!drag) return;
-      var p = e.getLocalPosition(L.panel), d = toDeck(p.x, p.y), z = drag;
-      drag = null;
-      if (z.zone.on.end) z.zone.on.end(d);
-      if (z.moved) swallowTap = true;
-    }
-    var swallowTap = false;
-    deckMesh.on("pointerup", endDrag); deckMesh.on("pointerupoutside", endDrag);
-    deckMesh.on("pointertap", function (e) { if (swallowTap) { swallowTap = false; return; } var h = hitAt(e); if (h) h.fn(); });
-    deckMesh.on("pointermove", function (e) { deckMesh.cursor = drag ? "grabbing" : hitAt(e) ? "pointer" : dragAt(e) && !busy ? "grab" : "default"; });
+    deckMesh.on("pointerdown", function (e) { letGo(); var h = hitAt(e); if (h) { h.held = true; heldHit = h; } });
+    ["pointerup", "pointerupoutside", "pointercancel"].forEach(function (ev) { deckMesh.on(ev, letGo); });
+    deckMesh.on("pointertap", function (e) { var h = hitAt(e); if (h) h.fn(); });
+    deckMesh.on("pointermove", function (e) { var h = hitAt(e); hoverOn(e.pointerType === "touch" ? null : h); deckMesh.cursor = h ? "pointer" : "default"; });
+    deckMesh.on("pointerleave", function () { hoverOn(null); });
     // For tests: the panel point where a deck control is drawn (flat deck -> panel).
     function deckPoint(x, y) { return quadPoint(Q, (x + OX) / DWF, y / DH); }
 
     /* ═══ State ═══ */
     var busy = false, feature = null, presentToken = 0, settle = 0;
     var reelsTurning = false, stopReq = false, stopWake = null;
-    // The bet control is the LINE bet (D47), one of the coin's options (D49: `LADDER`); `bet` is always the total, line
+    // The bet keys are the LINE bets (D47), the coin's options (D49: `LADDER`); `bet` is always the total, line
     // bet × lines. Every option plays at every line count: changing the lines never touches the line bet, and only the
     // balance can hold a spin (cantAfford). The choice is remembered per game whatever the coin: the other coin keeps
     // it when it offers it, else takes its nearest lower option (or its lowest). Without lines in the config the
-    // control is the total bet itself (lines = every payline, the line bet the total).
+    // keys are the total bets themselves (lines = every payline, the line bet the total).
     function pickBet(v) {   // the option itself, else the nearest lower one, else the lowest
       v = Number(v); if (!isFinite(v)) return LADDER[0];
       var best = null;
@@ -837,26 +938,28 @@
     function setBet(v) {
       lineBet = pickBet(v); bet = totalOf(lineBet);
       try { sessionStorage.setItem(BET_KEY, String(lineBet)); } catch (e) {}
-      ctl.setBet(lineBet, LADDER.indexOf(lineBet));
+      if (betCtl) betCtl.set(lineBet);
       updateControls(); syncStake();
       if (!busy) { renderLcdSub(); if (cantAfford()) showReady(); }
     }
-    function setLines(n) {
+    function setLines(n, pressed) {   // pressed: from its key (the click sounds even on the lit key)
       if (!HAS_LINES || busy || LINE_OPTS.indexOf(n) === -1) return;
       var changed = n !== lines;
+      if (changed || pressed) sfx.chip(LINE_OPTS.indexOf(n) - LINE_OPTS.length);   // the line keys: the notes under the bet keys'
       lines = n;
       try { localStorage.setItem("tnc.lines", String(lines)); } catch (e) {}
       kit.S = payScaleAt(lines);
       if (linesCtl) linesCtl.set(lines);
       paintMarkers();
-      setBet(lineBet);   // the same line bet, the new total: the key, the display and the paytable follow
-      if (changed) { sfx.chip(); setLcd(stakeText() + " a spin. Press " + T.spin + "!"); previewLines(); }
+      setBet(lineBet);   // the same line bet, the new total: the meter, the key, the display and the paytable follow
+      if (changed) { if (!cantAfford()) setLcd(stakeText() + " a spin. Press " + T.spin + "!"); previewLines(); }
     }
-    function stepBet(dir) {   // the step keys move along the options
+    function pressBet(v) {   // a bet key: each one plays its own note, rising along the row
       if (busy) return;
-      var i = LADDER.indexOf(lineBet) + (dir > 0 ? 1 : -1);
-      if (i < 0 || i >= LADDER.length) return;
-      sfx.chip(); setBet(LADDER[i]); setLcd(stakeText() + ". Press " + T.spin + "!");
+      var changed = v !== lineBet;
+      sfx.chip(LADDER.indexOf(v));
+      setBet(v);
+      if (changed && !cantAfford()) setLcd(stakeText() + " a spin. Press " + T.spin + "!");
     }
 
     function cantAfford() { return signedIn() && currentBalance() < bet; }
@@ -868,6 +971,8 @@
       var s = { busy: busy, canStop: canStop, out: out, feature: feature, bet: bet, lineBet: lineBet, lines: lines, sub: keySub };
       ctl.update(s);
       if (linesCtl) linesCtl.update(s);
+      if (betCtl) betCtl.update(s);
+      if (betRO) betRO.v.text = num(busy ? playBet : bet);
     }
     function renderLcdSub() {
       lcdSub.text = feature
@@ -877,7 +982,7 @@
     }
     function showReady() {
       if (authKnown && !signedIn()) { setLcd("Sign in to play. New accounts get " + amt(window.TNC_Coin ? TNC_Coin.info(COIN).signup : 10000) + "."); return; }
-      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "Out of credit. Claim your daily bonus to play on." : T.lower + ": balance is " + amt(b) + ".", true); }
+      if (cantAfford()) { var b = currentBalance(); setLcd(b < 1 ? "Out of credit. Claim your daily bonus to play on." : (HAS_LINES ? "Lower the bet or the lines" : "Lower the bet") + ": balance is " + amt(b) + ".", true); }
     }
     function renderFeature() {
       fsMode(!!feature);
@@ -904,6 +1009,7 @@
     function renderUnit() {
       balRO.u.text = winRO.u.text = unit();
       balRO.v.text = num(balShown); winRO.v.text = num(winShown);
+      if (betRO) { betRO.u.text = unit(); betRO.v.text = num(busy ? playBet : bet); }
       Object.keys(JR).forEach(function (k) { paintJp(JR[k]); });
       if (!busy) renderLcdSub();
       if (feature) renderFeature();
@@ -1317,6 +1423,7 @@
       winShown = total;
       countUp(winRO.v, 0, total, R(TIERS[tier]), token, true);
       credit(total, token, R(TIERS[tier]));
+      if (total > 0) keyWave(tier === "win" || tier === "none" ? 1 : 3);   // the keys' lamps run along their rows
       if (tier === "win" || tier === "none") { if (total > 0) { sfx.win(); emit(8 + Math.min(20, Math.round(total / playBet)), RX + RW / 2, RY + RH, { power: 11 }); } return; }
       showBanner(title || { big: "BIG WIN!", mega: "MEGA WIN!", jackpot: "TOP PRIZE!" }[tier], amt(total));
       if (!reduce) animate(R(TIERS[tier]), function (p) { if (token === presentToken) bannerAmt.text = amt(Math.round(total * p)); });
@@ -1711,15 +1818,22 @@
       (Auth.ready || Promise.resolve()).then(function () { authKnown = true; if (!busy) { syncBalance(); updateControls(); showReady(); } });
     }
 
-    renderSound(); renderUnit(); setBet(bet); syncBalance();
+    renderSound(); renderUnit(); setBet(lineBet); syncBalance();
     setLcd(T.welcome);
     showReady();
     // For tests: what the machine is doing, and a way to press the stage's button (or Auto) at once.
+    // launchAt, linesAt, betsAt: where the keys are on the panel; `tap`: the same points on the page (client
+    // coordinates, through the canvas's projection), for real taps.
     window.TNC_PixiState = function () {
-      var pts = ctl.points();
-      return { theme: game.theme, launchAt: deckPoint(pts.spin[0], pts.spin[1]), betUpAt: deckPoint(pts.betUp[0], pts.betUp[1]),
-        dragFrom: pts.dragFrom ? deckPoint(pts.dragFrom[0], pts.dragFrom[1]) : null, dragTo: pts.dragTo ? deckPoint(pts.dragTo[0], pts.dragTo[1]) : null, keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
-        linesAt: linesPts.map(function (p) { return deckPoint(p[0], p[1]); }), lines: lines, lineBet: lineBet, lineOpts: LINE_OPTS.slice(), ladder: LADDER.slice(),
+      var pts = ctl.points(), cq = [];
+      corners.forEach(function (el) { var r = el.getBoundingClientRect(); cq.push(r.left, r.top); });
+      function at(p) { return deckPoint(p[0], p[1]); }
+      function page(p) { var d = at(p), c = quadPoint(cq, (d.x + PX) / VW, (d.y + frame.y) / (VH - (wide ? JP_H : 0))); return { x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 }; }
+      var linePts = linesCtl ? linesCtl.pts : [], betPts = betCtl ? betCtl.pts : [];
+      return { theme: game.theme, launchAt: at(pts.spin), keyDepth: Math.round(keyX * 10) / 10, keyOff: !!ctl.key._off,
+        linesAt: linePts.map(at), betsAt: betPts.map(at), tap: { spin: page(pts.spin), lines: linePts.map(page), bets: betPts.map(page) },
+        litLines: linesCtl ? linesCtl.cur : null, litBet: betCtl ? betCtl.cur : null, meterBet: betRO ? betRO.v.text : null,
+        lines: lines, lineBet: lineBet, lineOpts: LINE_OPTS.slice(), ladder: LADDER.slice(),
         markers: markerTabs.filter(function (m) { return m.c.alpha === 1 && m.side === 0; }).length, markerTabs: markerTabs.length, lcdSub: lcdSub.text, payScale: kit.S,
         busy: busy, bet: bet, feature: feature, featBar: featBar.children[1] ? featBar.children[1].text : "", tank: { filled: TANK.filled, size: TANK.size, full: TANK.full },
         jackpots: { grand: JR.grand.val.text, major: JR.major.val.text, minor: JR.minor.val.text }, lcd: lcdMain.text, win: winRO.v.text, balance: balRO.v.text,

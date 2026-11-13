@@ -3,7 +3,8 @@
  *
  * A wooden fruit stand: a striped awning with string lights, the Apple Tree beside the reels (it
  * turns green leaf by leaf as players fill it), a chalkboard display, and a wooden counter with the
- * WIN and BALANCE slates, the round SPIN key (an apple), price tags for the bet and a − / + stepper.
+ * BALANCE, TOTAL BET and WIN slates and a button panel: leaf-green line keys, cream bet keys (the
+ * chosen ones gold and lit) and the round SPIN key (an apple).
  * The Harvest Pick bonus (baskets) and the Golden Apples jackpot.
  */
 (function () {
@@ -12,11 +13,11 @@
   var PIXI = window.PIXI;
 
   var theme = {
-    title: "FRUIT ORCHARD", spin: "SPIN", bet: "PRICE TAGS", lower: "Pick a lower price tag", fsShort: "Free spins",
+    title: "FRUIT ORCHARD", spin: "SPIN", fsShort: "Free spins",
     neon: "#ffd166", neon2: "#ff9f43", text: "#fff1d6", accent: "#ffd166", featY: 266, fsY: 200,
     burst: ["🍒", "🍋", "🍊", "🍇", "🍉", "🍃", "🌸"],
     quips: ["No fruit this time.", "The orchard is quiet… spin again!", "Not ripe yet!", "A gentle breeze, nothing more."],
-    welcome: "Welcome to the orchard! Pick a price tag and press SPIN", twist: "STICKY WILDS",
+    welcome: "Welcome to the orchard! Pick your lines and bet, then press SPIN", twist: "STICKY WILDS",
     jp: { major: ["#5a2a0a", "#2e1504", "#ff9f43", "#ffd6a8", "#ffe6c8"], minor: ["#1f4a14", "#10260a", "#7ddc5a", "#c8ffb0", "#dcffd0"] },
     feat: { fill: "rgba(43,22,6,.55)", stroke: "rgba(255,214,102,.6)", text: "#fff1d6", hot: ["#fff1c4", "#ffd166"], hotStroke: "#fff6dc", hotText: "#3b2109" },
     fs: { color: 0xff6fa3, fill: 0xffb3c6, fillAlpha: 0.14, bulb: 0xfff1c4 },   // free spins: blossom pink frame, warm bulbs
@@ -353,13 +354,24 @@
     g.lineWidth = 3; g.strokeStyle = "#f5c56b"; g.stroke();
   }
 
-  // The controls: WIN and BALANCE slates, the SPIN apple, price tags and the − / + stepper.
+  // The controls, a button panel like a casino machine's: the BALANCE, TOTAL BET and WIN slates along the fold; on
+  // the left the line keys (leaf green) over the bet keys (cream price cards), the chosen one of each gold and lit;
+  // on the right the SPIN apple.
   function deck(k, deck) {
-    var paint = k.paint, rr = k.rr, txt = k.txt, LADDER = k.LADDER, reduce = k.reduce;
-    var win = k.readout("WIN", 22, 22), bal = k.readout("BALANCE", 22, 156);
+    var paint = k.paint, txt = k.txt, reduce = k.reduce, P = k.panel;
+    var bal = k.readout("BALANCE", P.meterX[0], P.meterY), bet = k.readout(k.HAS_LINES ? "TOTAL BET" : "BET", P.meterX[1], P.meterY), win = k.readout("WIN", P.meterX[2], P.meterY);
+
+    // The keys stand in sockets cut into the counter, rimmed with gold. The chosen key: a gold tag's colours.
+    var SOCKET = { pad: 3, fill: "#2b1606", rim: "rgba(255,209,102,.65)" };
+    var GOLD = { top: ["#fff6c9", "#ffd752", "#f0a615"], wall: ["#b9720c", "#6e3f02"], rim: "#fffbe6", inner: "rgba(140,70,0,.4)", text: "#7a0d17", shadow: "rgba(255,250,220,.8)", gloss: 0.3, shade: 0.12 };
+    k.linesKeys(Object.assign({}, P.lines, { socket: SOCKET, glow: "#ffc23a", font: k.SIGN, weight: "400", size: 26, word: "LINES", wordSize: 13, on: GOLD,
+      off: { top: ["#a9e070", "#62ad3c", "#3f8327"], wall: ["#2f6a1c", "#1a4410"], rim: "rgba(228,255,198,.8)", inner: "rgba(20,70,10,.4)", text: "#fffbe8", shadow: "#1f5212" } }));
+    k.legend((k.HAS_LINES ? "BET PER LINE · " : "BET · ") + k.SATS, P.fieldX + 2, P.fieldX + P.fieldW - 2, P.legendY, "#ffe2b0", 0xf5c56b);
+    k.betKeys(Object.assign({}, P.bets, { socket: SOCKET, glow: "#ffc23a", size: 21, head: "BET", on: GOLD,
+      off: { top: ["#fffdf4", "#f9ebc8", "#e9d2a0"], wall: ["#b58d53", "#7c5626"], rim: "#ffffff", inner: "rgba(168,116,58,.45)", text: "#8a1020", shadow: "rgba(255,255,255,.85)", gloss: 0.45, shade: 0.14 } }));
 
     // SPIN: a big red apple of a key, with a stem and a leaf; it sinks when pressed.
-    var DEPTH = 18, KR = 72, KX = 380, KY = 132;
+    var DEPTH = 18, KR = 70, KX = P.spinX, KY = P.spinY;
     var key = new PIXI.Container(); key.position.set(KX, KY); deck.addChild(key);
     function circle(g, cx, cy, r) { g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); }
     var well = paint(260, 260, function (g) {
@@ -377,7 +389,7 @@
       var rg = g.createRadialGradient(100, 86, 8, 120, 120, 108); rg.addColorStop(0, "#ffb3b3"); rg.addColorStop(0.45, "#e8333f"); rg.addColorStop(1, "#7a0d17");
       g.fillStyle = rg; g.fill(); g.lineWidth = 4; g.strokeStyle = "#ffd6d6"; g.stroke();
       g.save(); circle(g, 120, 120, KR); g.clip(); g.globalAlpha = 0.35; g.beginPath(); g.ellipse(104, 74, 44, 20, -0.3, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
-      g.lineCap = "round"; g.lineWidth = 6; g.strokeStyle = "#5b3412"; g.beginPath(); g.moveTo(120, 52); g.quadraticCurveTo(122, 40, 130, 32); g.stroke();   // stem
+      g.lineCap = "round"; g.lineWidth = 6; g.strokeStyle = "#5b3412"; g.beginPath(); g.moveTo(120, 120 - KR + 2); g.quadraticCurveTo(122, 120 - KR - 10, 130, 120 - KR - 18); g.stroke();   // stem
     });
     cap.anchor.set(0.5); top.addChild(cap);
     // The leaf on its own, so it can flutter: hinged at the stem's tip
@@ -385,7 +397,7 @@
       g.beginPath(); g.ellipse(22, 11, 19, 8.5, 0, 0, Math.PI * 2); g.fillStyle = k.grad(g, 2, 20, ["#9be36a", "#2f7d22"]); g.fill();
       g.lineWidth = 1.2; g.strokeStyle = "#1f5a16"; g.beginPath(); g.moveTo(5, 11); g.lineTo(40, 11); g.stroke();
     }));
-    leaf.anchor.set(0.06, 0.5); leaf.position.set(10, -88); leaf.rotation = -0.5; top.addChild(leaf);
+    leaf.anchor.set(0.06, 0.5); leaf.position.set(10, -KR - 18); leaf.rotation = -0.5; top.addChild(leaf);
     var label = txt(T.spin, { fontSize: 30, fill: "#fff", letterSpacing: 2, dropShadow: { color: "#5a0a12", blur: 0, distance: 3, angle: Math.PI / 2, alpha: 1 } });
     label.y = -4;
     var sub = txt("", { fontSize: 12, fill: "#ffe6e6", letterSpacing: 1.5 }); sub.y = 26;
@@ -437,75 +449,12 @@
       shine.visible = !off && !busy && !reduce && sp > 0.55 && sp < 0.85;
       shine.x = -KR * 1.4 + KR * 2.8 * Math.max(0, Math.min(1, (sp - 0.55) / 0.3));
     });
-    k.deckHit(KX - KR, KY - KR - 20, KR * 2, KR * 2 + DEPTH + 20, key, function () { k.press(); });
-
-    // Price tags: the coin's line bets (D49: seven) on paper tags hanging from two rows of nails, however many;
-    // the slate under them shows the line bet.
-    var BX = 500, PER_ROW = Math.ceil(LADDER.length / 2), TGW = PER_ROW > 5 ? 29 : 34, TGH = 50, TGAP = PER_ROW > 5 ? 4 : 5;
-    var head = txt(T.bet, { fontSize: 14, fill: "#ffd166", letterSpacing: 2, dropShadow: { color: "#2b1606", blur: 0, distance: 2, angle: Math.PI / 2, alpha: 1 } });
-    head.position.set(BX + 95, 16); deck.addChild(head);
-    function tagTex(active) {
-      return k.texOf(TGW + 6, TGH + 14, function (g) {
-        g.strokeStyle = "#3b2109"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(TGW / 2 + 3, 0); g.lineTo(TGW / 2 + 3, 14); g.stroke();   // the string
-        g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 5; g.shadowOffsetY = 3;
-        g.beginPath(); g.moveTo(3 + 8, 10); g.lineTo(3 + TGW - 8, 10); g.lineTo(3 + TGW, 18); g.lineTo(3 + TGW, 10 + TGH - 4); g.quadraticCurveTo(3 + TGW, 10 + TGH, 3 + TGW - 4, 10 + TGH);
-        g.lineTo(7, 10 + TGH); g.quadraticCurveTo(3, 10 + TGH, 3, 10 + TGH - 4); g.lineTo(3, 18); g.closePath();
-        g.fillStyle = active ? k.grad(g, 10, 10 + TGH, ["#ffe79a", "#f5c542"]) : k.grad(g, 10, 10 + TGH, ["#fff8e6", "#efdcb4"]); g.fill();
-        g.shadowBlur = 0; g.shadowOffsetY = 0; g.lineWidth = 1.5; g.strokeStyle = active ? "#a85d00" : "#a8743a"; g.stroke();
-        g.beginPath(); g.arc(TGW / 2 + 3, 18, 2.5, 0, Math.PI * 2); g.fillStyle = "#4a2a10"; g.fill();               // the hole
-      });
-    }
-    var TAG = tagTex(false), TAG_ON = tagTex(true);
-    var nails = new PIXI.Graphics();
-    var tags = LADDER.map(function (v, i) {
-      var row = Math.floor(i / PER_ROW), col = i % PER_ROW, x = BX + col * (TGW + TGAP), y = 36 + row * 82;
-      if (col === 0) nails.roundRect(BX - 4, y - 3, PER_ROW * (TGW + TGAP) + 3, 5, 2).fill({ color: 0x3b2109, alpha: 0.65 });
-      nails.circle(x + TGW / 2, y, 2.6).fill(0xd9c08a);
-      var t = new PIXI.Container(); t.position.set(x + TGW / 2, y); t.pivot.set(TGW / 2 + 3, 0);
-      var s = new PIXI.Sprite(TAG); t.addChild(s);
-      var l = txt(String(v), { fontFamily: k.MONO, fontWeight: "800", fontSize: v >= 1000 ? (TGW < 34 ? 10 : 11) : v >= 100 && TGW < 34 ? 12 : 13, fill: "#7a0d17" }); l.position.set(TGW / 2 + 3, 10 + TGH / 2 + 5); t.addChild(l);
-      t.rotation = (i % 2 ? 1 : -1) * 0.06;
-      deck.addChild(t);
-      k.deckHit(x - 2, y - 4, TGW + 4, TGH + 14, null, function () { k.setBet(v); });
-      return { c: t, s: s, v: v, rest: t.rotation };
-    });
-    deck.addChildAt(nails, deck.getChildIndex(tags[0].c));
-    // The − / + stepper around a chalk slate with the bet
-    var SY = 252;
-    var cap2 = txt((k.HAS_LINES ? "LINE BET · " : "YOUR BET · ") + k.SATS, { fontFamily: "Poppins, sans-serif", fontWeight: "700", fontSize: 12, fill: "#e9d6b0", letterSpacing: 0.5 }); cap2.position.set(BX + 95, SY - 40); deck.addChild(cap2);
-    var slate = k.recess(100, 44, 8); slate.position.set(BX + 95 - 54, SY - 26); deck.addChild(slate);
-    var betVal = txt("", { fontFamily: k.MONO, fontWeight: "700", fontSize: 21, fill: "#f6f3e8", dropShadow: { color: "rgba(255,255,255,.35)", blur: 6, distance: 0, alpha: 1 } });
-    betVal.position.set(BX + 95, SY - 2); deck.addChild(betVal);
-    function crateKey(label, x) {
-      var kk = new PIXI.Container(); kk.position.set(x, SY);
-      var art = k.keyArt(40, 34, 7, 7, ["#c98a4b", "#8a5527"], ["#5b3412", "#3b2109"]); art.anchor.set(0.5, 0.4); kk.addChild(art);
-      var tp = new PIXI.Container(); var t = txt(label, { fontSize: 22, fill: "#fff6dc", dropShadow: { color: "#3b2109", blur: 0, distance: 2, angle: Math.PI / 2, alpha: 1 } }); t.y = -2; tp.addChild(t); kk.addChild(tp);
-      kk._sink = function () { k.sinkKey(function (v) { art.y = v; tp.y = v; }, 5); };
-      deck.addChild(kk);
-      return kk;
-    }
-    var down = crateKey("−", BX + 12), up = crateKey("+", BX + 178);
-    k.deckHit(BX - 12, SY - 22, 48, 44, down, function () { down._sink(); k.stepBet(-1); });
-    k.deckHit(BX + 154, SY - 22, 48, 44, up, function () { up._sink(); k.stepBet(1); });
-    // LINES: three crate keys under the apple, the chosen one a gold tag's colours
-    k.linesKeys(KX, 274, { labelFill: "#ffd166", off: [["#c98a4b", "#8a5527"], ["#5b3412", "#3b2109"], "#fff6dc"], on: [["#ffe79a", "#f5c542"], ["#a85d00", "#6a3a00"], "#7a0d17"] });
+    k.spinKey(KX - KR, KY - KR - 20, KR * 2, KR * 2 + DEPTH + 20, key);
 
     return {
-      win: win, bal: bal, key: key,
-      setBet: function (bet, i) {
-        tags.forEach(function (t) {
-          var on = t.v === bet;
-          t.s.texture = on ? TAG_ON : TAG;
-          k.animate(k.R(200), (function (t, on, r0) { return function (p) { t.c.rotation = r0 + ((on ? 0 : t.rest) - r0) * p; t.c.scale.set(on ? 1 + 0.08 * p : 1); }; })(t, on, t.c.rotation));
-        });
-        betVal.text = k.fmt(bet); betVal.scale.set(betVal.width > 92 ? 92 / betVal.width * betVal.scale.x : 1);
-      },
-      update: function (s) {
-        sub.text = s.sub;
-        [up, down].forEach(function (b) { k.setOff(b, s.busy); });
-        tags.forEach(function (t) { t.c.alpha = s.busy ? 0.6 : 1; });
-      },
-      points: function () { return { spin: [KX, KY], betUp: [BX + 178, SY] }; }
+      bal: bal, bet: bet, win: win, key: key,
+      update: function (s) { sub.text = s.sub; },
+      points: function () { return { spin: [KX, KY] }; }
     };
   }
 

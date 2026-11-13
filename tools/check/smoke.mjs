@@ -72,7 +72,7 @@ function resetApi() {
     user: null, balance: 50000, bonus: { available: false, amount: 1000, nextClaimAt: new Date(Date.now() + 3600e3).toISOString() },
     // tBTC (D46): its own balance and daily bonus; every request is logged (method, path, query, body).
     btc: 5000, btcBonus: { available: true, amount: 100 }, log: [], withdrawn: [],
-    spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0, rt: { chips: [], nextId: 1 },
+    spinQueue: [], payouts: [], leaderboards: null, jackpotCalls: 0, rt: { chips: [], nextId: 1 }, noLines: false,
     history: [],
     jackpots: { grand: { amount: 121994, cycle: 3, seedHash: "a".repeat(64) },
       games: Object.fromEntries(GAMES.map((g, i) => [g, { minor: { amount: 2310 + i, cycle: 12, seedHash: "b".repeat(64) },
@@ -96,6 +96,7 @@ function handle(method, url, body) {
   const p = url.pathname, qcoin = url.searchParams.get("coin");
   api.log.push({ method, path: p, query: url.search, body: body ? JSON.parse(body) : null });
   const cfg = /^\/games\/([\w-]+)\/config$/.exec(p);
+  if (cfg && CONFIGS[cfg[1]] && api.noLines) { const c = JSON.parse(CONFIGS[cfg[1]]); delete c.engine.lines; return [200, c]; }   // the API before D47: no lines, no line bets
   if (cfg && CONFIGS[cfg[1]]) return [200, CONFIGS[cfg[1]].replace(/\}\s*$/, ', "lineBets": ' + JSON.stringify(LINE_BETS) + ' }')];   // D49: the API adds the line bets as the last field
   // Roulette (D44): the REST side; the WebSocket is a fake in the page (see FAKE_WS), driven by the tests.
   if (p === "/roulette/state") return [200, { type: "table", serverTime: new Date().toISOString(), players: [], bets: [], rules: RULES2 }];
@@ -542,7 +543,7 @@ try {
     check("bonus games on the machines: Harvest Pick, Ship's Wheel, Warp Ladder (the server's outcome, the balance settled)", !problems.length, problems.join("; "));
   }
 
-  /* ═══ 4d. Lines (D47): 5 / 10 / 20 at a line bet; the max line bet per count; the total everywhere; the paylines and the
+  /* ═══ 4d. Lines (D47, D49): 5 / 10 / 20 at a line bet; the coin's seven line bets at any count; the total everywhere; the paylines and the
      paytable follow; a 20-line spin's request and win; the server's word on a wrong stake ═══ */
   for (const g of GAMES) {
     const problems = [], cfg = CFG[g], v = SPINS["lines-" + g];   // a version 6 spin at 20 lines with a win on a line past the tenth
@@ -587,7 +588,71 @@ try {
     await ev(space);
     if (!(await until(`TNC_PixiState().lcd === "The line bet must be one of 1, 10, 50, 100, 200, 500, 1000 sats." && !TNC_PixiState().busy`, 8000))) problems.push("invalid_bet message: " + await ev(`TNC_PixiState().lcd`));
     if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
-    check(`${g}: lines 5 / 10 / 20 at a line bet (the max per count, the total on the key and the display, remembered), the paytable at the stake, a 20-line spin's request and win, the server's invalid_bet message`, !problems.length, problems.join("; "));
+    check(`${g}: lines 5 / 10 / 20 at a line bet (the coin's seven options at any line count, the total on the key and the display, remembered), the paytable at the stake, a 20-line spin's request and win, the server's invalid_bet message`, !problems.length, problems.join("; "));
+  }
+
+  /* ═══ 4e. The button panel: 3 line keys, the coin's 7 bet keys and the spin key, every one pressed with a real mouse tap on
+     the canvas (TNC_PixiState().tap gives each key's point on the page); the keys hold while the reels turn; tBTC's own
+     keys; a phone's taps; a config without lines has bet keys alone ═══ */
+  const toDeck = `scrollTo(0, Math.max(0, document.querySelector("#px-canvas canvas").getBoundingClientRect().bottom + scrollY - innerHeight + 24))`;
+  const tapAt = async (pt) => { for (const t of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: pt.x, y: pt.y, button: "left", clickCount: 1 }); await sleep(80); };
+  const panel = () => ev(`(() => { const s = TNC_PixiState(); return { lines: s.lines, lineBet: s.lineBet, bet: s.bet, litLines: s.litLines, litBet: s.litBet, meter: s.meterBet, sub: s.keySub, busy: s.busy, off: s.keyOff, lcd: s.lcd, tap: s.tap }; })()`);
+  const num = (n) => n.toLocaleString("en-US");
+  for (const g of GAMES) {
+    const problems = [], v = SPINS["lines-" + g], LB = LINE_BETS.bch, LN = [5, 10, 20];
+    resetApi(); signIn(500000); api.spinQueue.push(v);
+    await openMachine(g); await ev(toDeck); await sleep(300);
+    let s = await panel();
+    if (s.tap.lines.length !== 3 || s.tap.bets.length !== 7) problems.push(`${s.tap.lines.length} line keys, ${s.tap.bets.length} bet keys`);
+    // Every line key, then every bet key: the choice, the lit key, the TOTAL BET meter and the spin key's line follow the tap.
+    for (let i = 0; i < 3; i++) { await tapAt(s.tap.lines[i]); const a = await panel(); if (a.lines !== LN[i] || a.litLines !== LN[i]) problems.push(`line key ${LN[i]}: ${a.lines} / lit ${a.litLines}`); }
+    for (let i = 0; i < 7; i++) { await tapAt(s.tap.bets[i]); const a = await panel(), tot = num(LB[i] * 20);
+      if (a.lineBet !== LB[i] || a.litBet !== LB[i] || a.meter !== tot || a.sub !== "BET " + tot) problems.push(`bet key ${LB[i]}: ${JSON.stringify([a.lineBet, a.litBet, a.meter, a.sub])}`); }
+    // Only the balance holds a spin: the top keys over a small balance leave the selection lit, the spin key off and a word on the display; a tap on the spin key sends nothing.
+    await ev(`TNC_Auth.setBalance(300)`); await tapAt(s.tap.spin);
+    const poor = await panel();
+    if (!(poor.lineBet === 1000 && poor.lines === 20 && poor.litBet === 1000 && poor.off && !poor.busy) || !/balance is 300 tBCH sats/.test(poor.lcd) || api.log.some((x) => x.path === "/spins" && x.method === "POST")) problems.push("over the balance: " + JSON.stringify([poor.lineBet, poor.lines, poor.off, poor.busy, poor.lcd]));
+    await ev(`TNC_Auth.setBalance(500000)`);
+    // The spin key: a real tap sends the chosen lines and line bet; while the reels turn, the line and bet keys hold.
+    await tapAt(s.tap.lines[2]); await tapAt(s.tap.bets[0]);
+    await ev(`window.__go = setInterval(() => { if (TNC_PixiState().stage) TNC_PixiGo(); }, 50)`);
+    await tapAt(s.tap.spin);
+    if (!(await until(`TNC_PixiState().busy`, 3000))) problems.push("a tap on the spin key did not start a spin");
+    await tapAt(s.tap.bets[3]); await tapAt(s.tap.lines[0]);
+    const mid = await panel();
+    if (mid.lineBet !== 1 || mid.lines !== 20 || mid.litBet !== 1 || mid.litLines !== 20) problems.push("the keys changed the stake during a spin: " + JSON.stringify([mid.lines, mid.lineBet]));
+    if (!(await until(`!TNC_PixiState().busy`, 60000))) problems.push("spin did not finish");
+    const sp = api.log.filter((x) => x.method === "POST" && x.path === "/spins");
+    if (sp.length !== 1 || sp[0].body.lines !== 20 || sp[0].body.lineBet !== 1 || "bet" in sp[0].body) problems.push("request: " + JSON.stringify(sp.map((x) => x.body)));
+    // After the spin the keys answer again.
+    await tapAt(s.tap.bets[3]); await tapAt(s.tap.lines[0]);
+    const back = await panel();
+    if (back.lineBet !== 100 || back.lines !== 5 || back.meter !== "500") problems.push("after the spin: " + JSON.stringify([back.lines, back.lineBet, back.meter]));
+    // tBTC: its own seven keys from the config.
+    resetApi(); signIn(500000);
+    await openMachine(g, 1280, "btc"); await ev(toDeck); await sleep(300);
+    s = await panel();
+    if (s.tap.bets.length !== 7) problems.push(`tBTC: ${s.tap.bets.length} bet keys`);
+    await tapAt(s.tap.lines[2]);
+    for (let i = 0; i < 7; i++) { await tapAt(s.tap.bets[i]); const a = await panel(), tot = num(LINE_BETS.btc[i] * 20);
+      if (a.lineBet !== LINE_BETS.btc[i] || a.litBet !== a.lineBet || a.meter !== tot) problems.push(`tBTC bet key ${LINE_BETS.btc[i]}: ${JSON.stringify([a.lineBet, a.litBet, a.meter])}`); }
+    // A phone: the same keys under a thumb.
+    resetApi(); signIn(500000);
+    await openMachine(g, 375); await ev(toDeck); await sleep(300);
+    s = await panel();
+    await tapAt(s.tap.lines[0]); await tapAt(s.tap.bets[5]);
+    const ph = await panel();
+    if (ph.lines !== 5 || ph.lineBet !== 500 || ph.meter !== "2,500" || ph.litLines !== 5 || ph.litBet !== 500) problems.push("phone: " + JSON.stringify([ph.lines, ph.lineBet, ph.meter]));
+    // A config without lines (the API before D47): no line keys, the bet keys of its ladder, the meter named BET.
+    resetApi(); signIn(500000); api.noLines = true;
+    await openMachine(g); await ev(toDeck); await sleep(300);
+    s = await panel();
+    const lad = await ev(`TNC_PixiState().ladder`);
+    if (s.tap.lines.length !== 0 || s.tap.bets.length !== lad.length || s.litLines !== null) problems.push(`no lines: ${s.tap.lines.length} line keys, ${s.tap.bets.length} bet keys for ${lad.length} bets`);
+    for (const i of [0, lad.length - 1, 4]) { await tapAt(s.tap.bets[i]); const a = await panel(); if (a.bet !== lad[i] || a.litBet !== lad[i] || a.meter !== num(lad[i]) || a.sub !== "BET " + num(lad[i])) problems.push(`no lines, bet key ${lad[i]}: ${JSON.stringify([a.bet, a.litBet, a.meter, a.sub])}`); }
+    api.noLines = false;
+    if (pageErrors.length) problems.push("errors: " + pageErrors.slice(0, 2).join(" | "));
+    check(`${g}: the button panel (3 line keys, 7 bet keys and the ${SPIN[g]} key under real taps; the lit key, TOTAL BET and the key's line follow; only the balance holds a spin; the keys hold while the reels turn; tBTC's keys; a phone; bet keys alone without lines)`, !problems.length, problems.join("; "));
   }
 
   {

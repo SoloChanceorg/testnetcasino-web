@@ -428,10 +428,19 @@
       tone(150, 0, 0.6, "sawtooth", 0.16, 70); tone(156, 0, 0.6, "sawtooth", 0.12, 73);
       tone(440, 0.65, 0.12, "square", 0.06); tone(440, 0.85, 0.12, "square", 0.06);
     },
-    chip: function () {
-      if (theme === "deepsea") bubble(0, 700, 0.06);
-      else if (theme === "cosmic") tone(1800, 0, 0.05, "square", 0.04, 2400, 4000);
-      else { noise(0, 0.03, 0.35, 4200); tone(1800, 0, 0.05, "triangle", 0.05); }
+    // A click. With a step (a key of the button panel: the bet keys 0 and up, the line keys below 0) the click
+    // carries a note, one step of a pentatonic scale per key, so a row of keys plays a little rising run.
+    chip: function (step) {
+      if (typeof step !== "number") {
+        if (theme === "deepsea") bubble(0, 700, 0.06);
+        else if (theme === "cosmic") tone(1800, 0, 0.05, "square", 0.04, 2400, 4000);
+        else { noise(0, 0.03, 0.35, 4200); tone(1800, 0, 0.05, "triangle", 0.05); }
+        return;
+      }
+      var semi = 12 * Math.floor(step / 5) + [0, 2, 4, 7, 9][((step % 5) + 5) % 5], k = Math.pow(2, semi / 12);
+      if (theme === "deepsea") { noise(0, 0.02, 0.18, 2400); bubble(0, 520 * k, 0.07); }                                        // a valve and a bubble
+      else if (theme === "cosmic") { tone(700 * k, 0, 0.07, "square", 0.035, 700 * k * 1.5, 3600); tone(1400 * k, 0.03, 0.05, "sine", 0.03); }   // a console blip
+      else { noise(0, 0.025, 0.3, 3800); tone(660 * k, 0, 0.09, "triangle", 0.07); tone(1320 * k, 0, 0.05, "sine", 0.025); }  // a wooden click
     },
     isMuted: function () { return muted; },
     setMuted: function (m) {
